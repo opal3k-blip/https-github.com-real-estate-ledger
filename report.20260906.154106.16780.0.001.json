@@ -1,0 +1,557 @@
+
+{
+  "header": {
+    "reportVersion": 5,
+    "event": "Allocation failed - process out of memory",
+    "trigger": "OOMError",
+    "filename": "report.20260906.154106.16780.0.001.json",
+    "dumpEventTime": "2026-09-06T15:41:06Z",
+    "dumpEventTimeStamp": "1788698466762",
+    "processId": 16780,
+    "threadId": 0,
+    "cwd": "C:\\Users\\DELL\\Dropbox\\PC\\Downloads\\reop-github",
+    "commandLine": [
+      "C:\\Users\\DELL\\AppData\\Local\\github-copilot-sdk\\cli\\1.0.83-5\\copilot.exe",
+      "--no-warnings",
+      "--report-on-fatalerror",
+      "--optimize-for-size",
+      "--expose-gc",
+      "--no-maglev",
+      "--no-sparkplug",
+      "C:\\Users\\DELL\\AppData\\Local\\github-copilot-sdk\\cli\\1.0.83-5\\copilot.exe",
+      "C:\\Users\\DELL\\AppData\\Local\\copilot\\pkg\\win32-x64\\1.0.83-5\\preloads\\extension_bootstrap.mjs"
+    ],
+    "nodejsVersion": "v24.20.0",
+    "wordSize": 64,
+    "arch": "x64",
+    "platform": "win32",
+    "componentVersions": {
+      "acorn": "8.18.0",
+      "ada": "4.0.0",
+      "amaro": "1.1.11",
+      "ares": "1.34.8",
+      "brotli": "1.2.0",
+      "cldr": "48.0",
+      "icu": "78.3",
+      "llhttp": "9.4.3",
+      "merve": "1.2.2",
+      "modules": "137",
+      "napi": "10",
+      "nbytes": "0.1.4",
+      "ncrypto": "0.0.1",
+      "nghttp2": "1.70.0",
+      "nghttp3": "",
+      "ngtcp2": "",
+      "node": "24.20.0",
+      "openssl": "3.5.7",
+      "simdjson": "4.6.6",
+      "simdutf": "6.4.0",
+      "sqlite": "3.53.4",
+      "tz": "2026c",
+      "undici": "7.29.0",
+      "unicode": "17.0",
+      "uv": "1.52.1",
+      "uvwasi": "0.0.23",
+      "v8": "13.6.233.17-node.53",
+      "zlib": "1.3.2.1-motley-42c2f19",
+      "zstd": "1.5.7"
+    },
+    "release": {
+      "name": "node",
+      "lts": "Krypton",
+      "headersUrl": "https://nodejs.org/download/release/v24.20.0/node-v24.20.0-headers.tar.gz",
+      "sourceUrl": "https://nodejs.org/download/release/v24.20.0/node-v24.20.0.tar.gz",
+      "libUrl": "https://nodejs.org/download/release/v24.20.0/win-x64/node.lib"
+    },
+    "osName": "Windows_NT",
+    "osRelease": "10.0.19045",
+    "osVersion": "Windows 10 Pro",
+    "osMachine": "x86_64",
+    "cpus": [
+      {
+        "model": "Intel(R) Core(TM) i7-7700 CPU @ 3.60GHz",
+        "speed": 3600,
+        "user": 8474609,
+        "nice": 0,
+        "sys": 6156625,
+        "idle": 81324390,
+        "irq": 983718
+      },
+      {
+        "model": "Intel(R) Core(TM) i7-7700 CPU @ 3.60GHz",
+        "speed": 3600,
+        "user": 6395453,
+        "nice": 0,
+        "sys": 3660328,
+        "idle": 85899625,
+        "irq": 43843
+      },
+      {
+        "model": "Intel(R) Core(TM) i7-7700 CPU @ 3.60GHz",
+        "speed": 3600,
+        "user": 10553859,
+        "nice": 0,
+        "sys": 7957125,
+        "idle": 77444421,
+        "irq": 78984
+      },
+      {
+        "model": "Intel(R) Core(TM) i7-7700 CPU @ 3.60GHz",
+        "speed": 3600,
+        "user": 8047468,
+        "nice": 0,
+        "sys": 4181046,
+        "idle": 83726890,
+        "irq": 36234
+      },
+      {
+        "model": "Intel(R) Core(TM) i7-7700 CPU @ 3.60GHz",
+        "speed": 3600,
+        "user": 10241984,
+        "nice": 0,
+        "sys": 6267343,
+        "idle": 79446093,
+        "irq": 63593
+      },
+      {
+        "model": "Intel(R) Core(TM) i7-7700 CPU @ 3.60GHz",
+        "speed": 3600,
+        "user": 7245890,
+        "nice": 0,
+        "sys": 4144234,
+        "idle": 84565296,
+        "irq": 41593
+      },
+      {
+        "model": "Intel(R) Core(TM) i7-7700 CPU @ 3.60GHz",
+        "speed": 3600,
+        "user": 9507234,
+        "nice": 0,
+        "sys": 5621093,
+        "idle": 80827093,
+        "irq": 58703
+      },
+      {
+        "model": "Intel(R) Core(TM) i7-7700 CPU @ 3.60GHz",
+        "speed": 3600,
+        "user": 8049171,
+        "nice": 0,
+        "sys": 4125015,
+        "idle": 83781234,
+        "irq": 34359
+      }
+    ],
+    "host": "SAEED"
+  },
+  "javascriptStack": {
+    "message": "No stack.",
+    "stack": [
+      "Unavailable."
+    ],
+    "errorProperties": {
+    }
+  },
+  "javascriptHeap": {
+    "totalMemory": 5529600,
+    "executableMemory": 0,
+    "totalCommittedMemory": 5529600,
+    "availableMemory": 4294408392,
+    "totalGlobalHandlesMemory": 8192,
+    "usedGlobalHandlesMemory": 2208,
+    "usedMemory": 4747304,
+    "memoryLimit": 4298113024,
+    "mallocedMemory": 229864,
+    "externalMemory": 1880558,
+    "peakMallocedMemory": 1074008,
+    "nativeContextCount": 1,
+    "detachedContextCount": 0,
+    "doesZapGarbage": 0,
+    "heapSpaces": {
+      "read_only_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      },
+      "new_space": {
+        "memorySize": 1048576,
+        "committedMemory": 1048576,
+        "capacity": 1048512,
+        "used": 494760,
+        "available": 553752
+      },
+      "old_space": {
+        "memorySize": 3043328,
+        "committedMemory": 3043328,
+        "capacity": 3041824,
+        "used": 2991592,
+        "available": 50232
+      },
+      "code_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      },
+      "shared_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      },
+      "trusted_space": {
+        "memorySize": 1171456,
+        "committedMemory": 1171456,
+        "capacity": 1171264,
+        "used": 998792,
+        "available": 172472
+      },
+      "shared_trusted_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      },
+      "new_large_object_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 1048512,
+        "used": 0,
+        "available": 1048512
+      },
+      "large_object_space": {
+        "memorySize": 266240,
+        "committedMemory": 266240,
+        "capacity": 262160,
+        "used": 262160,
+        "available": 0
+      },
+      "code_large_object_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      },
+      "shared_large_object_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      },
+      "shared_trusted_large_object_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      },
+      "trusted_large_object_space": {
+        "memorySize": 0,
+        "committedMemory": 0,
+        "capacity": 0,
+        "used": 0,
+        "available": 0
+      }
+    }
+  },
+  "nativeStack": [
+    {
+      "pc": "0x00007ff7916e9fb7",
+      "symbol": "node::GetAnonymousMainPath+292119"
+    },
+    {
+      "pc": "0x00007ff7916e645c",
+      "symbol": "node::GetAnonymousMainPath+276924"
+    },
+    {
+      "pc": "0x00007ff7916ec328",
+      "symbol": "node::TriggerNodeReport+216"
+    },
+    {
+      "pc": "0x00007ff7917c1d57",
+      "symbol": "node::OnFatalError+1143"
+    },
+    {
+      "pc": "0x00007ff7903d3617",
+      "symbol": "v8::Function::NewInstance+423"
+    },
+    {
+      "pc": "0x00007ff78fd4e45e",
+      "symbol": "v8::internal::Version::GetSONAME+11054"
+    },
+    {
+      "pc": "0x00007ff78fec90fb",
+      "symbol": "v8::MemorySpan<v8::Local<v8::String> const >::operator[]+82523"
+    },
+    {
+      "pc": "0x00007ff78fec70ec",
+      "symbol": "v8::MemorySpan<v8::Local<v8::String> const >::operator[]+74316"
+    },
+    {
+      "pc": "0x00007ff79020eb57",
+      "symbol": "uv_timer_set_repeat+112151"
+    },
+    {
+      "pc": "0x00007ff7903c9bc1",
+      "symbol": "X509_STORE_CTX_get_check_issued+531217"
+    },
+    {
+      "pc": "0x00007ff7903ca86b",
+      "symbol": "X509_STORE_CTX_get_check_issued+534459"
+    },
+    {
+      "pc": "0x00007ff78fe78e9e",
+      "symbol": "EVP_PKEY_meth_set_cleanup+202350"
+    },
+    {
+      "pc": "0x00007ff78fe785da",
+      "symbol": "EVP_PKEY_meth_set_cleanup+200106"
+    },
+    {
+      "pc": "0x00007ff78fe73c09",
+      "symbol": "EVP_PKEY_meth_set_cleanup+181209"
+    },
+    {
+      "pc": "0x00007ff79035105f",
+      "symbol": "X509_STORE_CTX_get_check_issued+36783"
+    },
+    {
+      "pc": "0x00007ff790353e61",
+      "symbol": "X509_STORE_CTX_get_check_issued+48561"
+    },
+    {
+      "pc": "0x00007ff7903dcad3",
+      "symbol": "v8::ScriptCompiler::CompileFunction+1011"
+    },
+    {
+      "pc": "0x00007ff7917f53ed",
+      "symbol": "node::GetCurrentEnvironment+111453"
+    },
+    {
+      "pc": "0x00007ff7917f5ebe",
+      "symbol": "node::GetCurrentEnvironment+114222"
+    },
+    {
+      "pc": "0x00007ff7917f9283",
+      "symbol": "node::GetCurrentEnvironment+127475"
+    },
+    {
+      "pc": "0x000002d83b50f64d",
+      "symbol": ""
+    }
+  ],
+  "resourceUsage": {
+    "free_memory": 7235792896,
+    "total_memory": 25626337280,
+    "rss": 104034304,
+    "available_memory": 7235792896,
+    "userCpuSeconds": 0.093,
+    "kernelCpuSeconds": 0.046,
+    "cpuConsumptionPercent": 13.9,
+    "userCpuConsumptionPercent": 9.3,
+    "kernelCpuConsumptionPercent": 4.6,
+    "maxRss": 113573888,
+    "pageFaults": {
+      "IORequired": 28778,
+      "IONotRequired": 0
+    },
+    "fsActivity": {
+      "reads": 0,
+      "writes": 6
+    }
+  },
+  "uvthreadResourceUsage": {
+    "userCpuSeconds": 0.093,
+    "kernelCpuSeconds": 0.046,
+    "cpuConsumptionPercent": 13.9,
+    "userCpuConsumptionPercent": 9.3,
+    "kernelCpuConsumptionPercent": 4.6,
+    "fsActivity": {
+      "reads": 0,
+      "writes": 0
+    }
+  },
+  "libuv": [
+    {
+      "type": "async",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000002d802de6db0"
+    },
+    {
+      "type": "async",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x00007ff7950dac88"
+    },
+    {
+      "type": "timer",
+      "is_active": false,
+      "is_referenced": false,
+      "address": "0x000002d802e8f270",
+      "repeat": 0,
+      "firesInMsFromNow": -434557280,
+      "expired": true
+    },
+    {
+      "type": "check",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000002d802e8f310"
+    },
+    {
+      "type": "idle",
+      "is_active": false,
+      "is_referenced": true,
+      "address": "0x000002d802e8f388"
+    },
+    {
+      "type": "prepare",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000002d802e8f400"
+    },
+    {
+      "type": "check",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000002d802e8f478"
+    },
+    {
+      "type": "async",
+      "is_active": true,
+      "is_referenced": false,
+      "address": "0x000002d802e8f4f0"
+    },
+    {
+      "type": "loop",
+      "is_active": false,
+      "address": "0x00007ff7950b4158",
+      "loopIdleTimeSeconds": 0
+    }
+  ],
+  "workers": [
+  ],
+  "environmentVariables": {
+    "=::": "::\\",
+    "AI_AGENT": "github_copilot_app_agent",
+    "ALLUSERSPROFILE": "C:\\ProgramData",
+    "APPDATA": "C:\\Users\\DELL\\AppData\\Roaming",
+    "CommonProgramFiles": "C:\\Program Files\\Common Files",
+    "CommonProgramFiles(x86)": "C:\\Program Files (x86)\\Common Files",
+    "CommonProgramW6432": "C:\\Program Files\\Common Files",
+    "COMPUTERNAME": "SAEED",
+    "ComSpec": "C:\\WINDOWS\\system32\\cmd.exe",
+    "COPILOT_CLI_BINARY_VERSION": "1.0.83-5",
+    "COPILOT_CLI_DIST_DIR": "C:\\Users\\DELL\\AppData\\Local\\copilot\\pkg\\win32-x64\\1.0.83-5",
+    "COPILOT_CLI_RESOLVED_DIST_DIR": "C:\\Users\\DELL\\AppData\\Local\\copilot\\pkg\\win32-x64\\1.0.83-5",
+    "COPILOT_ENABLE_BUILTIN_GITHUB_MCP": "true",
+    "COPILOT_EXTENSION_PARENT_PID": "33788",
+    "COPILOT_GH_ACCOUNT_github_2E_com_opal3k_2D_blip": "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",
+    "COPILOT_SDK_PATH": "\\\\?\\C:\\Users\\DELL\\AppData\\Local\\Programs\\GitHub Copilot\\copilot-sdk",
+    "COPILOT_SWE_AGENT_BACKGROUND_AGENTS": "true",
+    "COPILOT_SWE_AGENT_UNIFIED_TASK_TOOL": "true",
+    "COPILOT_TRAMPOLINE_IDENTIFIER": "CREDENTIALHELPER",
+    "COPILOT_TRAMPOLINE_PORT": "36829",
+    "COPILOT_TRAMPOLINE_TOKEN": "3c4ecfcf-1e38-4929-8dc7-03ddf509a066",
+    "DriverData": "C:\\Windows\\System32\\Drivers\\DriverData",
+    "EXTENSION_PATH": "C:\\Users\\DELL\\.copilot\\installed-plugins\\_direct\\https---github-com-atlassian-labs-copilot-marketplace\\extensions\\jira-sprint-dashboard-canvas\\extension.mjs",
+    "FPS_BROWSER_APP_PROFILE_STRING": "Internet Explorer",
+    "FPS_BROWSER_USER_PROFILE_STRING": "Default",
+    "GH_HOST": "github.com",
+    "GH_TOKEN": "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",
+    "GIT_CONFIG_COUNT": "1",
+    "GIT_CONFIG_KEY_0": "safe.bareRepository",
+    "GIT_CONFIG_PARAMETERS": "'credential.https://github.com.helper=' 'credential.https://github.com.helper=copilot'",
+    "GIT_CONFIG_VALUE_0": "explicit",
+    "GIT_EXEC_PATH": "C:\\Users\\DELL\\AppData\\Local\\github-copilot-git-2.53.0-4\\mingw64\\libexec\\git-core",
+    "GOPATH": "C:\\Users\\DELL\\go",
+    "HOMEDRIVE": "C:",
+    "HOMEPATH": "\\Users\\DELL",
+    "LC_CTYPE": "C.UTF-8",
+    "LOCALAPPDATA": "C:\\Users\\DELL\\AppData\\Local",
+    "LOGONSERVER": "\\\\SAEED",
+    "MOZ_CRASHREPORTER_DATA_DIRECTORY": "C:\\Users\\DELL\\AppData\\Roaming\\Mozilla\\Firefox\\Crash Reports",
+    "MOZ_CRASHREPORTER_EVENTS_DIRECTORY": "C:\\Users\\DELL\\AppData\\Roaming\\Mozilla\\Firefox\\Profiles\\dyky5q7e.default-release\\crashes\\events",
+    "MOZ_CRASHREPORTER_PING_DIRECTORY": "C:\\Users\\DELL\\AppData\\Roaming\\Mozilla\\Firefox\\Pending Pings",
+    "NoDefaultCurrentDirectoryInExePath": "1",
+    "NUMBER_OF_PROCESSORS": "8",
+    "OneDrive": "C:\\Users\\DELL\\OneDrive - opal co.sa",
+    "OneDriveCommercial": "C:\\Users\\DELL\\OneDrive - opal co.sa",
+    "OneDriveConsumer": "C:\\Users\\DELL\\OneDrive",
+    "OS": "Windows_NT",
+    "Path": "C:\\Users\\DELL\\AppData\\Local\\Programs\\GitHub Copilot;C:\\Users\\DELL\\AppData\\Local\\github-copilot-git-2.53.0-4\\cmd;C:\\Users\\DELL\\AppData\\Local\\github-copilot-git-2.53.0-4\\mingw64\\bin;C:\\Users\\DELL\\AppData\\Local\\github-copilot-git-2.53.0-4\\mingw64\\usr\\bin;C:\\Users\\DELL\\AppData\\Local\\copilot-desktop-gh-2.98.0;C:\\Program Files\\Mozilla Firefox;C:\\WINDOWS\\system32;C:\\WINDOWS;C:\\WINDOWS\\System32\\Wbem;C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\;C:\\WINDOWS\\System32\\OpenSSH\\;C:\\Program Files\\dotnet\\;C:\\Program Files\\Go\\bin;C:\\BioTime\\Python27;C:\\BioTime\\Python27\\Scripts;C:\\ZKBioTime\\Python311;C:\\ZKBioTime\\Python311\\Scripts;C:\\ZKBioTime\\Python311\\Library\\bin;C:\\ZKBioTime\\Python311\\Lib\\site-packages;C:\\ZKBioTime\\zkeco_dlls;C:\\ZKBioTime\\pgsql\\bin;C:\\ZKBioTime\\tools\\wkhtmltox\\bin;C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python314\\Scripts\\;C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python314\\;C:\\Users\\DELL\\AppData\\Local\\Microsoft\\WindowsApps;C:\\Users\\DELL\\AppData\\Local\\Programs\\Microsoft VS Code Insiders\\bin;C:\\Users\\DELL\\AppData\\Local\\GitHubDesktop\\bin;C:\\Users\\DELL\\AppData\\Local\\Programs\\Antigravity\\bin;C:\\Users\\DELL\\go\\bin;C:\\Users\\DELL\\.dotnet\\tools;C:\\Users\\DELL\\AppData\\Local\\Programs\\cursor\\resources\\app\\bin",
+    "PATHEXT": ".COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC",
+    "PROCESSOR_ARCHITECTURE": "AMD64",
+    "PROCESSOR_IDENTIFIER": "Intel64 Family 6 Model 158 Stepping 9, GenuineIntel",
+    "PROCESSOR_LEVEL": "6",
+    "PROCESSOR_REVISION": "9e09",
+    "PROG27B48B2C050": "1",
+    "ProgramData": "C:\\ProgramData",
+    "ProgramFiles": "C:\\Program Files",
+    "ProgramFiles(x86)": "C:\\Program Files (x86)",
+    "ProgramW6432": "C:\\Program Files",
+    "PSModulePath": "C:\\Program Files\\WindowsPowerShell\\Modules;C:\\WINDOWS\\system32\\WindowsPowerShell\\v1.0\\Modules",
+    "PUBLIC": "C:\\Users\\Public",
+    "PYTHONIOENCODING": "utf-8",
+    "RUBBER_DUCK_AGENT": "true",
+    "SESSIONNAME": "Console",
+    "SESSION_ID": "ef6baeb8-456a-4049-a5c1-a942a91c5217",
+    "SystemDrive": "C:",
+    "SystemRoot": "C:\\WINDOWS",
+    "TEMP": "C:\\Users\\DELL\\AppData\\Local\\Temp",
+    "TMP": "C:\\Users\\DELL\\AppData\\Local\\Temp",
+    "TOOL_SEARCH": "false",
+    "USERDOMAIN": "SAEED",
+    "USERDOMAIN_ROAMINGPROFILE": "SAEED",
+    "USERNAME": "DELL",
+    "USERPROFILE": "C:\\Users\\DELL",
+    "WEBSOCKET_RESPONSES": "true",
+    "windir": "C:\\WINDOWS",
+    "ZES_ENABLE_SYSMAN": "1"
+  },
+  "sharedObjects": [
+    "C:\\Users\\DELL\\AppData\\Local\\github-copilot-sdk\\cli\\1.0.83-5\\copilot.exe",
+    "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+    "C:\\WINDOWS\\System32\\KERNEL32.DLL",
+    "C:\\WINDOWS\\System32\\KERNELBASE.dll",
+    "C:\\WINDOWS\\System32\\CRYPT32.dll",
+    "C:\\WINDOWS\\System32\\ucrtbase.dll",
+    "C:\\WINDOWS\\System32\\WS2_32.dll",
+    "C:\\WINDOWS\\System32\\RPCRT4.dll",
+    "C:\\WINDOWS\\System32\\USER32.dll",
+    "C:\\WINDOWS\\System32\\win32u.dll",
+    "C:\\WINDOWS\\System32\\GDI32.dll",
+    "C:\\WINDOWS\\System32\\gdi32full.dll",
+    "C:\\WINDOWS\\System32\\msvcp_win.dll",
+    "C:\\WINDOWS\\System32\\ADVAPI32.dll",
+    "C:\\WINDOWS\\System32\\msvcrt.dll",
+    "C:\\WINDOWS\\System32\\sechost.dll",
+    "C:\\WINDOWS\\System32\\bcrypt.dll",
+    "C:\\WINDOWS\\System32\\SHELL32.dll",
+    "C:\\WINDOWS\\System32\\ole32.dll",
+    "C:\\WINDOWS\\System32\\combase.dll",
+    "C:\\WINDOWS\\SYSTEM32\\dbghelp.dll",
+    "C:\\WINDOWS\\SYSTEM32\\IPHLPAPI.DLL",
+    "C:\\WINDOWS\\SYSTEM32\\USERENV.dll",
+    "C:\\WINDOWS\\SYSTEM32\\WINMM.dll",
+    "C:\\WINDOWS\\SYSTEM32\\dbgcore.DLL",
+    "C:\\WINDOWS\\SYSTEM32\\CRYPTBASE.DLL",
+    "C:\\WINDOWS\\System32\\IMM32.DLL",
+    "C:\\WINDOWS\\SYSTEM32\\powrprof.dll",
+    "C:\\WINDOWS\\SYSTEM32\\UMPDC.dll",
+    "C:\\WINDOWS\\System32\\bcryptprimitives.dll",
+    "C:\\WINDOWS\\system32\\uxtheme.dll",
+    "C:\\WINDOWS\\system32\\mswsock.dll",
+    "C:\\WINDOWS\\SYSTEM32\\CRYPTSP.dll",
+    "C:\\WINDOWS\\system32\\rsaenh.dll",
+    "C:\\WINDOWS\\SYSTEM32\\kernel.appcore.dll",
+    "C:\\WINDOWS\\System32\\NSI.dll"
+  ]
+}
