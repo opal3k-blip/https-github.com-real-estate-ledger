@@ -385,6 +385,8 @@ function authErrorMessage(err){
     'auth/popup-closed-by-user': 'تم إغلاق نافذة تسجيل الدخول قبل إكمال العملية.',
     'auth/unauthorized-domain': 'رابط هذا الموقع غير مُصرَّح له بتسجيل الدخول — أضيفيه في Firebase Console ← Authentication ← Settings ← Authorized domains.',
     'auth/operation-not-allowed': 'طريقة تسجيل الدخول هذه غير مُفعّلة بعد في مشروع Firebase — فعّليها من Authentication ← Sign-in method.',
+    'auth/account-exists-with-different-credential': 'هذا البريد مرتبط بطريقة دخول أخرى؛ استخدمي نفس طريقة الدخول التي أنشأتِ بها الحساب.',
+    'auth/popup-blocked': 'المتصفح منع نافذة GitHub؛ اسمحي بالنوافذ المنبثقة ثم حاولي مرة أخرى.',
     'auth/network-request-failed': 'تعذّر الاتصال بالخادم — تحققي من اتصال الإنترنت.',
     'auth/too-many-requests': 'محاولات كثيرة جداً — حاولي مرة أخرى بعد قليل.',
     'auth/user-disabled': 'هذا الحساب مُعطَّل.',
@@ -2497,6 +2499,9 @@ function renderLogin(){
           <button class="btn" style="justify-content:center;" data-action="auth-google" ${authBusy?'disabled':''}>
             <span>🔵</span> متابعة عبر حساب Google
           </button>
+          <button class="btn" style="justify-content:center;" data-action="auth-github" ${authBusy?'disabled':''}>
+            <span>🐙</span> متابعة عبر GitHub
+          </button>
           <div style="text-align:center; font-size:11.5px; color:var(--ink-faint); margin-top:4px;">
             ليس لديك حساب؟ تواصلي مع مسؤول النظام لإضافتك.
           </div>
@@ -2716,6 +2721,15 @@ document.addEventListener('click', async (e)=>{
     authError = ''; authBusy = true; render();
     try{
       const provider = new firebase.auth.GoogleAuthProvider();
+      await firebase.auth().signInWithPopup(provider);
+    }catch(err){ authError = authErrorMessage(err); }
+    authBusy = false; render();
+    return;
+  }
+  if(action==='auth-github'){
+    authError = ''; authBusy = true; render();
+    try{
+      const provider = new firebase.auth.GithubAuthProvider();
       await firebase.auth().signInWithPopup(provider);
     }catch(err){ authError = authErrorMessage(err); }
     authBusy = false; render();
