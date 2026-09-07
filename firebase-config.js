@@ -16,6 +16,6 @@ window.FIREBASE_CONFIG = {
   projectId: "real-estate-ledger-f85a6",
   storageBucket: "real-estate-ledger-f85a6.firebasestorage.app",
   messagingSenderId: "590032344408",
-  appId: "1:590032344408:web:6c2aad2b1f970320bb012d",
-  measurementId: "G-B4Q3E85VFC",
+  appId: "1:590032344408:web:81b593ecea511761bb012d",
+  measurementId: "G-DEHYN30GZJ",
 };
