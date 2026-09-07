@@ -349,8 +349,10 @@ let unsubscribeBranding = null;
 
 // بريد الحساب الذي يُعامَل دائماً كمسؤول (يقدر يدير قائمة الفريق المصرَّح لهم، ومصرَّح له بالدخول
 // دائماً حتى لو قائمة الفريق فاضية أو لسه ما اتعملتلهاش). غيّريه هنا لو حبيتي تستخدمي بريد تاني.
-const ADMIN_EMAIL = 'ggocss@gmail.com';
-function isAdmin(user){ return !!user && !!user.email && user.email.toLowerCase()===ADMIN_EMAIL.toLowerCase(); }
+const ADMIN_EMAILS = ['ggocss@gmail.com', 'opal3k@gmail.com'];
+function isAdmin(user){
+  return !!user && !!user.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
+}
 // أعضاء الفريق (غير الأدمن) يقدروا يعدّلوا/يحذفوا بس الفرص اللي هم نفسهم أضافوها — الأدمن يقدر على كل شيء،
 // وأي فرصة قديمة بدون بيانات "أضافها" (من قبل تفعيل هذا القيد) تبقى قابلة للتعديل من الجميع.
 function canEditOpp(rec){
@@ -2536,7 +2538,7 @@ function renderTeamPanel(){
           أي بريد إلكتروني تضيفينه هنا يقدر يسجّل دخول (بالبريد/كلمة مرور اللي تنشئيها له من
           Firebase Console ← Authentication، أو عبر Google لو بريده Gmail) ويشوف قاعدة البيانات
           ويقدر يضيف/يعدّل فيها — لحد ما تنتهي المدة اللي تحدّديها (أو دائماً لو اخترتِ كده).
-          بريدك (${esc(ADMIN_EMAIL)}) مصرَّح له دائماً كمسؤول ومش بيتأثر بالمدة.
+          حسابات الأدمن (${esc(ADMIN_EMAILS.join(' أو '))}) مُصرَّح لها دائماً ومش بتتأثر بالمدة.
         </p>
         ${teamPanelError? `<div class="note" style="background:var(--bad-soft); color:var(--bad); padding:9px 12px; border-radius:8px; margin-bottom:10px;">${esc(teamPanelError)}</div>` : ''}
         <div style="display:flex; gap:8px; margin-bottom:10px;">

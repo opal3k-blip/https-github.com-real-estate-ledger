@@ -7,7 +7,10 @@ service cloud.firestore {
     function isAdminEmail() {
       return request.auth != null
         && request.auth.token.email != null
-        && request.auth.token.email.lower() == 'ggocss@gmail.com';
+        && (
+          request.auth.token.email.lower() == 'ggocss@gmail.com'
+          || request.auth.token.email.lower() == 'opal3k@gmail.com'
+        );
     }
 
     // عضو فريق مضاف عبر لوحة "إدارة الفريق"، ولسه ضمن مدة الوصول المحدَّدة له
