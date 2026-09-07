@@ -26,9 +26,19 @@ service cloud.firestore {
       return isAdminEmail() || isAllowlisted();
     }
 
+    // عضو الفريق (غير الأدمن) يقدر يعدّل/يحذف بس الفرصة اللي هو نفسه أضافها (meta.createdBy) —
+    // الأدمن يقدر على كل شيء دايماً. فرصة قديمة بدون meta.createdBy (من قبل تفعيل هذا القيد)
+    // تفضل قابلة للتعديل من أي عضو مصرَّح له، حتى لا تُحبَس بيانات سابقة بدون مالك مسجَّل.
+    function ownsOpp(existingData) {
+      return existingData.meta.createdBy == null
+        || existingData.meta.createdBy.lower() == request.auth.token.email.lower();
+    }
+
     // بيانات الفرص الاستثمارية — للفريق المصرَّح له فقط (ولسه ضمن مدة الوصول).
+    // القراءة والإضافة: لأي عضو مصرَّح له. التعديل/الحذف: الأدمن، أو عضو الفريق لفرصته الخاصة فقط.
     match /opportunities/{oppId} {
-      allow read, write: if isAuthorized();
+      allow read, create: if isAuthorized();
+      allow update, delete: if isAdminEmail() || (isAllowlisted() && ownsOpp(resource.data));
     }
 
     // أعضاء الفريق المصرَّح لهم — إدارة (إضافة/إزالة/تعديل المدة) للمسؤول فقط.
@@ -36,6 +46,13 @@ service cloud.firestore {
     // الداخلي في القواعد وهو غير مقيَّد بهذه القاعدة.
     match /team_members/{email} {
       allow read, write: if isAdminEmail();
+    }
+
+    // إعدادات عامة (شعار الشركة/اسمها لتقارير الطباعة) — أي عضو مصرَّح له يقدر يقرأها
+    // (عشان الشعار يظهر له في التقارير)، لكن التعديل للمسؤول فقط.
+    match /settings/{docId} {
+      allow read: if isAuthorized();
+      allow write: if isAdminEmail();
     }
 
     // حضور لحظي ("من متصل الآن") — كل مستخدم يكتب في وثيقته الخاصة فقط، وأي مستخدم مصرَّح له

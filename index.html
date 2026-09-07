@@ -193,6 +193,24 @@ table.report tr:last-child td{ border-bottom:none; }
 .badge-row{ display:flex; gap:8px; flex-wrap:wrap; }
 .small-btns{ display:flex; gap:8px; flex-wrap:wrap; }
 
+/* ---------- جرس النشاط الحديث (فرص أضافها الزملاء) ---------- */
+.activity-bell-wrap{ position:relative; display:inline-block; }
+.activity-bell-btn{ position:relative; }
+.activity-badge{
+  position:absolute; top:-6px; left:-6px; background:var(--bad); color:#fff; font-size:10px; font-weight:700;
+  min-width:16px; height:16px; border-radius:8px; display:flex; align-items:center; justify-content:center; padding:0 3px;
+}
+.activity-dropdown{
+  position:absolute; top:calc(100% + 8px); left:0; width:320px; max-height:380px; overflow-y:auto;
+  background:var(--panel); border:1px solid var(--border); border-radius:12px; box-shadow:0 12px 32px rgba(0,0,0,.22);
+  z-index:60; padding:10px;
+}
+.activity-item{ display:flex; flex-direction:column; gap:2px; padding:8px 9px; border-radius:8px; cursor:pointer; }
+.activity-item:hover{ background:var(--surface-2); }
+.activity-item.unseen{ background:var(--gold-soft, var(--surface-2)); }
+.activity-item .t{ font-size:12.5px; font-weight:600; }
+.activity-item .m{ font-size:11px; color:var(--ink-faint); }
+
 /* ---------- closing conditions list ---------- */
 .cond-list{ display:flex; flex-direction:column; gap:8px; }
 .cond-row{ display:flex; gap:8px; align-items:center; }
@@ -202,19 +220,27 @@ table.db thead th:first-child, table.db tbody td:first-child{ width:32px; text-a
 
 /* ---------- print / PDF export (letterhead-style report) ---------- */
 @page{ margin: 20mm 16mm 18mm; }
+/* غلاف/ترويسة الطباعة (شعار الشركة + اسمها) — عنصر DOM حقيقي، مخفي على الشاشة، يظهر فقط عند الطباعة */
+.print-letterhead{ display:none; }
 @media print{
   .topbar, .kpis.portfolio, .panel, .badge-row, .small-btns, .overlay, .db-toolbar{ display:none !important; }
-  html,body{ background:#fff; color:#111; font-family:'Sakkal Majalla','Arial',serif; font-size:12.5px; }
+  html,body{ background:#fff; color:#111; font-family:'Sakkal Majalla','Amiri','Times New Roman','Arial',serif; font-size:12.5px; }
   .app{ padding:0; max-width:none; }
   .memo{ gap:0; }
+  /* أرقام/نصوص إنجليزية داخل التقرير المطبوع تبقى بخط لاتيني احترافي واضح، بدل الاعتماد على خط عربي لعرض أرقام */
+  .mono, .ltr, table.report td.num, .kv .v[dir=ltr]{ font-family:'Times New Roman','IBM Plex Mono',monospace !important; }
 
-  /* letterhead */
-  .memo::before{
-    content:"دفتر الفرص العقارية · Real Estate Opportunity Ledger";
-    display:block; text-align:center; font-family:'Sakkal Majalla','Amiri',serif;
-    font-size:11px; letter-spacing:.08em; color:#0E6B4C; font-weight:700;
-    border-bottom:2.5px solid #0E6B4C; padding-bottom:8px; margin-bottom:14px;
+  /* letterhead (شعار + اسم الشركة، عنصر DOM حتى تُعرض صورة الشعار فعلياً) */
+  .print-letterhead{
+    display:flex; align-items:center; justify-content:center; gap:12px;
+    border-bottom:2.5px solid #0E6B4C; padding-bottom:10px; margin-bottom:14px;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
   }
+  .print-letterhead-logo{ height:38px; max-width:120px; object-fit:contain; }
+  .print-letterhead-text{ text-align:center; }
+  .print-letterhead-company{ font-size:13px; font-weight:700; color:#0B2D1E; margin-bottom:2px; }
+  .print-letterhead-app{ font-family:'Sakkal Majalla','Amiri',serif; font-size:11px; letter-spacing:.06em; color:#0E6B4C; font-weight:700; }
+  .print-letterhead-date{ font-size:9.5px; color:#4B5B52; margin-top:2px; }
 
   .memo-hero{
     border:none; border-bottom:1.5px solid #0E6B4C; background:none;
@@ -280,11 +306,36 @@ let teamPanelOpen = false;
 let teamPanelBusy = false;
 let teamPanelError = '';
 let presenceHeartbeatTimer = null;
+let recentActivity = [];     // [{id, oppId, name, by, at, seen}] — سجل "فرصة جديدة أضافها زميل" (لحظي، من onSnapshot)
+let recentActivityOpen = false;
+let oppSnapshotInitialized = false; // نتجاهل أول لقطة (كل الفرص الموجودة أصلاً) ونبلّغ فقط عمّا يُضاف بعدها
+let notifPermission = (typeof Notification!=='undefined'? Notification.permission : 'unsupported'); // إذن تنبيهات المتصفح
+let branding = { companyName:'', logoDataUrl:'' }; // العلامة التجارية لتقارير الطباعة/PDF — مشتركة لكل الفريق
+let brandingPanelOpen = false;
+let brandingBusy = false;
+let brandingError = '';
+let brandingLogoDraft = null; // dataURL لشعار محدَّد للتو ولسه ما اتحفظش (null = لا تغيير، '' = إزالة)
+let brandingNameDraft = null; // نص اسم الشركة اللي لسه مكتوب ولسه ما اتحفظش (يحافظ عليه لو اختيار ملف الشعار سبَّب إعادة رسم اللوحة)
+let unsubscribeBranding = null;
 
 // بريد الحساب الذي يُعامَل دائماً كمسؤول (يقدر يدير قائمة الفريق المصرَّح لهم، ومصرَّح له بالدخول
 // دائماً حتى لو قائمة الفريق فاضية أو لسه ما اتعملتلهاش). غيّريه هنا لو حبيتي تستخدمي بريد تاني.
 const ADMIN_EMAIL = 'opal3k@gmail.com';
 function isAdmin(user){ return !!user && !!user.email && user.email.toLowerCase()===ADMIN_EMAIL.toLowerCase(); }
+// أعضاء الفريق (غير الأدمن) يقدروا يعدّلوا/يحذفوا بس الفرص اللي هم نفسهم أضافوها — الأدمن يقدر على كل شيء،
+// وأي فرصة قديمة بدون بيانات "أضافها" (من قبل تفعيل هذا القيد) تبقى قابلة للتعديل من الجميع.
+function canEditOpp(rec){
+  if(!DB) return true;
+  if(isAdmin(currentUser)) return true;
+  const owner = rec && rec.data && rec.data.meta && rec.data.meta.createdBy;
+  if(!owner) return true;
+  return !!currentUser && !!currentUser.email && owner.toLowerCase()===currentUser.email.toLowerCase();
+}
+
+// رابط الزوار للتجربة: أضيفي ?demo=1 لرابط الموقع (مثال: .../index.html?demo=1). في هذا الوضع
+// يتجاهل التطبيق Firebase كليةً ويعمل محلياً في متصفح الزائر فقط (localStorage معزول تماماً عن
+// قاعدة بياناتكم الحقيقية على السحابة) — أي إضافة/تعديل/حذف يفعله الزائر لا يصل لبياناتكم أبداً ولا يُكلّف أي شيء.
+const DEMO_MODE = (()=>{ try{ return new URLSearchParams(location.search).get('demo')==='1'; }catch(e){ return false; } })();
 
 function authErrorMessage(err){
   const map = {
@@ -306,10 +357,24 @@ function authErrorMessage(err){
 
 function subscribeOpportunities(){
   if(unsubscribeOpportunities) return; // متصلة بالفعل
+  oppSnapshotInitialized = false; // أول لقطة قادمة = الحالة الحالية (baseline)، مش "جديد"
   // مزامنة لحظية: أي تعديل يُحفظ في Firestore (من جهازك أو من زميل آخر) يظهر فوراً هنا بدون إعادة تحميل الصفحة.
   unsubscribeOpportunities = DB.collection('opportunities').onSnapshot(snap => {
     accessDenied = false;
     opportunities = snap.docs.map(d => ({ id: d.id, data: d.data() }));
+    if(oppSnapshotInitialized){
+      snap.docChanges().forEach(ch=>{
+        if(ch.type!=='added') return;
+        const data = ch.doc.data();
+        const addedBy = data && data.meta && data.meta.createdBy;
+        // نبلّغ فقط عن فرص أضافها زميل آخر (مش أنا) — حتى ما تتكرر إشعارات على إضافاتي أنا نفسي.
+        if(addedBy && currentUser && currentUser.email && addedBy.toLowerCase()!==currentUser.email.toLowerCase()){
+          pushRecentActivity({ oppId: ch.doc.id, name: (data.meta&&data.meta.name)||'فرصة بدون اسم', by: addedBy, at: Date.now() });
+        }
+      });
+    } else {
+      oppSnapshotInitialized = true;
+    }
     render();
   }, err => {
     console.error('Firestore sync error:', err);
@@ -319,6 +384,34 @@ function subscribeOpportunities(){
       render();
     }
   });
+}
+
+/* ---------------- نشاط حديث / تنبيهات "فرصة جديدة أضافها زميل" ---------------- */
+function pushRecentActivity(entry){
+  recentActivity.unshift({ id: entry.oppId+'-'+entry.at, oppId: entry.oppId, name: entry.name, by: entry.by, at: entry.at, seen:false });
+  if(recentActivity.length>30) recentActivity.length = 30;
+  notifyBrowser(entry);
+  render();
+}
+function unreadActivityCount(){ return recentActivity.filter(a=>!a.seen).length; }
+function notifyBrowser(entry){
+  try{
+    if(typeof Notification==='undefined' || Notification.permission!=='granted') return;
+    const n = new Notification('🏢 فرصة استثمارية جديدة', {
+      body: `${entry.name} — أضافها ${entry.by}`,
+      tag: 'reop-'+entry.oppId,
+    });
+    n.onclick = ()=>{ try{ window.focus(); }catch(e){} openDetailId = entry.oppId; recentActivityOpen=false; markActivitySeen(entry.oppId+'-'+entry.at); render(); };
+  }catch(e){ console.error('Browser notification error:', e); }
+}
+function markActivitySeen(id){ const a = recentActivity.find(x=>x.id===id); if(a) a.seen = true; }
+function markAllActivitySeen(){ recentActivity.forEach(a=> a.seen=true); }
+function timeAgo(ts){
+  const s = Math.max(0, Math.floor((Date.now()-ts)/1000));
+  if(s<60) return 'الآن';
+  const m = Math.floor(s/60); if(m<60) return `منذ ${m} د`;
+  const h = Math.floor(m/60); if(h<24) return `منذ ${h} س`;
+  const d = Math.floor(h/24); return `منذ ${d} يوم`;
 }
 
 /* ---------------- "من متصل الآن" — تحديث نبضة حضور كل ٢٥ ثانية + متابعة حضور الجميع ---------------- */
@@ -359,9 +452,32 @@ function subscribeAllowlistIfAdmin(){
   }, err=>{ console.error('Team members sync error:', err); });
 }
 
+/* ---------------- العلامة التجارية لتقارير الطباعة/PDF (شعار الشركة + الاسم) — مشتركة لكل الفريق ---------------- */
+function subscribeBranding(){
+  if(!DB || unsubscribeBranding) return;
+  unsubscribeBranding = DB.collection('settings').doc('branding').onSnapshot(doc=>{
+    const v = doc.exists? doc.data() : {};
+    branding = { companyName: v.companyName||'', logoDataUrl: v.logoDataUrl||'' };
+    render();
+  }, err=>{ console.error('Branding sync error:', err); });
+}
+function loadLocalBranding(){
+  try{ const raw = localStorageSafe('reop_branding'); if(raw) branding = JSON.parse(raw); }catch(e){}
+}
+function saveLocalBranding(){ try{ localStorage.setItem('reop_branding', JSON.stringify(branding)); }catch(e){} }
+async function saveBranding(patch){
+  branding = { ...branding, ...patch };
+  if(!DB){ saveLocalBranding(); return; }
+  await DB.collection('settings').doc('branding').set(branding, { merge:true });
+}
+
 async function initDb(){
   try{
-    if(window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey && window.FIREBASE_CONFIG.apiKey !== 'REPLACE_ME'){
+    if(DEMO_MODE){
+      console.warn('وضع تجريبي (?demo=1) — Firebase مُتجاهَل عمداً، البيانات محلية في هذا المتصفح فقط.');
+      authReady = true;
+      loadLocalBranding();
+    } else if(window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey && window.FIREBASE_CONFIG.apiKey !== 'REPLACE_ME'){
       firebase.initializeApp(window.FIREBASE_CONFIG);
       DB = firebase.firestore();
       firebase.auth().onAuthStateChanged(user => {
@@ -372,18 +488,24 @@ async function initDb(){
           subscribeOpportunities();
           startPresence();
           subscribeAllowlistIfAdmin();
+          subscribeBranding();
         } else {
           if(unsubscribeOpportunities){ unsubscribeOpportunities(); unsubscribeOpportunities=null; }
           if(unsubscribeAllowlist){ unsubscribeAllowlist(); unsubscribeAllowlist=null; }
+          if(unsubscribeBranding){ unsubscribeBranding(); unsubscribeBranding=null; }
           stopPresence();
           opportunities = [];
           allowlistEmails = [];
+          branding = { companyName:'', logoDataUrl:'' };
+          recentActivity = [];
+          recentActivityOpen = false;
         }
         render();
       });
     } else {
       console.warn('Firebase غير مُهيّأ — راجعي firebase-config.js. سيتم استخدام تخزين محلي مؤقت (localStorage) في هذا المتصفح فقط.');
       authReady = true; // لا يوجد Firebase => لا حاجة لبوابة تسجيل دخول، الوضع المحلي مفتوح كالمعتاد
+      loadLocalBranding();
     }
   }catch(e){ DB = null; authReady = true; console.error('Firebase init failed:', e); }
   claudeReady = true;
@@ -413,6 +535,19 @@ function fmtNum(v,dec){ if(v==null||!isFinite(v)) return '—'; return v.toLocal
 function fmtPct(v,dec){ if(v==null||!isFinite(v)) return '—'; return (v*100).toFixed(dec==null?1:dec)+'%'; }
 function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function todayStr(){ return new Date().toISOString().slice(0,10); }
+/* التقويم الهجري — يعتمد على دعم المتصفح المدمج (Intl) بدون أي مكتبة خارجية؛ يعود بسلسلة فاضية بأمان لو غير مدعوم */
+function fmtHijri(dateStr){
+  try{
+    const dt = new Date((dateStr||'')+'T00:00:00');
+    if(isNaN(dt.getTime())) return '';
+    return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', { year:'numeric', month:'2-digit', day:'2-digit' }).format(dt);
+  }catch(e){ return ''; }
+}
+function fmtDateBilingual(dateStr){
+  if(!dateStr) return '';
+  const h = fmtHijri(dateStr);
+  return h? `${dateStr} م — ${h} هـ` : dateStr;
+}
 
 /* ---------------- reference tables ---------------- */
 const CITIES = ["الرياض","جدة","مكة المكرمة","المدينة المنورة","الدمام","الخبر","الأحساء","أخرى"];
@@ -458,7 +593,7 @@ function blankOpportunity(){
   return {
     id: null,
     meta: { name:'', city:CITIES[0], neighborhood:'', tier:'راقي', oppType:'income', useType:Object.keys(USE_TYPES)[3], analyst:'Opal', createdAt:null, updatedAt:null, createdBy:null, updatedBy:null },
-    land: { area:5000, price:3500, far:2.0, bar:0.5, floorsAllowed:4, basements:1, floorHeight:3.6, setbacks:0.15 },
+    land: { area:5000, price:3500, far:2.0, bar:0.5, floorsAllowed:4, basements:1, floorHeight:3.6, setbacks:0.15, bonusAreaPct:0 },
     site: { soil:0, water:0, tower:0, topo:0, infra:0 },
     strategy: { exitStrategy:"مختلط (Mixed Sell+Rent)", salePct:0.5 },
     income: { gla:null, rent:1000, occupancy:0.92, opex:0.28, wale:4.0, tenantConc:0.20, distFreq:"ربع سنوي (Quarterly)",
@@ -508,11 +643,32 @@ let dashFilterCity = 'all';
 let dashFilterType = 'all';
 
 async function loadAll(){
-  if(!DB){ opportunities = JSON.parse(localStorageSafe('reop_fallback')||'[]'); return; }
+  if(!DB){
+    const key = DEMO_MODE? 'reop_demo_fallback' : 'reop_fallback';
+    opportunities = JSON.parse(localStorageSafe(key)||'[]');
+    if(DEMO_MODE && opportunities.length===0){ opportunities = demoSeedOpportunities(); saveLocalFallback(); }
+    return;
+  }
   // مع Firebase، المزامنة اللحظية (onSnapshot في initDb) هي التي تملأ opportunities — لا حاجة لجلب مرة واحدة هنا.
 }
 function localStorageSafe(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
-function saveLocalFallback(){ try{ localStorage.setItem('reop_fallback', JSON.stringify(opportunities)); }catch(e){} }
+function saveLocalFallback(){ try{ localStorage.setItem(DEMO_MODE?'reop_demo_fallback':'reop_fallback', JSON.stringify(opportunities)); }catch(e){} }
+
+/* بيانات تجريبية أولية لرابط الزوار (وضع تجريبي معزول تماماً عن قاعدة البيانات الحقيقية) */
+function demoSeedOpportunities(){
+  const mk = (name, city, oppType, useType, priceOverrides)=>{
+    const d = blankOpportunity();
+    d.meta.name = name; d.meta.city = city; d.meta.oppType = oppType; d.meta.useType = useType;
+    d.meta.analyst = 'زائر تجريبي'; d.meta.createdBy = 'demo@visitor'; d.meta.updatedBy = 'demo@visitor';
+    d.meta.createdAt = todayStr(); d.meta.updatedAt = todayStr();
+    Object.assign(d.land, priceOverrides||{});
+    return { id: uid('demo'), data: d };
+  };
+  return [
+    mk('مثال — مجمع سكني (تجريبي)', 'الرياض', 'income', Object.keys(USE_TYPES)[3], {}),
+    mk('مثال — برج مكاتب (تجريبي)', 'جدة', 'development', Object.keys(USE_TYPES)[0], {}),
+  ];
+}
 
 async function persistOpportunity(rec){
   if(DB){
@@ -911,12 +1067,23 @@ function compute(o, scenarioKey){
 /* Tornado-style one-variable-at-a-time sensitivity on Equity IRR. */
 function sensitivityRows(o){
   const isDev = o.meta.oppType==='development';
+  const isIncome = o.meta.oppType==='income';
   const bumps = [
     { key:'land.price', label:'سعر شراء الأرض (م²)', deltaPct:0.10 },
     { key: isDev?'development.salePrice':'income.rent', label: isDev?'سعر البيع (م²)':'سعر الإيجار (م²/سنة)', deltaPct:0.10 },
     { key: isDev?'development.exitCapRate':'wacc.marketCap', label:'معدل الرسملة عند الخروج', deltaAbs:0.01 },
     { key:'financing.saibor', label:'سعر الفائدة (SAIBOR)', deltaAbs:0.01 },
+    { key:'financing.ltc', label:'نسبة التمويل (LTC)', deltaAbs:0.05 },
+    { key:'financing.margin', label:'هامش التمويل فوق SAIBOR', deltaAbs:0.005 },
   ];
+  if(isDev){
+    bumps.push({ key:'development.buildCost', label:'تكلفة البناء (م²)', deltaPct:0.08 });
+    bumps.push({ key:'development.constructionYears', label:'مدة الإنشاء (سنوات) — تعجيل/تأخير', deltaAbs:0.5 });
+  }
+  if(isIncome){
+    bumps.push({ key:'income.occupancy', label:'نسبة الإشغال', deltaAbs:0.05 });
+    bumps.push({ key:'income.opex', label:'نسبة المصاريف التشغيلية (OPEX)', deltaAbs:0.03 });
+  }
   const base = compute(o,'base');
   return bumps.map(b=>{
     const up = JSON.parse(JSON.stringify(o)); const down = JSON.parse(JSON.stringify(o));
@@ -936,6 +1103,87 @@ function scenarioCompareRows(o){
     const c = compute(o, s.key);
     return { label:s.label, key:s.key, irr:c.equityIRR, npv:c.npvProject, moic:c.MOIC, verdict:c.verdict };
   });
+}
+
+/* =========================================================================
+   توصيات لجنة الاستثمار التفصيلية — IC Detailed Recommendations
+   ========================================================================= */
+const IC_ACTION_LIBRARY = {
+  'Equity IRR': 'خفّضي تكلفة الأرض أو التفاوضي على سداد مؤجّل لجزء منها، راجعي هيكل الدين (LTC/الهامش)، أو أعيدي تسعير الإيجار/سعر البيع إذا سمح السوق.',
+  'DSCR': 'قلّلي نسبة LTC، تفاوضي على هامش تمويل أقل فوق SAIBOR، أو رفعي صافي الدخل التشغيلي (NOI) بزيادة الإيجار أو تقليل OPEX.',
+  'MOIC': 'مدّدي أفق الاحتفاظ بالأصل قبل البيع، حسّني هامش الربح التشغيلي، أو قلّلي الرسوم والتكاليف غير الأساسية على الصندوق.',
+  'Yield on Cost': 'خفّضي تكلفة البناء لكل م²، راجعي مزيج الاستخدامات (Unit/Tenant Mix) لرفع متوسط الإيجار، أو قلّلي التكاليف الناعمة (Soft Costs).',
+  'Project IRR': 'راجعي الجدول الزمني للإنشاء (تسريع التسليم يرفع IRR غير المموّل) أو خفّضي التكلفة الإنشائية الإجمالية.',
+  'Pre-Leasing': 'كثّفي التسويق قبل بدء الإنشاء أو قدّمي حوافز إيجار مبكر (Rent-Free Period) لرفع نسبة التأجير المسبق قبل صرف التمويل البنكي.',
+};
+function icRecommendations(o, c){
+  const recs = [];
+  c.checks.forEach(chk=>{
+    if(chk.skip || chk.v==null || !isFinite(chk.v)) return;
+    if(chk.v >= chk.min) return; // معيار مستوفى — لا حاجة لتوصية
+    const valStr = chk.fmt==='pct'? fmtPct(chk.v) : chk.v.toFixed(2)+'×';
+    const minStr = chk.fmt==='pct'? fmtPct(chk.min) : chk.min.toFixed(2)+'×';
+    const gapStr = chk.fmt==='pct'? ((chk.min-chk.v)*100).toFixed(1)+' نقطة' : (chk.min-chk.v).toFixed(2)+'×';
+    recs.push({ k:chk.k, valStr, minStr, gapStr, action: IC_ACTION_LIBRARY[chk.k]||'يحتاج مراجعة تفصيلية من فريق الاستثمار.' });
+  });
+  return recs;
+}
+
+/* =========================================================================
+   أفكار تحسين القيمة — Value Enhancer Ideas (استشارية، تحتاج مراجعة هندسية/تنظيمية)
+   ========================================================================= */
+function valueEnhancerIdeas(o){
+  const type = o.meta.oppType;
+  const ideas = [];
+  if(type==='income' || type==='development'){
+    ideas.push('إضافة بلكونات/تراسات مكشوفة للوحدات — في عدد من الأنظمة البلدية لا تُحسب (أو تُحسب جزئياً فقط) ضمن معامل البناء الأساسي (FAR)، وترفع القيمة التسويقية دون استهلاك حق بناء كامل — استخدمي حقل "مساحات معفاة تقديرية" في خطوة الأرض لحساب الأثر المحتمل تقديرياً، بعد تأكيد النسبة الفعلية من كود البناء المحلي.');
+    ideas.push('استغلال السطح (Roof Utilization) — غرف خدمات مؤجرة، أو مساحات لوحات إعلانية/معدات اتصالات كدخل إضافي هامشي منخفض التكلفة.');
+    ideas.push('مراجعة مزيج الوحدات (Unit/Tenant Mix) لصالح الأحجام أو الأنشطة الأعلى طلباً محلياً، بما يرفع متوسط الإيجار أو سعر البيع للمتر.');
+  }
+  ideas.push('التفاوض على سداد مؤجّل لجزء من ثمن الأرض (Deferred Land Payment) لتخفيف رأس المال المبدئي المطلوب ورفع Equity IRR.');
+  ideas.push('دراسة استراتيجية خروج مختلطة (بيع جزئي + تأجير الباقي) لتحسين التوازن بين السيولة الفورية والعائد المتكرر طويل الأجل.');
+  if(type==='development'){
+    ideas.push('تسريع الجدول الإنشائي (مقاول/طريقة بناء أسرع) لتقليل فترة رسملة التمويل ورفع IRR غير المموّل (Project IRR).');
+  }
+  if(type==='landbank'){
+    ideas.push('متابعة التغييرات التنظيمية/التصنيفية المرتقبة (Zoning) في المنطقة — أي ترقية تصنيف تزيد القيمة السوقية جوهرياً دون أي تكلفة تنموية إضافية.');
+    ideas.push('دراسة تقسيم الأرض (Subdivision) لبيعها على قطع أصغر بسعر متر أعلى من البيع كقطعة واحدة، إن سمح النظام العمراني.');
+  }
+  return ideas;
+}
+
+/* =========================================================================
+   الأوبتيمايزر — Scenario Optimizer (بحث شبكي على عدة روافع مالية)
+   يحترم الحد الأدنى لـ DSCR كقيد أساسي، ولا يقترح أي تعديل على حقوق البناء
+   النظامية — فقط روافع مالية/تسعيرية ضمن تحكم الفريق.
+   ========================================================================= */
+function runOptimizer(o){
+  const base = compute(o, 'base');
+  const isDev = o.meta.oppType==='development';
+  const ltcOptions = [o.financing.ltc, 0.55, 0.60, 0.65, 0.70].filter((v,i,a)=>a.indexOf(v)===i);
+  const landDeltaOptions = [0, -0.05, -0.10];
+  const priceDeltaOptions = [0, 0.03, 0.05];
+  const candidates = [];
+  ltcOptions.forEach(ltc=>{
+    landDeltaOptions.forEach(landD=>{
+      priceDeltaOptions.forEach(priceD=>{
+        if(ltc===o.financing.ltc && landD===0 && priceD===0) return; // نفس الوضع الحالي
+        const clone = JSON.parse(JSON.stringify(o));
+        clone.financing.ltc = Math.min(0.80, Math.max(0.30, ltc));
+        clone.land.price = clone.land.price * (1+landD);
+        if(isDev) clone.development.salePrice *= (1+priceD);
+        else clone.income.rent *= (1+priceD);
+        let cc;
+        try{ cc = compute(clone, 'base'); }catch(e){ return; }
+        if(!isFinite(cc.equityIRR)) return;
+        const dscrOk = cc.dscrMin==null || cc.dscrMin >= (o.criteria.dscrMin||0);
+        if(!dscrOk) return;
+        candidates.push({ ltc:clone.financing.ltc, landD, priceD, irr:cc.equityIRR, moic:cc.MOIC, dscr:cc.dscrMin });
+      });
+    });
+  });
+  candidates.sort((a,b)=>b.irr-a.irr);
+  return { base, best: candidates[0]||null, triedCount: candidates.length };
 }
 
 /* =========================================================================
@@ -1031,6 +1279,7 @@ function renderStepFields(idx, d){
         ${F.num('land.basements','عدد البدرومات','Basements', d.land.basements, {suffix:'بدروم'})}
         ${F.num('land.floorHeight','ارتفاع الدور','Floor height', d.land.floorHeight, {suffix:'م', step:0.1})}
         ${F.pct('land.setbacks','الارتدادات (Setbacks)','Setbacks', d.land.setbacks, {dec:0})}
+        ${F.pct('land.bonusAreaPct','مساحات معفاة تقديرية (بلكونات/أسطح)','Exempt bonus area %', d.land.bonusAreaPct, {dec:0, hint:'تقديري - أكدي النسبة من كود البلدية المحلي. معلوماتي فقط ولا يدخل في حسابات TPC/GFA الأساسية.'})}
       </div>
       ${d.meta.oppType!=='landbank'? `
       <p class="step-sub" style="margin-top:16px;">نطاق التطوير — يحدد ما إذا كانت التكلفة تشمل البنية التحتية، الفوقية، أو كلاهما</p>
@@ -1573,7 +1822,7 @@ function renderTable(){
             <td class="num mono">${fmtPct(c.equityIRR)}</td>
             <td class="num mono">${c.MOIC.toFixed(2)}×</td>
             <td><span class="tag ${vcls}">${vlbl}</span></td>
-            <td><button class="btn btn-sm btn-ghost" data-action="delete-opp" data-id="${o.id}" title="حذف">🗑️</button></td>
+            <td>${canEditOpp(o)? `<button class="btn btn-sm btn-ghost" data-action="delete-opp" data-id="${o.id}" title="حذف">🗑️</button>` : `<span title="فرصة أضافها زميل آخر — للحذف تواصلي معه أو مع الأدمن" style="color:var(--ink-faint); font-size:12px;">🔒</span>`}</td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -1617,7 +1866,15 @@ function renderDetail(id){
   const vlbl = c.verdict==='good'?'🟢 التوصية: قابلة للعرض على لجنة الاستثمار':c.verdict==='warn'?'🟡 التوصية: تحت المراجعة — تحتاج تحسين مؤشرات محددة':'🔴 التوصية: دون معايير القبول — تحتاج إعادة هيكلة';
 
   return `
-  <div class="memo">
+  <div class="memo" data-print-date="${esc(fmtDateBilingual(todayStr()))}">
+    <div class="print-letterhead">
+      ${branding.logoDataUrl? `<img src="${branding.logoDataUrl}" alt="${esc(branding.companyName||'شعار الشركة')}" class="print-letterhead-logo">` : ''}
+      <div class="print-letterhead-text">
+        <div class="print-letterhead-company">${esc(branding.companyName||'')}</div>
+        <div class="print-letterhead-app">دفتر الفرص العقارية · Real Estate Opportunity Ledger</div>
+        <div class="print-letterhead-date">تم إنشاؤه في ${esc(fmtDateBilingual(todayStr()))}</div>
+      </div>
+    </div>
     <div class="memo-hero">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
         <div>
@@ -1626,7 +1883,7 @@ function renderDetail(id){
           <div class="meta">
             <span>📍 ${esc(d.meta.city)} · ${esc(d.meta.neighborhood||'—')} · ${esc(d.meta.tier)}</span>
             <span>${ti.ic} ${ti.t}</span>
-            <span>🗓️ ${esc(d.meta.updatedAt||d.meta.createdAt||todayStr())}</span>
+            <span>🗓️ ${esc(fmtDateBilingual(d.meta.updatedAt||d.meta.createdAt||todayStr()))}</span>
             ${d.meta.updatedBy? `<span>👤 آخر تعديل: ${esc(d.meta.updatedBy)}</span>` : (d.meta.createdBy? `<span>👤 أضافها: ${esc(d.meta.createdBy)}</span>` : '')}
           </div>
         </div>
@@ -1634,8 +1891,10 @@ function renderDetail(id){
           <button class="btn btn-sm" data-action="print-memo">🖨️ طباعة / PDF</button>
           <button class="btn btn-sm" data-action="export-excel" data-id="${rec.id}">⬇️ Excel</button>
           <button class="btn btn-sm" data-action="export-pptx" data-id="${rec.id}">⬇️ PowerPoint</button>
+          ${canEditOpp(rec)? `
           <button class="btn btn-sm" data-action="edit-opp" data-id="${rec.id}">✎ تعديل</button>
-          <button class="btn btn-sm btn-danger" data-action="delete-opp" data-id="${rec.id}">🗑️ حذف</button>
+          <button class="btn btn-sm btn-danger" data-action="delete-opp" data-id="${rec.id}">🗑️ حذف</button>` : `
+          <span class="tag" style="background:var(--surface-3); color:var(--ink-faint);" title="فرصة أضافها زميل آخر">🔒 عرض فقط — أضافها زميل آخر</span>`}
           <button class="btn btn-sm btn-ghost" data-action="close-detail">✕ إغلاق</button>
         </div>
       </div>
@@ -1715,6 +1974,18 @@ function renderDetail(id){
             ${c.scopeType!=='both'? `<div class="k">نطاق التطوير (Development Scope)</div><div class="v">${c.scopeType==='infra_only'?'بنية تحتية فقط (Infrastructure Only)':'بنية فوقية فقط (Vertical Only)'}</div>`:''}
             ${c.infraCostAmt>0? `<div class="k">تكلفة البنية التحتية</div><div class="v">${fmtSAR(c.infraCostAmt)}</div>`:''}
           </div>
+          ${(d.land.bonusAreaPct||0)>0? (()=>{
+            const bonusArea = c.gfa * d.land.bonusAreaPct;
+            const isDev = d.meta.oppType==='development';
+            const upperBoundRevenue = isDev ? bonusArea*(d.development.salePrice||0) : bonusArea*(d.income.rent||0);
+            return `
+            <div class="note" style="margin-top:12px; background:var(--warn-soft); color:var(--ink); padding:10px 12px; border-radius:8px; font-size:12px;">
+              ⚠️ <b>مساحات معفاة تقديرية (بلكونات/أسطح إلخ)</b>: ${fmtNum(bonusArea)} م² إضافية (${fmtPct(d.land.bonusAreaPct)} من GFA) —
+              <b>معلومة استرشادية فقط، غير مُدرجة ضمن TPC/GFA/الإيرادات المحسوبة أعلاه</b>. أعلى حد تقديري للإيرادة الإضافية لو
+              اتحسبت واتباعت/اتأجرت بنفس سعر المتر العادي: <b>${fmtSAR(upperBoundRevenue)}</b>${isDev?' (سنة الخروج)':' (سنوياً)'} —
+              أكّدي أولاً مع البلدية المحلية أي جزء من هذه المساحة فعلاً معفى من معامل البناء قبل اعتمادها في أي قرار.
+            </div>`;
+          })() : ''}
         </div>
 
         ${c.assetClass!=='عام'? `
@@ -1877,6 +2148,33 @@ function renderDetail(id){
             <thead><tr><th>المؤشر</th><th>القيمة</th><th>المعيار</th><th>الحكم</th></tr></thead>
             <tbody>${checkRow(c)}</tbody>
           </table>
+        </div>
+
+        <div class="section">
+          <h3>📝 توصيات لجنة الاستثمار التفصيلية (Detailed IC Recommendations)</h3>
+          ${(()=>{ const recs = icRecommendations(d,c); return recs.length? `
+          <ol style="margin:0; padding-right:20px; display:flex; flex-direction:column; gap:10px;">
+            ${recs.map(r=>`<li style="font-size:13px; line-height:1.6;"><b>${esc(r.k)}</b> — القيمة الحالية ${r.valStr} دون الحد الأدنى ${r.minStr} <span style="color:var(--bad); font-weight:600;">(فرق ${r.gapStr})</span>. <span style="color:var(--ink-faint);">${esc(r.action)}</span></li>`).join('')}
+          </ol>` : `<p class="note">✅ جميع المعايير مستوفاة — لا توجد توصيات تصحيحية مطلوبة حالياً، الفرصة جاهزة للعرض على لجنة الاستثمار.</p>`; })()}
+        </div>
+
+        <div class="section">
+          <h3>🚀 محسّنات القيمة والأوبتيمايزر (Value Enhancers & Optimizer)</h3>
+          <p class="step-sub" style="margin:0 0 10px;">أفكار استشارية عامة — تحتاج مراجعة هندسية/تنظيمية قبل الاعتماد</p>
+          <ul style="margin:0 0 16px; padding-right:20px; display:flex; flex-direction:column; gap:8px;">
+            ${valueEnhancerIdeas(d).map(idea=>`<li style="font-size:12.5px; line-height:1.6; color:var(--ink-soft);">${esc(idea)}</li>`).join('')}
+          </ul>
+          ${(()=>{ const opt = runOptimizer(d); if(!opt.best) return `<p class="note">لم يُعثر على تركيبة أفضل من الوضع الحالي ضمن ${opt.triedCount} محاولة مع الحفاظ على DSCR ≥ الحد الأدنى.</p>`;
+            const b = opt.best, upliftPts = ((b.irr-opt.base.equityIRR)*100).toFixed(1);
+            return `
+            <div class="kv" style="background:var(--accent-soft); border-radius:10px; padding:12px 14px;">
+              <div class="k">🎯 أفضل تركيبة وُجدت (من ${opt.triedCount} محاولة)</div><div class="v" style="font-size:12.5px; font-family:inherit;">
+                LTC ${fmtPct(b.ltc)}${b.landD!==0? ' · تعديل سعر الأرض '+(b.landD>0?'+':'')+(b.landD*100).toFixed(0)+'%':''}${b.priceD!==0? ' · تعديل '+(d.meta.oppType==='development'?'سعر البيع':'الإيجار')+' +'+(b.priceD*100).toFixed(0)+'%':''}
+              </div>
+              <div class="k">الأثر على Equity IRR</div><div class="v">${fmtPct(opt.base.equityIRR)} ← <b style="color:var(--good);">${fmtPct(b.irr)}</b> (${upliftPts>0?'+':''}${upliftPts} نقطة)</div>
+              <div class="k">MOIC الناتج / DSCR الناتج</div><div class="v">${b.moic.toFixed(2)}× / ${b.dscr!=null?b.dscr.toFixed(2)+'×':'—'}</div>
+            </div>
+            <p class="note" style="margin-top:10px; font-size:11.5px;">بحث آلي بسيط على روافع مالية/تسعيرية فقط (نسبة التمويل، سعر الأرض، الإيجار أو سعر البيع) ضمن قيد DSCR — ليس توصية تفاوضية نهائية، ويتطلب تأكيد إمكانية تطبيقه فعلياً في السوق مع الطرف الآخر.</p>`; })()}
         </div>
 
         <div class="section">
@@ -2111,6 +2409,7 @@ function renderLogin(){
           <div style="text-align:center; font-size:11.5px; color:var(--ink-faint); margin-top:4px;">
             ليس لديك حساب؟ تواصلي مع مسؤول النظام لإضافتك.
           </div>
+          <a href="?demo=1" style="text-align:center; font-size:12px; color:var(--accent); font-weight:600; margin-top:2px;">🧪 أو جرّبي الأداة كزائر بدون تسجيل دخول (نسخة تجريبية معزولة)</a>
         </div>
       </div>
     </div>
@@ -2184,6 +2483,84 @@ function renderTeamPanel(){
   `;
 }
 
+/* ---------------- لوحة العلامة التجارية (شعار الشركة لتقارير الطباعة، للمسؤول فقط) ---------------- */
+function renderBrandingPanel(){
+  const previewLogo = brandingLogoDraft!==null ? brandingLogoDraft : branding.logoDataUrl;
+  return `
+  <div class="overlay" data-action="close-branding-panel">
+    <div class="modal" style="max-width:460px;" data-action="overlay-noop">
+      <div class="modal-head">
+        <div class="step-title" style="font-size:15px; margin:0;">🏢 العلامة التجارية لتقارير الطباعة</div>
+        <button class="btn btn-sm btn-ghost" data-action="close-branding-panel">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="note">
+          اسم الشركة وشعارها هنا يظهران في ترويسة تقارير الطباعة/PDF لكل أعضاء الفريق (القراءة للجميع،
+          والتعديل للمسؤول فقط). الشعار يُحفظ كصورة داخل قاعدة البيانات — يُفضّل ملف صغير (أقل من 300KB).
+        </p>
+        ${brandingError? `<div class="note" style="background:var(--bad-soft); color:var(--bad); padding:9px 12px; border-radius:8px; margin-bottom:10px;">${esc(brandingError)}</div>` : ''}
+        <label style="display:block; font-size:12.5px; color:var(--ink-soft); margin-bottom:5px;">اسم الشركة (يظهر بجانب الشعار في الطباعة)</label>
+        <div style="display:flex; gap:8px; margin-bottom:16px;">
+          <input type="text" id="branding-company-name" dir="auto" placeholder="مثال: شركة الفرص العقارية" value="${esc(brandingNameDraft!==null? brandingNameDraft : branding.companyName)}" style="flex:1; border:1px solid var(--border); background:var(--paper); color:var(--ink); border-radius:8px; padding:9px 11px; font-size:13.5px;">
+          <button class="btn btn-primary btn-sm" data-action="branding-save" ${brandingBusy?'disabled':''}>حفظ</button>
+        </div>
+        <label style="display:block; font-size:12.5px; color:var(--ink-soft); margin-bottom:5px;">شعار الشركة (صورة)</label>
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px;">
+          ${previewLogo? `<img src="${previewLogo}" alt="شعار الشركة" style="height:52px; max-width:120px; object-fit:contain; border:1px solid var(--border); border-radius:6px; background:#fff; padding:4px;">`
+            : `<div style="height:52px; width:80px; border:1px dashed var(--border); border-radius:6px; display:flex; align-items:center; justify-content:center; color:var(--ink-faint); font-size:11px;">لا يوجد شعار</div>`}
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <input type="file" id="branding-logo-file" data-action="branding-logo-file" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="font-size:12px;">
+            ${(branding.logoDataUrl || brandingLogoDraft)? `<button class="btn btn-sm btn-danger" data-action="branding-remove-logo" ${brandingBusy?'disabled':''} style="width:fit-content;">إزالة الشعار</button>` : ''}
+          </div>
+        </div>
+        ${brandingLogoDraft!==null? `<div class="note" style="color:var(--warn);">تم اختيار شعار جديد — اضغطي «حفظ» بالأعلى لتثبيته.</div>` : ''}
+      </div>
+    </div>
+  </div>
+  `;
+}
+
+/* ---------------- جرس النشاط الحديث ("فرصة جديدة أضافها زميل") ---------------- */
+function renderActivityBell(){
+  const unread = unreadActivityCount();
+  return `
+  <span class="activity-bell-wrap">
+    <button class="btn btn-sm activity-bell-btn" data-action="toggle-activity-panel" title="نشاط حديث">
+      🔔${unread>0? ` <span class="activity-badge">${unread>9?'9+':unread}</span>` : ''}
+    </button>
+    ${recentActivityOpen? renderActivityDropdown() : ''}
+  </span>
+  `;
+}
+function renderActivityDropdown(){
+  const notifBtn = (typeof Notification==='undefined')
+    ? `<div class="note">المتصفح الحالي لا يدعم تنبيهات سطح المكتب.</div>`
+    : notifPermission==='granted'
+      ? `<div class="note">🔔 تنبيهات المتصفح مُفعَّلة — هتوصلك حتى لو التبويب مش مفتوح.</div>`
+      : notifPermission==='denied'
+        ? `<div class="note">تنبيهات المتصفح مرفوضة — فعّليها من إعدادات المتصفح لهذا الموقع لو حابة.</div>`
+        : `<button class="btn btn-sm" style="width:100%; justify-content:center; margin-bottom:8px;" data-action="request-notif-permission">🔔 تفعيل تنبيهات المتصفح</button>`;
+  return `
+  <div class="activity-dropdown" data-action="overlay-noop">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+      <div style="font-size:13px; font-weight:700;">🔔 نشاط حديث</div>
+      ${recentActivity.length? `<button class="btn btn-sm btn-ghost" data-action="activity-mark-all-read" style="font-size:11px;">تعليم الكل كمقروء</button>` : ''}
+    </div>
+    ${notifBtn}
+    ${recentActivity.length ? `
+      <div style="display:flex; flex-direction:column; gap:4px; margin-top:8px;">
+        ${recentActivity.map(a=>`
+          <div class="activity-item ${a.seen?'':'unseen'}" data-action="open-activity-item" data-id="${esc(a.id)}" data-opp="${esc(a.oppId)}">
+            <div class="t">${a.seen?'':'🆕 '}${esc(a.name)}</div>
+            <div class="m">أضافها ${esc(a.by)} · ${timeAgo(a.at)}</div>
+          </div>
+        `).join('')}
+      </div>
+    ` : `<div class="note" style="margin-top:8px;">لسه ما فيه نشاط — هيظهر هنا أي فرصة يضيفها زميل آخر لحظياً.</div>`}
+  </div>
+  `;
+}
+
 /* ---------------- main render ---------------- */
 function render(){
   const app = document.getElementById('app');
@@ -2201,9 +2578,12 @@ function render(){
         </div>
       </div>
       <div class="badge-row">
-        ${!DB? '<span class="tag" style="background:var(--warn-soft); color:var(--warn);">⚠️ وضع محلي (بدون قاعدة سحابية)</span>':''}
+        ${DEMO_MODE? '<span class="tag" style="background:var(--gold); color:#fff; font-weight:700;">🧪 وضع تجريبي — بياناتك هنا محلية على متصفحك فقط ولن تصل لقاعدتنا الحقيقية</span>'
+          : (!DB? '<span class="tag" style="background:var(--warn-soft); color:var(--warn);">⚠️ وضع محلي (بدون قاعدة سحابية)</span>':'')}
         ${onlineUsers.length? `<span class="tag" style="background:var(--good-soft); color:var(--good);" title="${esc(onlineUsers.map(u=>u.email).join('، '))}">🟢 متصل الآن: ${onlineUsers.length}</span>` : ''}
+        ${DB? renderActivityBell() : ''}
         ${amAdmin? `<button class="btn btn-sm" data-action="open-team-panel">👥 إدارة الفريق</button>` : ''}
+        ${amAdmin? `<button class="btn btn-sm" data-action="open-branding-panel">🏢 العلامة التجارية</button>` : ''}
         ${currentUser? `<span class="tag" style="background:var(--surface-3); color:var(--ink-soft);" title="${esc(currentUser.email||'')}">👤 ${esc(currentUser.email||'مستخدم')}</span>
           <button class="btn btn-sm btn-ghost" data-action="sign-out">تسجيل الخروج</button>` : ''}
       </div>
@@ -2215,7 +2595,7 @@ function render(){
   `;
   app.innerHTML = html;
   const overlay = document.createElement('div');
-  overlay.innerHTML = renderWizardModal() + renderConfirmDelete() + (teamPanelOpen? renderTeamPanel(): '');
+  overlay.innerHTML = renderWizardModal() + renderConfirmDelete() + (teamPanelOpen? renderTeamPanel(): '') + (brandingPanelOpen? renderBrandingPanel(): '');
   while(overlay.firstChild) app.appendChild(overlay.firstChild);
   initCharts();
 }
@@ -2223,6 +2603,9 @@ function render(){
 /* ---------------- event delegation ---------------- */
 document.addEventListener('click', async (e)=>{
   const el = e.target.closest('[data-action]');
+  // إغلاق قائمة "نشاط حديث" لو ضُغط خارجها (سواء الضغطة على عنصر له data-action أو لا) —
+  // نحسب el قبل هذا الاستدعاء حتى لا تفقد المرجع بعد إعادة الرسم.
+  if(recentActivityOpen && !e.target.closest('.activity-bell-wrap')){ recentActivityOpen = false; render(); }
   if(!el) return;
   const action = el.dataset.action;
 
@@ -2250,6 +2633,7 @@ document.addEventListener('click', async (e)=>{
   if(action==='sign-out'){
     try{ await firebase.auth().signOut(); }catch(err){ console.error(err); }
     teamPanelOpen = false;
+    brandingPanelOpen = false;
     return;
   }
   if(action==='open-team-panel'){ teamPanelOpen = true; teamPanelError=''; render(); return; }
@@ -2279,6 +2663,45 @@ document.addEventListener('click', async (e)=>{
     teamPanelBusy = false; render();
     return;
   }
+  if(action==='toggle-activity-panel'){
+    recentActivityOpen = !recentActivityOpen;
+    render();
+    return;
+  }
+  if(action==='activity-mark-all-read'){ markAllActivitySeen(); render(); return; }
+  if(action==='open-activity-item'){
+    markActivitySeen(el.dataset.id);
+    recentActivityOpen = false;
+    openDetailId = el.dataset.opp;
+    render();
+    return;
+  }
+  if(action==='request-notif-permission'){
+    if(typeof Notification==='undefined'){ render(); return; }
+    try{ notifPermission = await Notification.requestPermission(); }catch(e){ console.error(e); }
+    render();
+    return;
+  }
+  if(action==='open-branding-panel'){ brandingPanelOpen = true; brandingError=''; brandingLogoDraft=null; brandingNameDraft=null; render(); return; }
+  if(action==='close-branding-panel'){ brandingPanelOpen = false; brandingLogoDraft=null; brandingNameDraft=null; render(); return; }
+  if(action==='branding-save'){
+    const nameEl = document.getElementById('branding-company-name');
+    const companyName = (nameEl && nameEl.value || '').trim();
+    const patch = { companyName };
+    if(brandingLogoDraft!==null) patch.logoDataUrl = brandingLogoDraft;
+    brandingBusy = true; brandingError=''; render();
+    try{ await saveBranding(patch); brandingLogoDraft = null; brandingNameDraft = null; }
+    catch(err){ brandingError = 'تعذّر الحفظ: '+(err&&err.message||err); }
+    brandingBusy = false; render();
+    return;
+  }
+  if(action==='branding-remove-logo'){
+    brandingBusy = true; brandingError=''; render();
+    try{ await saveBranding({ logoDataUrl: '' }); brandingLogoDraft = null; }
+    catch(err){ brandingError = 'تعذّرت الإزالة: '+(err&&err.message||err); }
+    brandingBusy = false; render();
+    return;
+  }
   if(action==='filter-clear'){
     dashFilterCity = 'all'; dashFilterType = 'all';
     render();
@@ -2296,7 +2719,7 @@ document.addEventListener('click', async (e)=>{
   if(action==='open-wizard'){ wizard = { step:0, draft: blankOpportunity(), editId:null }; render(); return; }
   if(action==='edit-opp'){
     const rec = opportunities.find(o=>o.id===el.dataset.id);
-    if(rec){ wizard = { step:0, draft: withDefaults(rec.data), editId: rec.id }; openDetailId=null; render(); }
+    if(rec && canEditOpp(rec)){ wizard = { step:0, draft: withDefaults(rec.data), editId: rec.id }; openDetailId=null; render(); }
     return;
   }
   if(action==='choose'){
@@ -2330,7 +2753,11 @@ document.addEventListener('click', async (e)=>{
     openDetailId = el.dataset.id; render(); return;
   }
   if(action==='close-detail'){ openDetailId=null; render(); return; }
-  if(action==='delete-opp'){ confirmDeleteId = el.dataset.id; render(); return; }
+  if(action==='delete-opp'){
+    const rec = opportunities.find(o=>o.id===el.dataset.id);
+    if(rec && !canEditOpp(rec)) return;
+    confirmDeleteId = el.dataset.id; render(); return;
+  }
   if(action==='confirm-delete'){
     await deleteOpportunity(confirmDeleteId);
     if(openDetailId===confirmDeleteId) openDetailId=null;
@@ -2383,40 +2810,164 @@ function exportOpportunityExcel(id){
   try{
     const wb = XLSX.utils.book_new();
 
-    const wsSummary = XLSX.utils.aoa_to_sheet([
-      ['دفتر الفرص العقارية — مذكرة تقييم فرصة', ''],
-      ['معرّف الفرصة', rec.id],
-      ['اسم الفرصة', d.meta.name||''],
-      ['المدينة / الحي / الفئة', `${d.meta.city} · ${d.meta.neighborhood||'—'} · ${d.meta.tier}`],
-      ['نوع الفرصة', OPP_TYPE_INFO[d.meta.oppType].t],
-      ['تاريخ آخر تحديث', d.meta.updatedAt||d.meta.createdAt||todayStr()],
-      [],
-      ['المؤشر', 'القيمة'],
-      ['Equity IRR', fmtPct(c.equityIRR,2)],
-      ['Project IRR (Unlevered)', fmtPct(c.projectIRR,2)],
-      ['MOIC', c.MOIC.toFixed(2)+'x'],
-      ['DSCR (أدنى/متوسط)', `${c.dscrMin.toFixed(2)} / ${c.dscrAvg.toFixed(2)}`],
-      ['Yield on Cost', fmtPct(c.yieldOnCost,2)],
-      ['WACC', fmtPct(c.WACC,2)],
-      ['التوصية', c.verdict==='good'?'قابلة للعرض':c.verdict==='warn'?'تحت المراجعة':'دون معايير القبول'],
-      [],
-      ['البند', 'المبلغ (ريال)'],
-      ['قيمة الأرض', Math.round(c.landCost||0)],
-      ['التكلفة الإنشائية', Math.round(c.hardCost||0)],
-      ['إجمالي تكلفة المشروع (TPC)', Math.round(c.TPC||0)],
-      ['التمويل بالدين', Math.round(c.debt||0)],
-      ['حقوق الملكية (Equity)', Math.round(c.equity||0)],
-      ['صافي الدخل التشغيلي (سنة 1 مستقر)', Math.round(c.stabilizedNOIyr1||0)],
-      ['إجمالي التوزيعات', Math.round(c.totalDistrib||0)],
-    ]);
-    wsSummary['!cols'] = [{wch:34},{wch:26}];
+    // نبني صفوف الملخص مع تتبّع رقم كل صف، عشان نقدر نكتب معادلات Excel حقيقية (مش أرقام جامدة)
+    // للبنود اللي هي نتيجة حسابية مباشرة لبنود أخرى في نفس الجدول (هوية جبرية مضمونة الصحة).
+    const summaryRows = [];
+    const addRow = (a,b)=>{ summaryRows.push([a,b]); return summaryRows.length; };
+    addRow('دفتر الفرص العقارية — مذكرة تقييم فرصة', '');
+    addRow('معرّف الفرصة', rec.id);
+    addRow('اسم الفرصة', d.meta.name||'');
+    addRow('المدينة / الحي / الفئة', `${d.meta.city} · ${d.meta.neighborhood||'—'} · ${d.meta.tier}`);
+    addRow('نوع الفرصة', OPP_TYPE_INFO[d.meta.oppType].t);
+    addRow('تاريخ آخر تحديث', fmtDateBilingual(d.meta.updatedAt||d.meta.createdAt||todayStr()));
+    addRow('تاريخ إصدار هذا التقرير', fmtDateBilingual(todayStr()));
+    addRow('', '');
+    addRow('المؤشر', 'القيمة');
+    addRow('Equity IRR', fmtPct(c.equityIRR,2));
+    addRow('Project IRR (Unlevered)', fmtPct(c.projectIRR,2));
+    addRow('MOIC', c.MOIC.toFixed(2)+'x');
+    addRow('DSCR (أدنى/متوسط)', `${c.dscrMin.toFixed(2)} / ${c.dscrAvg.toFixed(2)}`);
+    addRow('Yield on Cost', fmtPct(c.yieldOnCost,2));
+    addRow('WACC', fmtPct(c.WACC,2));
+    addRow('التوصية', c.verdict==='good'?'قابلة للعرض':c.verdict==='warn'?'تحت المراجعة':'دون معايير القبول');
+    addRow('', '');
+    addRow('البند', 'المبلغ (ريال)');
+    const rLand = addRow('قيمة الأرض (Land Cost)', Math.round(c.landCost||0));
+    const rHard = addRow('التكلفة الإنشائية (Hard Cost)', Math.round(c.hardCost||0));
+    const rTPC  = addRow('إجمالي تكلفة المشروع (TPC)', Math.round(c.TPC||0));
+    const rSoft = addRow('رسوم ومصاريف الصندوق (Soft Costs)', 0); // معادلة: TPC - أرض - إنشاء
+    const rDebt = addRow('التمويل بالدين (Debt)', Math.round(c.debt||0));
+    const rEq   = addRow('حقوق الملكية (Equity)', 0); // معادلة: TPC - Debt
+    const rDebtPct = addRow('نسبة الدين من التكلفة (Debt / TPC)', 0); // معادلة
+    const rEqPct   = addRow('نسبة حقوق الملكية من التكلفة (Equity / TPC)', 0); // معادلة
+    addRow('صافي الدخل التشغيلي (سنة 1 مستقر)', Math.round(c.stabilizedNOIyr1||0));
+    addRow('إجمالي التوزيعات', Math.round(c.totalDistrib||0));
+
+    const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+    const setFormula = (row, formula, numFmt)=>{
+      const addr = XLSX.utils.encode_cell({ r: row-1, c: 1 });
+      wsSummary[addr] = Object.assign({ t:'n', f: formula }, numFmt? { z: numFmt } : {});
+    };
+    // معادلات حقيقية قابلة لإعادة الحساب في Excel — تتحدّث تلقائياً لو عدّلتِ أي بند مصدري:
+    setFormula(rSoft, `B${rTPC}-B${rLand}-B${rHard}`);
+    setFormula(rEq, `B${rTPC}-B${rDebt}`);
+    setFormula(rDebtPct, `B${rDebt}/B${rTPC}`, '0.0%');
+    setFormula(rEqPct, `B${rEq}/B${rTPC}`, '0.0%');
+    wsSummary['!cols'] = [{wch:40},{wch:26}];
     XLSX.utils.book_append_sheet(wb, wsSummary, 'الملخص');
 
-    const cfRows = [['السنة','تدفق المشروع (غير مرفوع)','تدفق حقوق الملكية']];
-    for(let i=0;i<yrs;i++){ cfRows.push([i, Math.round(c.projectCF[i]||0), Math.round(c.equityCF[i]||0)]); }
+    // التدفقات النقدية — مع صفوف معادلات IRR()/XIRR() حقيقية (تحقّق تقاطعي بمعادلات Excel أصلية،
+    // بجانب رقم التطبيق الدقيق أعلى). XIRR تستخدم تواريخ فعلية (تاريخ إنشاء الفرصة + سنة لكل صف)
+    // فتُعطي نفس منهجية IRR غير المنتظمة الزمنية التي قد يعتمدها التطبيق داخلياً.
+    const baseDateStr = d.meta.createdAt || todayStr();
+    const baseDate = new Date(baseDateStr+'T00:00:00');
+    const cfRows = [['السنة','التاريخ','تدفق المشروع (غير مرفوع)','تدفق حقوق الملكية']];
+    for(let i=0;i<yrs;i++){
+      const dt = new Date(baseDate); dt.setFullYear(dt.getFullYear()+i);
+      cfRows.push([i, dt, Math.round(c.projectCF[i]||0), Math.round(c.equityCF[i]||0)]);
+    }
     const wsCF = XLSX.utils.aoa_to_sheet(cfRows);
-    wsCF['!cols'] = [{wch:8},{wch:24},{wch:24}];
+    const irrRow = cfRows.length + 1, xirrRow = cfRows.length + 2;
+    wsCF[XLSX.utils.encode_cell({r:irrRow-1, c:0})] = { t:'s', v:'IRR() — تحقّق Excel (فترات سنوية منتظمة)' };
+    wsCF[XLSX.utils.encode_cell({r:irrRow-1, c:2})] = { t:'n', f:`IRR(C2:C${cfRows.length})`, z:'0.0%' };
+    wsCF[XLSX.utils.encode_cell({r:irrRow-1, c:3})] = { t:'n', f:`IRR(D2:D${cfRows.length})`, z:'0.0%' };
+    wsCF[XLSX.utils.encode_cell({r:xirrRow-1, c:0})] = { t:'s', v:'XIRR() — بالتواريخ الفعلية' };
+    wsCF[XLSX.utils.encode_cell({r:xirrRow-1, c:2})] = { t:'n', f:`XIRR(C2:C${cfRows.length},B2:B${cfRows.length})`, z:'0.0%' };
+    wsCF[XLSX.utils.encode_cell({r:xirrRow-1, c:3})] = { t:'n', f:`XIRR(D2:D${cfRows.length},B2:B${cfRows.length})`, z:'0.0%' };
+    wsCF['!ref'] = XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:xirrRow-1, c:3} });
+    wsCF['!cols'] = [{wch:8},{wch:14},{wch:24},{wch:24}];
     XLSX.utils.book_append_sheet(wb, wsCF, 'التدفقات النقدية');
+
+    // ورقة المدخلات والافتراضات — كل مدخل رئيسي في مكان واحد، بدل تكراره داخل معادلات متفرقة.
+    // نتتبّع أرقام صفوف هيكل حقوق الملكية والمدة عشان نربطها بمعادلات ورقة "شلال التوزيعات" التالية.
+    const inputRows = [];
+    const addInput = (a,b)=>{ inputRows.push([a,b]); return inputRows.length; };
+    addInput('المدخلات والافتراضات الرئيسية', '');
+    addInput('البند', 'القيمة');
+    addInput('مساحة الأرض (م²)', d.land.area);
+    addInput('سعر الأرض (ر.س/م²)', d.land.price);
+    addInput('معامل البناء (FAR)', d.land.far);
+    addInput('نسبة LTC (تمويل بالدين)', d.financing.ltc);
+    addInput('هامش التمويل فوق SAIBOR', d.financing.margin);
+    addInput('SAIBOR', d.financing.saibor);
+    addInput('مدة التمويل (سنوات)', d.financing.tenor);
+    if(d.meta.oppType==='development'){
+      addInput('سعر البيع (ر.س/م²)', d.development.salePrice);
+      addInput('تكلفة البناء (ر.س/م²)', d.development.buildCost);
+      addInput('مدة الإنشاء (سنوات)', d.development.constructionYears);
+      addInput('معدل الرسملة عند الخروج (Exit Cap Rate)', d.development.exitCapRate);
+    }
+    if(d.meta.oppType==='income'){
+      addInput('الإيجار (ر.س/م²/سنة)', d.income.rent);
+      addInput('نسبة الإشغال', d.income.occupancy);
+      addInput('نسبة المصاريف التشغيلية (OPEX)', d.income.opex);
+    }
+    const rYears = addInput('مدة الصندوق الإجمالية (سنوات)', c.totalYears);
+    const rHurdle = addInput('هيكل حقوق الملكية — Hurdle (Pref)', d.economics.hurdle);
+    const rCarry = addInput('هيكل حقوق الملكية — Carry', d.economics.carry);
+    const rLpShare = addInput('حصة المستثمرين الإضافية من Carry Pool (LP Share)', d.economics.lpShare);
+    const rGpShare = addInput('حصة مدير الصندوق من Carry Pool (GP Share)', d.economics.gpShare);
+    const rDevShare = addInput('حصة المطور من Carry Pool (Developer Share)', d.economics.devShare);
+
+    const wsInputs = XLSX.utils.aoa_to_sheet(inputRows);
+    wsInputs['!cols'] = [{wch:44},{wch:20}];
+    XLSX.utils.book_append_sheet(wb, wsInputs, 'المدخلات والافتراضات');
+
+    // شلال التوزيعات — معادلات Excel حية تُعيد بناء نفس منطق الشلال المُستخدَم في التطبيق
+    // (ROC → Pref → GP Catch-up → التوزيع المتبقي LP/Carry) خطوة بخطوة، بدل أرقام جامدة.
+    const wfRows = [];
+    const addWf = (a,b)=>{ wfRows.push([a,b]); return wfRows.length; };
+    addWf('شلال التوزيعات — معادلات حية (Distribution Waterfall)', '');
+    addWf('البند', 'المبلغ (ريال)');
+    const rPIC = addWf('رأس المال المستثمر (PIC = Equity)', 0);
+    const rTotDist = addWf('إجمالي التوزيعات (من ورقة التدفقات النقدية)', 0);
+    const rROC = addWf('١. عودة رأس المال (ROC)', 0);
+    const rRem1 = addWf('المتبقي بعد ROC', 0);
+    const rPrefTarget = addWf('مستهدف العائد التفضيلي (Pref Target)', 0);
+    const rPref = addWf('٢. العائد التفضيلي (Pref)', 0);
+    const rRem2 = addWf('المتبقي بعد Pref', 0);
+    const rCatchupTarget = addWf('مستهدف اللحاق (Catch-up Target)', 0);
+    const rCatchup = addWf('٣. اللحاق (GP Catch-up)', 0);
+    const rRem3 = addWf('المتبقي بعد Catch-up (يُقسَّم LP/Carry)', 0);
+    const rLpStd = addWf('نصيب LP القياسي من المتبقي', 0);
+    const rCarryPool = addWf('مجمّع الـ Carry', 0);
+    const rLpBonus = addWf('↳ حصة المستثمر الإضافية (LP Bonus)', 0);
+    const rGpMgr = addWf('↳ حصة مدير الصندوق (GP)', 0);
+    const rDevProm = addWf('↳ حصة المطور (Developer Promote)', 0);
+    const rLpTotal = addWf('🎯 إجمالي حصة LP (المستثمرين)', 0);
+    const rGpTotal = addWf('🎯 إجمالي حصة GP (مدير الصندوق)', 0);
+    const rDevTotal = addWf('🎯 إجمالي حصة المطور (Developer Promote)', 0);
+    const rCheckSum = addWf('✅ تدقيق: مجموع LP+GP+المطور (لازم يساوي إجمالي التوزيعات)', 0);
+
+    const wsWf = XLSX.utils.aoa_to_sheet(wfRows);
+    const setWf = (row, formula, numFmt)=>{
+      const addr = XLSX.utils.encode_cell({ r: row-1, c: 1 });
+      wsWf[addr] = Object.assign({ t:'n', f: formula }, numFmt? { z: numFmt } : {});
+    };
+    const IN = (r)=>`'المدخلات والافتراضات'!B${r}`;
+    const SUM_REF = `'الملخص'!B${rEq}`;
+    const CF_RANGE = `'التدفقات النقدية'!D2:D${cfRows.length}`;
+    setWf(rPIC, SUM_REF);
+    setWf(rTotDist, `SUMIF(${CF_RANGE},">0")`);
+    setWf(rROC, `MIN(B${rPIC},B${rTotDist})`);
+    setWf(rRem1, `B${rTotDist}-B${rROC}`);
+    setWf(rPrefTarget, `B${rPIC}*(POWER(1+${IN(rHurdle)},${IN(rYears)})-1)`);
+    setWf(rPref, `MIN(B${rRem1},MAX(0,B${rPrefTarget}))`);
+    setWf(rRem2, `B${rRem1}-B${rPref}`);
+    setWf(rCatchupTarget, `IF(B${rRem2}>0,(${IN(rCarry)}/(1-${IN(rCarry)}))*B${rPref},0)`);
+    setWf(rCatchup, `MIN(B${rRem2},MAX(0,B${rCatchupTarget}))`);
+    setWf(rRem3, `B${rRem2}-B${rCatchup}`);
+    setWf(rLpStd, `(1-${IN(rCarry)})*B${rRem3}`);
+    setWf(rCarryPool, `${IN(rCarry)}*B${rRem3}`);
+    setWf(rLpBonus, `${IN(rLpShare)}*B${rCarryPool}`);
+    setWf(rGpMgr, `${IN(rGpShare)}*B${rCarryPool}`);
+    setWf(rDevProm, `${IN(rDevShare)}*B${rCarryPool}`);
+    setWf(rLpTotal, `B${rROC}+B${rPref}+B${rLpStd}+B${rLpBonus}`);
+    setWf(rGpTotal, `B${rCatchup}+B${rGpMgr}`);
+    setWf(rDevTotal, `B${rDevProm}`);
+    setWf(rCheckSum, `B${rLpTotal}+B${rGpTotal}+B${rDevTotal}-B${rTotDist}`, '#,##0;(#,##0);"-"');
+    wsWf['!cols'] = [{wch:44},{wch:20}];
+    XLSX.utils.book_append_sheet(wb, wsWf, 'شلال التوزيعات');
 
     if(d.constructionFinancing){
       const cfin = d.constructionFinancing;
@@ -2548,6 +3099,18 @@ document.addEventListener('change', (e)=>{
   const t = e.target;
   if(t.dataset && t.dataset.action==='filter-city'){ dashFilterCity = t.value; render(); return; }
   if(t.dataset && t.dataset.action==='filter-type'){ dashFilterType = t.value; render(); return; }
+  if(t.dataset && t.dataset.action==='branding-logo-file'){
+    const nameEl = document.getElementById('branding-company-name');
+    if(nameEl) brandingNameDraft = nameEl.value; // نحافظ على أي اسم مكتوب لسه ما اتحفظش قبل إعادة الرسم
+    const file = t.files && t.files[0];
+    if(!file) return;
+    if(file.size > 800*1024){ brandingError = 'حجم الصورة كبير جداً (الحد المفضّل أقل من 300KB، والأقصى 800KB) — رجاءً اختاري صورة أصغر.'; render(); return; }
+    const reader = new FileReader();
+    reader.onload = ()=>{ brandingLogoDraft = reader.result; brandingError=''; render(); };
+    reader.onerror = ()=>{ brandingError = 'تعذّرت قراءة الصورة.'; render(); };
+    reader.readAsDataURL(file);
+    return;
+  }
   if(!wizard || !t.name) return;
   if(!t.closest('#wizard-modal')) return;
   if(t.tagName==='SELECT'){
