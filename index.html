@@ -90,10 +90,39 @@ button{font-family:inherit;}
 
 /* ---------- KPI strip ---------- */
 .kpis{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:18px; }
-.kpi{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; box-shadow:var(--shadow); }
+.kpi{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; box-shadow:var(--shadow); transition:transform .15s ease, box-shadow .15s ease; }
+.kpi:hover{ transform:translateY(-2px); box-shadow:0 4px 10px rgba(20,28,22,.10), 0 14px 30px -14px rgba(20,28,22,.24); }
 .kpi .l{ font-size:11.5px; color:var(--ink-faint); font-weight:600; margin-bottom:6px; }
 .kpi .v{ font-size:22px; font-weight:700; font-family:'IBM Plex Mono',monospace; direction:ltr; text-align:right; }
 .kpi .v small{ font-size:12px; color:var(--ink-faint); font-weight:500; font-family:'IBM Plex Sans Arabic'; }
+
+/* ---------- شريط أهم مؤشرات لوحة القيادة (أول ما يُرى) ---------- */
+.dash-hero{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:16px; }
+.dash-hero-card{
+  position:relative; overflow:hidden; border-radius:var(--radius); padding:16px 18px 14px;
+  background:var(--surface); border:1px solid var(--border); box-shadow:var(--shadow);
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.dash-hero-card:hover{ transform:translateY(-3px); box-shadow:0 6px 14px rgba(20,28,22,.12), 0 18px 34px -16px rgba(20,28,22,.28); }
+.dash-hero-card::before{ content:""; position:absolute; inset:0 0 auto 0; height:4px; background:var(--accent-color, var(--accent)); }
+.dash-hero-card .icon{ font-size:18px; margin-bottom:8px; display:block; }
+.dash-hero-card .l{ font-size:11.5px; color:var(--ink-faint); font-weight:600; margin-bottom:6px; }
+.dash-hero-card .v{ font-size:24px; font-weight:800; font-family:'IBM Plex Mono',monospace; direction:ltr; text-align:right; color:var(--ink); }
+.dash-hero-card .v small{ font-size:13px; color:var(--ink-faint); font-weight:500; font-family:'IBM Plex Sans Arabic'; }
+.dash-hero-card .sub{ font-size:10.5px; color:var(--ink-faint); margin-top:4px; }
+
+/* ---------- عناوين أقسام لوحة القيادة (تجميع منطقي للمؤشرات) ---------- */
+.dash-section{ margin-bottom:16px; }
+.dash-section-title{
+  display:flex; align-items:center; gap:7px; font-size:12px; font-weight:700; color:var(--ink-soft);
+  margin-bottom:8px; padding-right:2px; letter-spacing:.01em;
+}
+.dash-section-title .bar{ width:3px; height:14px; border-radius:2px; background:var(--accent); display:inline-block; }
+
+@media (max-width: 900px){
+  .dash-hero{ grid-template-columns:repeat(2,1fr); }
+  .kpis{ grid-template-columns:repeat(2,1fr); }
+}
 
 /* ---------- table / database grid ---------- */
 .panel{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
@@ -223,7 +252,7 @@ table.db thead th:first-child, table.db tbody td:first-child{ width:32px; text-a
 /* غلاف/ترويسة الطباعة (شعار الشركة + اسمها) — عنصر DOM حقيقي، مخفي على الشاشة، يظهر فقط عند الطباعة */
 .print-letterhead{ display:none; }
 @media print{
-  .topbar, .kpis.portfolio, .panel, .badge-row, .small-btns, .overlay, .db-toolbar{ display:none !important; }
+  .topbar, .kpis.portfolio, .dash-hero, .dash-section, .panel, .badge-row, .small-btns, .overlay, .db-toolbar{ display:none !important; }
   html,body{ background:#fff; color:#111; font-family:'Sakkal Majalla','Amiri','Times New Roman','Arial',serif; font-size:12.5px; }
   .app{ padding:0; max-width:none; }
   .memo{ gap:0; }
@@ -911,6 +940,7 @@ function compute(o, scenarioKey){
   // ---- Build year-by-year cashflows (unlevered / project, and levered / equity) ----
   const projectCF = []; const equityCF = []; const dscrSeries = [];
   let remainingDebt = debt;
+  let navGrossValue = 0, navDebt = 0; // نلتقط قيمة الأصل والدين المتبقي في سنة الخروج/الاستقرار لحساب NAV بعد الحلقة
 
   projectCF.push(-TPC);
   const initialEquityOutlay = -(equity) - o.subscription.subscriptionFee*equity;
@@ -951,6 +981,7 @@ function compute(o, scenarioKey){
       const exitCostPct = o.exitCosts.broker + o.exitCosts.legal + o.exitCosts.rett + o.exitCosts.exitFee + o.fees.disposition;
       exitCostsAmt = exitValue * exitCostPct;
       debtPayoff = remainingDebt - principalPay; // remaining balance after this year's amortization, paid off at exit
+      navGrossValue = exitValue; navDebt = debtPayoff; // القيمة الإجمالية للأصل والدين وقت الاستقرار/الخروج (بدون خصم تكاليف بيع افتراضية — NAV مش عملية بيع فعلية)
     }
 
     const projFlow = noi + (isLast? (exitValue - exitCostsAmt) : 0);
@@ -1014,6 +1045,14 @@ function compute(o, scenarioKey){
   const stabilizedNOIyr1 = type!=='landbank' ? noiForYear() : 0;
   const yieldOnCost = TPC>0 ? stabilizedNOIyr1/TPC : 0;
 
+  // ---- NAV و ROI ----
+  // NAV المقدَّر عند الاستقرار/الخروج = القيمة الإجمالية المقدَّرة للأصل (بنفس افتراضات الخروج المستخدمة في التدفقات)
+  // ناقص الدين المتبقي وقتها — بدون خصم تكاليف بيع افتراضية (لأن NAV تقييم "ماسك للأصل"، مش عملية بيع فعلية).
+  const NAV = navGrossValue - navDebt;
+  // ROI بسيط (Cash-on-Cash على مدى العمر) = صافي الربح / رأس المال المستثمر — مقياس مبسّط يكمّل MOIC وIRR،
+  // بدون تسوية بالقيمة الزمنية للنقود (على عكس IRR).
+  const ROI = equity>0 ? (totalDistrib - equity)/equity : 0;
+
   // ---- Fees rollups ----
   const mgmtFeeTotal = o.fees.mgmt * (equity+debt)/2 * totalYears; // approx on avg NAV proxy
   const assetMgmtTotal = o.fees.assetMgmt * TPC * totalYears;
@@ -1066,7 +1105,7 @@ function compute(o, scenarioKey){
     gla, totalYears, constructionYears, operationYears,
     equityIRR, projectIRR, npvEquity, npvProject, totalDistrib, MOIC, DPI, RVPI, TVPI, dscrMin, dscrAvg,
     equityIRRCashOnly, MOICCashOnly, totalDistribCashOnly,
-    stabilizedNOIyr1, yieldOnCost,
+    stabilizedNOIyr1, yieldOnCost, NAV, ROI,
     mgmtFeeTotal, assetMgmtTotal, regAuditCustodianTotal, fundSideFees, investorSideFees, feesPctOfTPC,
     PIC, roc, pref, catchup, lpStandard, carryPool, lpBonus, gpManager, devPromote, lpTotal, gpTotal, devTotal,
     checks, passCount, failCount, applicable, verdict, salePct,
@@ -1620,15 +1659,20 @@ function filteredOpportunities(){
 function portfolioKPIs(){
   const list = filteredOpportunities();
   const n_ = list.length;
-  let tpcSum=0, debtSum=0, equitySum=0, irrs=[], moics=[], dscrs=[], yocs=[], good=0,warn=0,bad=0;
+  let tpcSum=0, debtSum=0, equitySum=0, navSum=0, irrs=[], projIrrs=[], rois=[], moics=[], dscrs=[], yocs=[], waccs=[], niys=[], good=0,warn=0,bad=0;
   const byType = {}, byCity = {}, byMonth = {};
   list.forEach(o=>{
     const c = compute(o.data);
-    tpcSum += c.TPC||0; debtSum += c.debt||0; equitySum += c.equity||0;
+    tpcSum += c.TPC||0; debtSum += c.debt||0; equitySum += c.equity||0; navSum += c.NAV||0;
     if(isFinite(c.equityIRR)) irrs.push(c.equityIRR);
+    if(isFinite(c.projectIRR)) projIrrs.push(c.projectIRR);
+    if(isFinite(c.ROI)) rois.push(c.ROI);
     if(isFinite(c.MOIC)) moics.push(c.MOIC);
     if(c.dscrMin!=null && isFinite(c.dscrMin)) dscrs.push(c.dscrMin);
     if(isFinite(c.yieldOnCost)) yocs.push(c.yieldOnCost);
+    if(isFinite(c.WACC)) waccs.push(c.WACC);
+    const refNiy = USE_TYPES[o.data.meta.useType] ? USE_TYPES[o.data.meta.useType].niy : null;
+    if(refNiy!=null && isFinite(refNiy)) niys.push(refNiy);
     if(c.verdict==='good') good++; else if(c.verdict==='warn') warn++; else bad++;
     const ti = OPP_TYPE_INFO[o.data.meta.oppType];
     const tlabel = ti? ti.t : o.data.meta.oppType;
@@ -1639,7 +1683,7 @@ function portfolioKPIs(){
     if(monthKey) byMonth[monthKey] = (byMonth[monthKey]||0) + 1;
   });
   const avg = arr => arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
-  return { n_, tpcSum, debtSum, equitySum, avgIrr:avg(irrs), avgMoic:avg(moics), avgDscr:avg(dscrs), avgYoc:avg(yocs), good, warn, bad, byType, byCity, byMonth, list };
+  return { n_, tpcSum, debtSum, equitySum, navSum, avgIrr:avg(irrs), avgProjIrr:avg(projIrrs), avgRoi:avg(rois), avgMoic:avg(moics), avgDscr:avg(dscrs), avgYoc:avg(yocs), avgWacc:avg(waccs), avgNiy:avg(niys), good, warn, bad, byType, byCity, byMonth, list };
 }
 
 function renderBenchmarkPanel(k){
@@ -1706,19 +1750,43 @@ function renderKPIs(){
     ${filtersActive? `<button class="btn btn-sm btn-ghost" data-action="filter-clear">✕ مسح الفلاتر</button>`:''}
     ${filtersActive? `<span class="tag" style="background:var(--accent-soft); color:var(--accent-soft-ink);">${k.n_} من ${opportunities.length}</span>`:''}
   </div>
-  <div class="kpis portfolio">
-    <div class="kpi"><div class="l">عدد الفرص</div><div class="v">${k.n_}</div></div>
-    <div class="kpi"><div class="l">إجمالي حجم المحفظة (TPC)</div><div class="v" style="font-size:17px;">${fmtSAR(k.tpcSum)}</div></div>
-    <div class="kpi"><div class="l">إجمالي الدين</div><div class="v" style="font-size:17px;">${fmtSAR(k.debtSum)}</div></div>
-    <div class="kpi"><div class="l">إجمالي حقوق الملكية</div><div class="v" style="font-size:17px;">${fmtSAR(k.equitySum)}</div></div>
-    <div class="kpi"><div class="l">متوسط Equity IRR</div><div class="v">${k.avgIrr!=null?fmtPct(k.avgIrr):'—'}</div></div>
+
+  <div class="dash-hero">
+    <div class="dash-hero-card" style="--accent-color:var(--accent);"><span class="icon">🧮</span><div class="l">عدد الفرص</div><div class="v">${k.n_}</div></div>
+    <div class="dash-hero-card" style="--accent-color:var(--gold);"><span class="icon">🏦</span><div class="l">NAV التقديرية الإجمالية</div><div class="v" style="font-size:19px;">${fmtSAR(k.navSum)}</div><div class="sub">Net Asset Value — عند الاستقرار/الخروج</div></div>
+    <div class="dash-hero-card" style="--accent-color:var(--accent);"><span class="icon">📈</span><div class="l">متوسط Project IRR</div><div class="v">${k.avgProjIrr!=null?fmtPct(k.avgProjIrr):'—'}</div><div class="sub">غير مُمَوَّل (Unlevered)</div></div>
+    <div class="dash-hero-card" style="--accent-color:var(--good);"><span class="icon">💰</span><div class="l">متوسط ROI</div><div class="v">${k.avgRoi!=null?fmtPct(k.avgRoi):'—'}</div><div class="sub">عائد نقدي على مدى العمر (Cash-on-Cash)</div></div>
+    <div class="dash-hero-card" style="--accent-color:var(--gold);"><span class="icon">🎯</span><div class="l">متوسط Equity IRR</div><div class="v">${k.avgIrr!=null?fmtPct(k.avgIrr):'—'}</div></div>
   </div>
-  <div class="kpis portfolio" style="margin-top:12px;">
-    <div class="kpi"><div class="l">متوسط MOIC</div><div class="v">${k.avgMoic!=null? k.avgMoic.toFixed(2)+'×':'—'}</div></div>
-    <div class="kpi"><div class="l">متوسط DSCR (أدنى)</div><div class="v">${k.avgDscr!=null? k.avgDscr.toFixed(2)+'×':'—'}</div></div>
-    <div class="kpi"><div class="l">متوسط Yield on Cost</div><div class="v">${k.avgYoc!=null? fmtPct(k.avgYoc):'—'}</div></div>
-    <div class="kpi"><div class="l">🟢 قوي</div><div class="v">${k.good}</div></div>
-    <div class="kpi"><div class="l">🟡 مراجعة &nbsp;/&nbsp; 🔴 دون المعايير</div><div class="v" style="font-size:17px;">${k.warn} <small>/</small> ${k.bad}</div></div>
+
+  <div class="dash-section">
+    <div class="dash-section-title"><span class="bar"></span>💼 الحجم والقيمة</div>
+    <div class="kpis portfolio">
+      <div class="kpi"><div class="l">إجمالي حجم المحفظة (TPC)</div><div class="v" style="font-size:17px;">${fmtSAR(k.tpcSum)}</div></div>
+      <div class="kpi"><div class="l">إجمالي الدين</div><div class="v" style="font-size:17px;">${fmtSAR(k.debtSum)}</div></div>
+      <div class="kpi"><div class="l">إجمالي حقوق الملكية</div><div class="v" style="font-size:17px;">${fmtSAR(k.equitySum)}</div></div>
+      <div class="kpi"><div class="l">متوسط MOIC</div><div class="v">${k.avgMoic!=null? k.avgMoic.toFixed(2)+'×':'—'}</div></div>
+      <div class="kpi"><div class="l">متوسط DSCR (أدنى)</div><div class="v">${k.avgDscr!=null? k.avgDscr.toFixed(2)+'×':'—'}</div></div>
+    </div>
+  </div>
+
+  <div class="dash-section">
+    <div class="dash-section-title"><span class="bar"></span>🎯 مقابل السوق المرجعي</div>
+    <div class="kpis portfolio">
+      <div class="kpi"><div class="l">متوسط Yield on Cost</div><div class="v">${k.avgYoc!=null? fmtPct(k.avgYoc):'—'}</div></div>
+      <div class="kpi"><div class="l">متوسط WACC (تكلفة رأس المال)</div><div class="v">${k.avgWacc!=null? fmtPct(k.avgWacc):'—'}</div></div>
+      <div class="kpi"><div class="l">متوسط NIY المرجعي (حسب نوع الاستخدام)</div><div class="v">${k.avgNiy!=null? fmtPct(k.avgNiy):'—'}</div></div>
+      <div class="kpi"><div class="l">فارق Yield on Cost عن NIY المرجعي</div><div class="v" style="color:${(k.avgYoc!=null && k.avgNiy!=null && (k.avgYoc-k.avgNiy)>=0)?'var(--good)':'var(--bad)'};">${(k.avgYoc!=null && k.avgNiy!=null)? fmtPct(k.avgYoc-k.avgNiy):'—'}</div></div>
+    </div>
+  </div>
+
+  <div class="dash-section">
+    <div class="dash-section-title"><span class="bar"></span>✅ الأحكام الاستثمارية</div>
+    <div class="kpis portfolio">
+      <div class="kpi" style="border-inline-start:3px solid var(--good);"><div class="l">🟢 قوي</div><div class="v">${k.good}</div></div>
+      <div class="kpi" style="border-inline-start:3px solid var(--warn);"><div class="l">🟡 تحت المراجعة</div><div class="v">${k.warn}</div></div>
+      <div class="kpi" style="border-inline-start:3px solid var(--bad);"><div class="l">🔴 دون المعايير</div><div class="v">${k.bad}</div></div>
+    </div>
   </div>
   ${k.n_>0? `
   <div class="panel" style="margin-top:14px; padding:18px 20px;">
@@ -1753,6 +1821,8 @@ function renderCompare(){
     ['MOIC', o=>compute(o.data).MOIC.toFixed(2)+'×'],
     ['DSCR الأدنى', o=>{const c=compute(o.data); return c.dscrMin!=null?c.dscrMin.toFixed(2)+'×':'—';}],
     ['WACC', o=>fmtPct(compute(o.data).WACC)],
+    ['NAV التقديرية', o=>fmtSAR(compute(o.data).NAV)],
+    ['ROI', o=>fmtPct(compute(o.data).ROI)],
     ['NPV المشروع', o=>fmtSAR(compute(o.data).npvProject)],
     ['مدة الصندوق', o=>compute(o.data).totalYears+' سنة'],
     ['الحكم', o=>{const c=compute(o.data); return c.verdict==='good'?'🟢 قوي':c.verdict==='warn'?'🟡 مراجعة':'🔴 دون المعايير';}],
@@ -1917,6 +1987,10 @@ function renderDetail(id){
       <div class="kpi"><div class="l">MOIC${c.holdStrategy==='perpetual_hold'?' (دفترية)':''}</div><div class="v">${c.MOIC.toFixed(2)}<small>×</small></div></div>
       <div class="kpi"><div class="l">DSCR (أدنى / متوسط)</div><div class="v" style="font-size:17px;">${c.dscrMin!=null?c.dscrMin.toFixed(2):'—'}<small>×</small> / ${c.dscrAvg!=null?c.dscrAvg.toFixed(2):'—'}<small>×</small></div></div>
       <div class="kpi"><div class="l">WACC</div><div class="v">${fmtPct(c.WACC)}</div></div>
+    </div>
+    <div class="kpis" style="margin-top:12px;">
+      <div class="kpi"><div class="l">NAV التقديرية (عند الاستقرار/الخروج)</div><div class="v" style="font-size:17px;">${fmtSAR(c.NAV)}</div></div>
+      <div class="kpi"><div class="l">ROI (عائد نقدي على مدى العمر)</div><div class="v">${fmtPct(c.ROI)}</div></div>
     </div>
     ${d.constructionFinancing? `
     <div class="section" style="margin-top:0;">
@@ -2844,6 +2918,8 @@ function exportOpportunityExcel(id){
     addRow('DSCR (أدنى/متوسط)', `${c.dscrMin.toFixed(2)} / ${c.dscrAvg.toFixed(2)}`);
     addRow('Yield on Cost', fmtPct(c.yieldOnCost,2));
     addRow('WACC', fmtPct(c.WACC,2));
+    addRow('NAV التقديرية (عند الاستقرار/الخروج)', Math.round(c.NAV||0));
+    addRow('ROI (عائد نقدي على مدى العمر)', fmtPct(c.ROI,2));
     addRow('التوصية', c.verdict==='good'?'قابلة للعرض':c.verdict==='warn'?'تحت المراجعة':'دون معايير القبول');
     addRow('', '');
     addRow('البند', 'المبلغ (ريال)');
