@@ -270,21 +270,9 @@ let claudeReady = false;
 let currentUser = null;      // كائن المستخدم المسجّل دخوله عبر Firebase Auth (null = لا أحد مسجّل)
 let authReady = false;       // هل انتهينا من التحقق الأولي من حالة تسجيل الدخول؟
 let unsubscribeOpportunities = null;
-let unsubscribePresence = null;
+let authMode = 'signin';     // 'signin' | 'signup'
 let authError = '';
 let authBusy = false;
-let accessDenied = false;    // مسجّل دخول لكن بريده مش في قائمة المصرَّح لهم
-let onlineUsers = [];        // [{email, lastSeen}] — من متصل الآن (آخر 90 ثانية)
-let allowlistEmails = [];    // نسخة محلية من قائمة المصرَّح لهم (للوحة إدارة الفريق)
-let teamPanelOpen = false;
-let teamPanelBusy = false;
-let teamPanelError = '';
-let presenceHeartbeatTimer = null;
-
-// بريد الحساب الذي يُعامَل دائماً كمسؤول (يقدر يدير قائمة الفريق المصرَّح لهم، ومصرَّح له بالدخول
-// دائماً حتى لو قائمة الفريق فاضية أو لسه ما اتعملتلهاش). غيّريه هنا لو حبيتي تستخدمي بريد تاني.
-const ADMIN_EMAIL = 'opal3k@gmail.com';
-function isAdmin(user){ return !!user && !!user.email && user.email.toLowerCase()===ADMIN_EMAIL.toLowerCase(); }
 
 function authErrorMessage(err){
   const map = {
@@ -292,14 +280,13 @@ function authErrorMessage(err){
     'auth/user-not-found': 'لا يوجد حساب بهذا البريد الإلكتروني.',
     'auth/wrong-password': 'كلمة المرور غير صحيحة.',
     'auth/invalid-credential': 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
-    'auth/email-already-in-use': 'هذا البريد الإلكتروني مسجّل بالفعل.',
+    'auth/email-already-in-use': 'هذا البريد الإلكتروني مسجّل بالفعل — جرّبي "تسجيل الدخول" بدلاً من إنشاء حساب.',
     'auth/weak-password': 'كلمة المرور ضعيفة — يجب ألا تقل عن 6 أحرف.',
     'auth/popup-closed-by-user': 'تم إغلاق نافذة تسجيل الدخول قبل إكمال العملية.',
     'auth/unauthorized-domain': 'رابط هذا الموقع غير مُصرَّح له بتسجيل الدخول — أضيفيه في Firebase Console ← Authentication ← Settings ← Authorized domains.',
     'auth/operation-not-allowed': 'طريقة تسجيل الدخول هذه غير مُفعّلة بعد في مشروع Firebase — فعّليها من Authentication ← Sign-in method.',
     'auth/network-request-failed': 'تعذّر الاتصال بالخادم — تحققي من اتصال الإنترنت.',
     'auth/too-many-requests': 'محاولات كثيرة جداً — حاولي مرة أخرى بعد قليل.',
-    'auth/user-disabled': 'هذا الحساب مُعطَّل.',
   };
   return map[err && err.code] || ('تعذّر تسجيل الدخول: '+(err && err.message ? err.message : err));
 }
@@ -308,55 +295,9 @@ function subscribeOpportunities(){
   if(unsubscribeOpportunities) return; // متصلة بالفعل
   // مزامنة لحظية: أي تعديل يُحفظ في Firestore (من جهازك أو من زميل آخر) يظهر فوراً هنا بدون إعادة تحميل الصفحة.
   unsubscribeOpportunities = DB.collection('opportunities').onSnapshot(snap => {
-    accessDenied = false;
     opportunities = snap.docs.map(d => ({ id: d.id, data: d.data() }));
     render();
-  }, err => {
-    console.error('Firestore sync error:', err);
-    if(err && err.code==='permission-denied'){
-      accessDenied = true;
-      if(unsubscribeOpportunities){ unsubscribeOpportunities(); unsubscribeOpportunities=null; }
-      render();
-    }
-  });
-}
-
-/* ---------------- "من متصل الآن" — تحديث نبضة حضور كل ٢٥ ثانية + متابعة حضور الجميع ---------------- */
-function startPresence(){
-  if(!DB || !currentUser) return;
-  const ref = DB.collection('presence').doc(currentUser.uid);
-  const beat = () => ref.set({ email: currentUser.email, lastSeen: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true }).catch(()=>{});
-  beat();
-  if(presenceHeartbeatTimer) clearInterval(presenceHeartbeatTimer);
-  presenceHeartbeatTimer = setInterval(beat, 25000);
-  if(!unsubscribePresence){
-    unsubscribePresence = DB.collection('presence').onSnapshot(snap => {
-      const now = Date.now();
-      onlineUsers = snap.docs.map(d=>d.data())
-        .filter(u => u.lastSeen && (now - u.lastSeen.toMillis()) < 90000)
-        .sort((a,b)=> (a.email||'').localeCompare(b.email||''));
-      render();
-    }, err => { console.error('Presence sync error:', err); });
-  }
-}
-function stopPresence(){
-  if(presenceHeartbeatTimer){ clearInterval(presenceHeartbeatTimer); presenceHeartbeatTimer=null; }
-  if(unsubscribePresence){ unsubscribePresence(); unsubscribePresence=null; }
-  onlineUsers = [];
-}
-
-/* ---------------- لوحة إدارة الفريق (المسؤول فقط) — وصول مؤقت بمدة اختيارية ---------------- */
-let unsubscribeAllowlist = null;
-const TEAM_DURATIONS = { '7': 'أسبوع', '30': 'شهر', '90': '3 أشهر', 'permanent': 'دائم (بدون انتهاء)' };
-function subscribeAllowlistIfAdmin(){
-  if(!DB || !currentUser || !isAdmin(currentUser) || unsubscribeAllowlist) return;
-  unsubscribeAllowlist = DB.collection('team_members').onSnapshot(snap=>{
-    allowlistEmails = snap.docs.map(d=>{
-      const v = d.data();
-      return { email: d.id, expiresAt: v.expiresAt ? v.expiresAt.toDate() : null };
-    }).sort((a,b)=>a.email.localeCompare(b.email));
-    render();
-  }, err=>{ console.error('Team members sync error:', err); });
+  }, err => { console.error('Firestore sync error:', err); });
 }
 
 async function initDb(){
@@ -367,17 +308,11 @@ async function initDb(){
       firebase.auth().onAuthStateChanged(user => {
         currentUser = user;
         authReady = true;
-        accessDenied = false;
         if(user){
           subscribeOpportunities();
-          startPresence();
-          subscribeAllowlistIfAdmin();
         } else {
           if(unsubscribeOpportunities){ unsubscribeOpportunities(); unsubscribeOpportunities=null; }
-          if(unsubscribeAllowlist){ unsubscribeAllowlist(); unsubscribeAllowlist=null; }
-          stopPresence();
           opportunities = [];
-          allowlistEmails = [];
         }
         render();
       });
@@ -457,7 +392,7 @@ const STATUS_LABEL = Object.fromEntries(STATUS_OPTS.map(([l,v])=>[v,l]));
 function blankOpportunity(){
   return {
     id: null,
-    meta: { name:'', city:CITIES[0], neighborhood:'', tier:'راقي', oppType:'income', useType:Object.keys(USE_TYPES)[3], analyst:'Opal', createdAt:null, updatedAt:null, createdBy:null, updatedBy:null },
+    meta: { name:'', city:CITIES[0], neighborhood:'', tier:'راقي', oppType:'income', useType:Object.keys(USE_TYPES)[3], analyst:'Opal', createdAt:null, updatedAt:null },
     land: { area:5000, price:3500, far:2.0, bar:0.5, floorsAllowed:4, basements:1, floorHeight:3.6, setbacks:0.15 },
     site: { soil:0, water:0, tower:0, topo:0, infra:0 },
     strategy: { exitStrategy:"مختلط (Mixed Sell+Rent)", salePct:0.5 },
@@ -504,8 +439,6 @@ let openDetailId = null;
 let confirmDeleteId = null;
 let compareIds = [];
 let compareOpen = false;
-let dashFilterCity = 'all';
-let dashFilterType = 'all';
 
 async function loadAll(){
   if(!DB){ opportunities = JSON.parse(localStorageSafe('reop_fallback')||'[]'); return; }
@@ -522,15 +455,7 @@ async function persistOpportunity(rec){
       await DB.collection('opportunities').doc(rec.id).set(clean);
       return true;
     }
-    catch(e){
-      console.error(e);
-      if(e && e.code==='permission-denied'){
-        accessDenied = true; render();
-      } else {
-        alert('تعذّر الحفظ في قاعدة البيانات السحابية: '+e.message);
-      }
-      return false;
-    }
+    catch(e){ console.error(e); alert('تعذّر الحفظ في قاعدة البيانات السحابية: '+e.message); return false; }
   } else {
     const idx = opportunities.findIndex(o=>o.id===rec.id);
     if(idx>=0) opportunities[idx]=rec; else opportunities.push(rec);
@@ -539,15 +464,7 @@ async function persistOpportunity(rec){
   }
 }
 async function deleteOpportunity(id){
-  if(DB){
-    try{ await DB.collection('opportunities').doc(id).delete(); }
-    catch(e){
-      console.error(e);
-      if(e && e.code==='permission-denied'){ accessDenied = true; render(); }
-      else { alert('تعذّر الحذف من قاعدة البيانات السحابية: '+e.message); }
-      return; // لا نحذفها محلياً إلا لو نجح الحذف فعلاً في السحابة
-    }
-  }
+  if(DB){ try{ await DB.collection('opportunities').doc(id).delete(); }catch(e){} }
   opportunities = opportunities.filter(o=>o.id!==id);
   if(!DB) saveLocalFallback();
 }
@@ -1350,130 +1267,43 @@ function renderReviewSummary(d,c){
 /* =========================================================================
    القاعدة الرئيسية — Database list view
    ========================================================================= */
-function filteredOpportunities(){
-  return opportunities.filter(o=>{
-    if(dashFilterCity!=='all' && (o.data.meta.city||'')!==dashFilterCity) return false;
-    if(dashFilterType!=='all' && (o.data.meta.oppType||'')!==dashFilterType) return false;
-    return true;
-  });
-}
-
 function portfolioKPIs(){
-  const list = filteredOpportunities();
-  const n_ = list.length;
-  let tpcSum=0, debtSum=0, equitySum=0, irrs=[], moics=[], dscrs=[], yocs=[], good=0,warn=0,bad=0;
-  const byType = {}, byCity = {}, byMonth = {};
-  list.forEach(o=>{
+  const n_ = opportunities.length;
+  let tpcSum=0, irrs=[], good=0,warn=0,bad=0;
+  const byType = {};
+  opportunities.forEach(o=>{
     const c = compute(o.data);
-    tpcSum += c.TPC||0; debtSum += c.debt||0; equitySum += c.equity||0;
+    tpcSum += c.TPC;
     if(isFinite(c.equityIRR)) irrs.push(c.equityIRR);
-    if(isFinite(c.MOIC)) moics.push(c.MOIC);
-    if(c.dscrMin!=null && isFinite(c.dscrMin)) dscrs.push(c.dscrMin);
-    if(isFinite(c.yieldOnCost)) yocs.push(c.yieldOnCost);
     if(c.verdict==='good') good++; else if(c.verdict==='warn') warn++; else bad++;
     const ti = OPP_TYPE_INFO[o.data.meta.oppType];
     const tlabel = ti? ti.t : o.data.meta.oppType;
-    byType[tlabel] = (byType[tlabel]||0) + (c.TPC||0);
-    const city = o.data.meta.city || 'غير محدد';
-    byCity[city] = (byCity[city]||0) + (c.TPC||0);
-    const monthKey = (o.data.meta.createdAt||'').slice(0,7); // YYYY-MM
-    if(monthKey) byMonth[monthKey] = (byMonth[monthKey]||0) + 1;
+    byType[tlabel] = (byType[tlabel]||0) + c.TPC;
   });
-  const avg = arr => arr.length? arr.reduce((a,b)=>a+b,0)/arr.length : null;
-  return { n_, tpcSum, debtSum, equitySum, avgIrr:avg(irrs), avgMoic:avg(moics), avgDscr:avg(dscrs), avgYoc:avg(yocs), good, warn, bad, byType, byCity, byMonth, list };
-}
-
-function renderBenchmarkPanel(k){
-  const list = k.list.filter(o=>o.data.meta.oppType==='income');
-  if(!list.length) return '';
-  const byUse = {};
-  list.forEach(o=>{
-    const c = compute(o.data);
-    const ut = o.data.meta.useType;
-    if(!isFinite(c.yieldOnCost)) return;
-    (byUse[ut] = byUse[ut]||[]).push(c.yieldOnCost);
-  });
-  const rows = Object.keys(byUse).map(ut=>{
-    const arr = byUse[ut];
-    const avgActual = arr.reduce((a,b)=>a+b,0)/arr.length;
-    const ref = USE_TYPES[ut] ? USE_TYPES[ut].niy : null;
-    return { ut, avgActual, ref, delta: ref!=null? avgActual-ref : null };
-  }).filter(r=>r.ref!=null);
-  if(!rows.length) return '';
-  return `
-  <div class="panel" style="margin-top:14px; padding:18px 20px;">
-    <div class="panel-head" style="border:none; padding:0 0 4px;">
-      <h2>🎯 الأداء مقابل المعايير المرجعية <span style="color:var(--ink-faint); font-weight:500;">— Yield on Cost الفعلي مقابل NIY المرجعي</span></h2>
-    </div>
-    <p class="note" style="margin:0 0 16px;">
-      المعايير هنا هي جداول الأداة الداخلية (نفس أرقام "NIY المرجعي" المستخدمة أثناء إدخال كل فرصة) وليست
-      بيانات سوق حية مباشرة — عدّليها في جدول USE_TYPES بملف <span class="mono">index.html</span> كلما توفرت لك أرقام أحدث من تقارير السوق.
-    </p>
-    <div class="bars">
-      ${rows.map(r=>{
-        const good = r.delta>=0;
-        const maxV = Math.max(r.avgActual, r.ref, 0.001) * 1.15;
-        return `
-        <div class="barrow">
-          <div class="lbl">
-            <span>${esc(r.ut)}</span>
-            <span class="num mono">فعلي ${fmtPct(r.avgActual)} · مرجعي ${fmtPct(r.ref)} · <b style="color:${good?'var(--good)':'var(--bad)'};">${good?'+':''}${(r.delta*100).toFixed(1)} نقطة</b></span>
-          </div>
-          <div class="track" style="position:relative;">
-            <div class="fill" style="width:${Math.min(100,(r.avgActual/maxV)*100)}%; background:${good?'var(--good)':'var(--bad)'};"></div>
-            <div style="position:absolute; top:-2px; bottom:-2px; width:2px; background:var(--ink); right:${100-Math.min(100,(r.ref/maxV)*100)}%;" title="المرجعي: ${fmtPct(r.ref)}"></div>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>
-  </div>`;
+  const avgIrr = irrs.length? irrs.reduce((a,b)=>a+b,0)/irrs.length : null;
+  return { n_, tpcSum, avgIrr, good, warn, bad, byType };
 }
 
 function renderKPIs(){
   const k = portfolioKPIs();
-  const cities = Array.from(new Set(opportunities.map(o=>o.data.meta.city).filter(Boolean))).sort();
-  const filtersActive = dashFilterCity!=='all' || dashFilterType!=='all';
-  return `
-  <div class="panel" style="padding:12px 18px; margin-bottom:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-    <div style="font-weight:700; font-size:12.5px; color:var(--ink-soft); display:flex; align-items:center; gap:6px;">🎛️ فلاتر لوحة القيادة</div>
-    <select data-action="filter-city" style="border:1px solid var(--border); background:var(--paper); color:var(--ink); border-radius:8px; padding:7px 10px; font-size:12.5px;">
-      <option value="all" ${dashFilterCity==='all'?'selected':''}>كل المدن</option>
-      ${cities.map(c=>`<option value="${esc(c)}" ${dashFilterCity===c?'selected':''}>${esc(c)}</option>`).join('')}
-    </select>
-    <select data-action="filter-type" style="border:1px solid var(--border); background:var(--paper); color:var(--ink); border-radius:8px; padding:7px 10px; font-size:12.5px;">
-      <option value="all" ${dashFilterType==='all'?'selected':''}>كل الأنواع</option>
-      ${Object.entries(OPP_TYPE_INFO).map(([tk,tv])=>`<option value="${tk}" ${dashFilterType===tk?'selected':''}>${tv.ic} ${tv.t}</option>`).join('')}
-    </select>
-    ${filtersActive? `<button class="btn btn-sm btn-ghost" data-action="filter-clear">✕ مسح الفلاتر</button>`:''}
-    ${filtersActive? `<span class="tag" style="background:var(--accent-soft); color:var(--accent-soft-ink);">${k.n_} من ${opportunities.length}</span>`:''}
-  </div>
-  <div class="kpis portfolio">
-    <div class="kpi"><div class="l">عدد الفرص</div><div class="v">${k.n_}</div></div>
-    <div class="kpi"><div class="l">إجمالي حجم المحفظة (TPC)</div><div class="v" style="font-size:17px;">${fmtSAR(k.tpcSum)}</div></div>
-    <div class="kpi"><div class="l">إجمالي الدين</div><div class="v" style="font-size:17px;">${fmtSAR(k.debtSum)}</div></div>
-    <div class="kpi"><div class="l">إجمالي حقوق الملكية</div><div class="v" style="font-size:17px;">${fmtSAR(k.equitySum)}</div></div>
+  return `<div class="kpis portfolio">
+    <div class="kpi"><div class="l">عدد الفرص المسجّلة</div><div class="v">${k.n_}</div></div>
+    <div class="kpi"><div class="l">إجمالي حجم المحفظة (TPC)</div><div class="v" style="font-size:18px;">${fmtSAR(k.tpcSum)}</div></div>
     <div class="kpi"><div class="l">متوسط Equity IRR</div><div class="v">${k.avgIrr!=null?fmtPct(k.avgIrr):'—'}</div></div>
-  </div>
-  <div class="kpis portfolio" style="margin-top:12px;">
-    <div class="kpi"><div class="l">متوسط MOIC</div><div class="v">${k.avgMoic!=null? k.avgMoic.toFixed(2)+'×':'—'}</div></div>
-    <div class="kpi"><div class="l">متوسط DSCR (أدنى)</div><div class="v">${k.avgDscr!=null? k.avgDscr.toFixed(2)+'×':'—'}</div></div>
-    <div class="kpi"><div class="l">متوسط Yield on Cost</div><div class="v">${k.avgYoc!=null? fmtPct(k.avgYoc):'—'}</div></div>
     <div class="kpi"><div class="l">🟢 قوي</div><div class="v">${k.good}</div></div>
-    <div class="kpi"><div class="l">🟡 مراجعة &nbsp;/&nbsp; 🔴 دون المعايير</div><div class="v" style="font-size:17px;">${k.warn} <small>/</small> ${k.bad}</div></div>
+    <div class="kpi"><div class="l">🟡 مراجعة &nbsp;/&nbsp; 🔴 دون المعايير</div><div class="v" style="font-size:18px;">${k.warn} <small>/</small> ${k.bad}</div></div>
   </div>
   ${k.n_>0? `
-  <div class="panel" style="margin-top:14px; padding:18px 20px;">
-    <div class="panel-head" style="border:none; padding:0 0 12px;"><h2>📊 لوحة القيادة <span style="color:var(--ink-faint); font-weight:500;">— Portfolio Dashboard</span></h2></div>
-    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); gap:22px;">
-      <div><p class="step-sub" style="margin:0 0 6px;">تركيبة المحفظة حسب النوع (TPC)</p><div style="position:relative; height:190px;"><canvas id="chart-portfolio-type"></canvas></div></div>
-      <div><p class="step-sub" style="margin:0 0 6px;">توزيع الفرص حسب الحكم الاستثماري</p><div style="position:relative; height:190px;"><canvas id="chart-portfolio-verdict"></canvas></div></div>
-      <div><p class="step-sub" style="margin:0 0 6px;">حجم المحفظة حسب المدينة (TPC)</p><div style="position:relative; height:190px;"><canvas id="chart-portfolio-city"></canvas></div></div>
-      <div><p class="step-sub" style="margin:0 0 6px;">Equity IRR لكل فرصة</p><div style="position:relative; height:190px;"><canvas id="chart-portfolio-irr"></canvas></div></div>
-      <div style="grid-column:1/-1;"><p class="step-sub" style="margin:0 0 6px;">عدد الفرص المُضافة عبر الوقت</p><div style="position:relative; height:170px;"><canvas id="chart-portfolio-timeline"></canvas></div></div>
+  <div class="panel" style="display:flex; gap:20px; flex-wrap:wrap; align-items:center; padding:14px 18px; margin-bottom:14px;">
+    <div style="flex:1 1 220px; min-width:180px; max-width:260px;">
+      <p class="step-sub" style="margin:0 0 6px;">تركيبة المحفظة حسب النوع (TPC)</p>
+      <div style="position:relative; height:150px;"><canvas id="chart-portfolio-type"></canvas></div>
     </div>
-  </div>
-  ${renderBenchmarkPanel(k)}
-  `:''}`;
+    <div style="flex:1 1 220px; min-width:180px; max-width:260px;">
+      <p class="step-sub" style="margin:0 0 6px;">توزيع الفرص حسب الحكم الاستثماري</p>
+      <div style="position:relative; height:150px;"><canvas id="chart-portfolio-verdict"></canvas></div>
+    </div>
+  </div>`:''}`;
 }
 
 /* =========================================================================
@@ -1627,7 +1457,6 @@ function renderDetail(id){
             <span>📍 ${esc(d.meta.city)} · ${esc(d.meta.neighborhood||'—')} · ${esc(d.meta.tier)}</span>
             <span>${ti.ic} ${ti.t}</span>
             <span>🗓️ ${esc(d.meta.updatedAt||d.meta.createdAt||todayStr())}</span>
-            ${d.meta.updatedBy? `<span>👤 آخر تعديل: ${esc(d.meta.updatedBy)}</span>` : (d.meta.createdBy? `<span>👤 أضافها: ${esc(d.meta.createdBy)}</span>` : '')}
           </div>
         </div>
         <div class="small-btns">
@@ -1986,46 +1815,6 @@ function initPortfolioCharts(){
     data:{ labels:['🟢 قوي','🟡 مراجعة','🔴 دون المعايير'], datasets:[{ data:[k.good,k.warn,k.bad], backgroundColor:[CHART_COLORS.good, CHART_COLORS.warn, CHART_COLORS.bad], borderRadius:6, maxBarThickness:40 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
       scales:{ x:{ ticks:{ color:CHART_COLORS.inkFaint, font:{ size:10 } }, grid:{ display:false } }, y:{ beginAtZero:true, ticks:{ color:CHART_COLORS.inkFaint, precision:0 }, grid:{ color:CHART_COLORS.grid } } } } });
-
-  // توزيع المحفظة حسب المدينة (TPC) — أعلى 8 مدن
-  const cityEntries = Object.entries(k.byCity).sort((a,b)=>b[1]-a[1]).slice(0,8);
-  if(document.getElementById('chart-portfolio-city')){
-    mkChart('chart-portfolio-city', { type:'bar',
-      data:{ labels:cityEntries.map(e=>e[0]), datasets:[{ label:'TPC', data:cityEntries.map(e=>e[1]),
-        backgroundColor:CHART_COLORS.accentSoft, borderColor:CHART_COLORS.accent, borderWidth:1.5, borderRadius:6, maxBarThickness:26 }] },
-      options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:(ctx)=>fmtSAR(ctx.raw) } } },
-        scales:{ x:{ ticks:{ color:CHART_COLORS.inkFaint, font:{ size:10 }, callback:(v)=>fmtSAR(v) }, grid:{ color:CHART_COLORS.grid } },
-          y:{ ticks:{ color:CHART_COLORS.inkFaint, font:{ size:10 } }, grid:{ display:false } } } } });
-  }
-
-  // Equity IRR لكل فرصة — أعلى ١٢ فرصة حسب IRR
-  const irrRows = k.list.map(o=>{
-    const c = compute(o.data);
-    return { name: o.data.meta.name || 'بدون اسم', irr: c.equityIRR, verdict: c.verdict };
-  }).filter(r=>isFinite(r.irr)).sort((a,b)=>b.irr-a.irr).slice(0,12);
-  if(document.getElementById('chart-portfolio-irr')){
-    mkChart('chart-portfolio-irr', { type:'bar',
-      data:{ labels:irrRows.map(r=>r.name), datasets:[{ label:'Equity IRR', data:irrRows.map(r=>r.irr*100),
-        backgroundColor:irrRows.map(r=>r.verdict==='good'?CHART_COLORS.goodSoft:r.verdict==='warn'?CHART_COLORS.warnSoft:CHART_COLORS.badSoft),
-        borderColor:irrRows.map(r=>r.verdict==='good'?CHART_COLORS.good:r.verdict==='warn'?CHART_COLORS.warn:CHART_COLORS.bad),
-        borderWidth:1.5, borderRadius:6, maxBarThickness:22 }] },
-      options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:(ctx)=>ctx.raw.toFixed(1)+'%' } } },
-        scales:{ x:{ ticks:{ color:CHART_COLORS.inkFaint, font:{ size:10 }, callback:(v)=>v+'%' }, grid:{ color:CHART_COLORS.grid } },
-          y:{ ticks:{ color:CHART_COLORS.inkFaint, font:{ size:9 } }, grid:{ display:false } } } } });
-  }
-
-  // خط زمني لعدد الفرص المضافة شهرياً
-  const monthKeys = Object.keys(k.byMonth).sort();
-  if(document.getElementById('chart-portfolio-timeline')){
-    mkChart('chart-portfolio-timeline', { type:'line',
-      data:{ labels:monthKeys, datasets:[{ label:'فرص مُضافة', data:monthKeys.map(m=>k.byMonth[m]),
-        borderColor:CHART_COLORS.accent, backgroundColor:CHART_COLORS.accentSoft, fill:true, tension:0.25, pointRadius:3, pointBackgroundColor:CHART_COLORS.accent }] },
-      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
-        scales:{ x:{ ticks:{ color:CHART_COLORS.inkFaint, font:{ size:10 } }, grid:{ display:false } },
-          y:{ beginAtZero:true, ticks:{ color:CHART_COLORS.inkFaint, precision:0 }, grid:{ color:CHART_COLORS.grid } } } } });
-  }
 }
 
 function initDetailCharts(id){
@@ -2075,6 +1864,7 @@ function renderAuthLoading(){
   `;
 }
 function renderLogin(){
+  const isSignup = authMode==='signup';
   return `
     <div style="min-height:90vh; display:flex; align-items:center; justify-content:center; padding:24px;">
       <div class="panel" style="width:100%; max-width:420px; padding:8px;">
@@ -2086,8 +1876,8 @@ function renderLogin(){
               <div class="sub">Real Estate Opportunity Ledger</div>
             </div>
           </div>
-          <div class="step-title" style="font-size:16px;">تسجيل الدخول</div>
-          <div class="step-sub">هذه الأداة لفريق العمل فقط — الحسابات تُنشأ من قِبل مسؤول النظام.</div>
+          <div class="step-title" style="font-size:16px;">${isSignup? 'إنشاء حساب جديد' : 'تسجيل الدخول'}</div>
+          <div class="step-sub">${isSignup? 'لإنشاء حساب والوصول إلى قاعدة بيانات الفريق' : 'سجّلي دخولك للوصول إلى قاعدة بيانات الفريق'}</div>
         </div>
         <div style="padding:6px 24px 24px; display:flex; flex-direction:column; gap:12px;">
           ${authError? `<div class="note" style="background:var(--bad-soft); color:var(--bad); padding:9px 12px; border-radius:8px;">${esc(authError)}</div>` : ''}
@@ -2097,10 +1887,10 @@ function renderLogin(){
           </div>
           <div class="field">
             <label>كلمة المرور <span class="en">Password</span></label>
-            <input type="password" id="auth-password" dir="ltr" autocomplete="current-password" placeholder="••••••••">
+            <input type="password" id="auth-password" dir="ltr" autocomplete="${isSignup?'new-password':'current-password'}" placeholder="••••••••">
           </div>
           <button class="btn btn-primary" style="justify-content:center;" data-action="auth-submit" ${authBusy?'disabled':''}>
-            ${authBusy? 'جارِ المعالجة…' : 'تسجيل الدخول'}
+            ${authBusy? 'جارِ المعالجة…' : (isSignup? 'إنشاء الحساب' : 'تسجيل الدخول')}
           </button>
           <div style="display:flex; align-items:center; gap:10px; color:var(--ink-faint); font-size:11.5px;">
             <div style="flex:1; height:1px; background:var(--border);"></div>أو<div style="flex:1; height:1px; background:var(--border);"></div>
@@ -2108,79 +1898,14 @@ function renderLogin(){
           <button class="btn" style="justify-content:center;" data-action="auth-google" ${authBusy?'disabled':''}>
             <span>🔵</span> متابعة عبر حساب Google
           </button>
-          <div style="text-align:center; font-size:11.5px; color:var(--ink-faint); margin-top:4px;">
-            ليس لديك حساب؟ تواصلي مع مسؤول النظام لإضافتك.
+          <div style="text-align:center; font-size:12.5px; color:var(--ink-soft); margin-top:4px;">
+            ${isSignup
+              ? 'لديك حساب بالفعل؟ <a href="#" data-action="auth-toggle">تسجيل الدخول</a>'
+              : 'ليس لديك حساب؟ <a href="#" data-action="auth-toggle">إنشاء حساب جديد</a>'}
           </div>
         </div>
       </div>
     </div>
-  `;
-}
-
-function renderAccessDenied(){
-  return `
-    <div style="min-height:90vh; display:flex; align-items:center; justify-content:center; padding:24px;">
-      <div class="panel" style="width:100%; max-width:440px; padding:28px 26px; text-align:center;">
-        <div style="font-size:30px; margin-bottom:8px;">🔒</div>
-        <div class="step-title" style="font-size:16px;">غير مصرَّح لك بالدخول</div>
-        <div class="step-sub" style="margin-top:6px;">
-          الحساب <b class="ltr" style="direction:ltr; unicode-bidi:isolate;">${esc(currentUser&&currentUser.email||'')}</b>
-          مسجّل دخوله بنجاح، لكنه غير مضاف لقائمة فريق العمل المصرَّح له بالوصول لقاعدة البيانات.
-        </div>
-        <div class="note" style="margin:16px 0;">تواصلي مع مسؤول النظام لإضافة بريدك إلى قائمة الفريق.</div>
-        <button class="btn" style="justify-content:center; width:100%;" data-action="sign-out">تسجيل الخروج</button>
-      </div>
-    </div>
-  `;
-}
-
-/* ---------------- لوحة إدارة الفريق (تظهر للمسؤول فقط) ---------------- */
-function renderTeamPanel(){
-  return `
-  <div class="overlay" data-action="close-team-panel">
-    <div class="modal" style="max-width:480px;" data-action="overlay-noop">
-      <div class="modal-head">
-        <div class="step-title" style="font-size:15px; margin:0;">👥 إدارة الفريق المصرَّح له</div>
-        <button class="btn btn-sm btn-ghost" data-action="close-team-panel">✕</button>
-      </div>
-      <div class="modal-body">
-        <p class="note">
-          أي بريد إلكتروني تضيفينه هنا يقدر يسجّل دخول (بالبريد/كلمة مرور اللي تنشئيها له من
-          Firebase Console ← Authentication، أو عبر Google لو بريده Gmail) ويشوف قاعدة البيانات
-          ويقدر يضيف/يعدّل فيها — لحد ما تنتهي المدة اللي تحدّديها (أو دائماً لو اخترتِ كده).
-          بريدك (${esc(ADMIN_EMAIL)}) مصرَّح له دائماً كمسؤول ومش بيتأثر بالمدة.
-        </p>
-        ${teamPanelError? `<div class="note" style="background:var(--bad-soft); color:var(--bad); padding:9px 12px; border-radius:8px; margin-bottom:10px;">${esc(teamPanelError)}</div>` : ''}
-        <div style="display:flex; gap:8px; margin-bottom:10px;">
-          <input type="email" id="team-new-email" dir="ltr" placeholder="teammate@example.com" style="flex:1; border:1px solid var(--border); background:var(--paper); color:var(--ink); border-radius:8px; padding:9px 11px; font-size:13.5px;">
-        </div>
-        <div style="display:flex; gap:8px; margin-bottom:16px;">
-          <select id="team-new-duration" style="flex:1; border:1px solid var(--border); background:var(--paper); color:var(--ink); border-radius:8px; padding:9px 11px; font-size:13px;">
-            ${Object.entries(TEAM_DURATIONS).map(([k,l])=>`<option value="${k}" ${k==='7'?'selected':''}>${esc(l)}</option>`).join('')}
-          </select>
-          <button class="btn btn-primary btn-sm" data-action="team-add" ${teamPanelBusy?'disabled':''}>إضافة</button>
-        </div>
-        ${allowlistEmails.length? `
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            ${allowlistEmails.map(m=>{
-              const expired = m.expiresAt && m.expiresAt.getTime() < Date.now();
-              const expiryLabel = m.expiresAt
-                ? (expired? `منتهي منذ ${m.expiresAt.toISOString().slice(0,10)}` : `ينتهي: ${m.expiresAt.toISOString().slice(0,10)}`)
-                : 'دائم';
-              return `
-              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; background:var(--surface-2); border-radius:8px;">
-                <div>
-                  <div class="ltr" style="direction:ltr; unicode-bidi:isolate; font-size:13px;">${esc(m.email)}</div>
-                  <div style="font-size:11px; color:${expired?'var(--bad)':'var(--ink-faint)'};">${expiryLabel}</div>
-                </div>
-                <button class="btn btn-sm btn-danger" data-action="team-remove" data-email="${esc(m.email)}" ${teamPanelBusy?'disabled':''}>إزالة</button>
-              </div>
-            `;}).join('')}
-          </div>
-        ` : `<div class="note">لسه ما ضفتيش حد لقائمة الفريق.</div>`}
-      </div>
-    </div>
-  </div>
   `;
 }
 
@@ -2189,8 +1914,6 @@ function render(){
   const app = document.getElementById('app');
   if(DB && !authReady){ app.innerHTML = renderAuthLoading(); return; }
   if(DB && authReady && !currentUser){ app.innerHTML = renderLogin(); return; }
-  if(DB && authReady && currentUser && accessDenied){ app.innerHTML = renderAccessDenied(); return; }
-  const amAdmin = isAdmin(currentUser);
   let html = `
     <div class="topbar">
       <div class="brand">
@@ -2202,8 +1925,6 @@ function render(){
       </div>
       <div class="badge-row">
         ${!DB? '<span class="tag" style="background:var(--warn-soft); color:var(--warn);">⚠️ وضع محلي (بدون قاعدة سحابية)</span>':''}
-        ${onlineUsers.length? `<span class="tag" style="background:var(--good-soft); color:var(--good);" title="${esc(onlineUsers.map(u=>u.email).join('، '))}">🟢 متصل الآن: ${onlineUsers.length}</span>` : ''}
-        ${amAdmin? `<button class="btn btn-sm" data-action="open-team-panel">👥 إدارة الفريق</button>` : ''}
         ${currentUser? `<span class="tag" style="background:var(--surface-3); color:var(--ink-soft);" title="${esc(currentUser.email||'')}">👤 ${esc(currentUser.email||'مستخدم')}</span>
           <button class="btn btn-sm btn-ghost" data-action="sign-out">تسجيل الخروج</button>` : ''}
       </div>
@@ -2215,7 +1936,7 @@ function render(){
   `;
   app.innerHTML = html;
   const overlay = document.createElement('div');
-  overlay.innerHTML = renderWizardModal() + renderConfirmDelete() + (teamPanelOpen? renderTeamPanel(): '');
+  overlay.innerHTML = renderWizardModal() + renderConfirmDelete();
   while(overlay.firstChild) app.appendChild(overlay.firstChild);
   initCharts();
 }
@@ -2226,6 +1947,13 @@ document.addEventListener('click', async (e)=>{
   if(!el) return;
   const action = el.dataset.action;
 
+  if(action==='auth-toggle'){
+    e.preventDefault();
+    authMode = authMode==='signin' ? 'signup' : 'signin';
+    authError = '';
+    render();
+    return;
+  }
   if(action==='auth-submit'){
     const emailEl = document.getElementById('auth-email');
     const passEl = document.getElementById('auth-password');
@@ -2233,8 +1961,10 @@ document.addEventListener('click', async (e)=>{
     const password = passEl && passEl.value || '';
     if(!email || !password){ authError = 'الرجاء إدخال البريد الإلكتروني وكلمة المرور.'; render(); return; }
     authError = ''; authBusy = true; render();
-    try{ await firebase.auth().signInWithEmailAndPassword(email, password); }
-    catch(err){ authError = authErrorMessage(err); }
+    try{
+      if(authMode==='signup'){ await firebase.auth().createUserWithEmailAndPassword(email, password); }
+      else { await firebase.auth().signInWithEmailAndPassword(email, password); }
+    }catch(err){ authError = authErrorMessage(err); }
     authBusy = false; render();
     return;
   }
@@ -2249,39 +1979,6 @@ document.addEventListener('click', async (e)=>{
   }
   if(action==='sign-out'){
     try{ await firebase.auth().signOut(); }catch(err){ console.error(err); }
-    teamPanelOpen = false;
-    return;
-  }
-  if(action==='open-team-panel'){ teamPanelOpen = true; teamPanelError=''; render(); return; }
-  if(action==='close-team-panel'){ teamPanelOpen = false; render(); return; }
-  if(action==='team-add'){
-    const emEl = document.getElementById('team-new-email');
-    const durEl = document.getElementById('team-new-duration');
-    const email = (emEl && emEl.value || '').trim().toLowerCase();
-    const durationKey = durEl ? durEl.value : '7';
-    if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ teamPanelError='بريد إلكتروني غير صالح.'; render(); return; }
-    teamPanelBusy = true; teamPanelError=''; render();
-    try{
-      const expiresAt = durationKey==='permanent' ? null : new Date(Date.now() + parseInt(durationKey,10)*86400000);
-      await DB.collection('team_members').doc(email).set({
-        email, expiresAt, addedBy: currentUser.email, addedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      });
-      if(emEl) emEl.value = '';
-    }catch(err){ teamPanelError = 'تعذّرت الإضافة: '+(err&&err.message||err); }
-    teamPanelBusy = false; render();
-    return;
-  }
-  if(action==='team-remove'){
-    const email = el.dataset.email;
-    teamPanelBusy = true; render();
-    try{ await DB.collection('team_members').doc(email).delete(); }
-    catch(err){ teamPanelError = 'تعذّرت الإزالة: '+(err&&err.message||err); }
-    teamPanelBusy = false; render();
-    return;
-  }
-  if(action==='filter-clear'){
-    dashFilterCity = 'all'; dashFilterType = 'all';
-    render();
     return;
   }
 
@@ -2315,9 +2012,8 @@ document.addEventListener('click', async (e)=>{
   if(action==='wizard-save'){
     const d = wizard.draft;
     const now = todayStr();
-    if(!d.meta.createdAt){ d.meta.createdAt = now; d.meta.createdBy = currentUser? currentUser.email : (d.meta.createdBy||null); }
+    if(!d.meta.createdAt) d.meta.createdAt = now;
     d.meta.updatedAt = now;
-    d.meta.updatedBy = currentUser? currentUser.email : (d.meta.updatedBy||null);
     const id = wizard.editId || uid('OPP');
     await persistOpportunity({ id, data: d });
     await loadAll();
@@ -2546,8 +2242,6 @@ document.addEventListener('input', (e)=>{
 });
 document.addEventListener('change', (e)=>{
   const t = e.target;
-  if(t.dataset && t.dataset.action==='filter-city'){ dashFilterCity = t.value; render(); return; }
-  if(t.dataset && t.dataset.action==='filter-type'){ dashFilterType = t.value; render(); return; }
   if(!wizard || !t.name) return;
   if(!t.closest('#wizard-modal')) return;
   if(t.tagName==='SELECT'){
