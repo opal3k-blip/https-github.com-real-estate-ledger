@@ -563,6 +563,10 @@ const USE_TYPES = {
   "تعليمي (Education)":             { mult:1.10, niy:0.065 },
   "مركز بيانات (Data Center)":      { mult:1.90, niy:0.065 },
   "مخطط رئيسي شامل (Master Plan)":  { mult:1.40, niy:null },
+  // "سكني (Residential)" أعلاه = سكني مفتوح/تقليدي (بدون تسوير أو خدمات مجتمعية خاصة).
+  // الإضافة التالية لتغطية الكمبوندات السكنية المغلقة (مسوّرة + أمن + مرافق مشتركة) كنوع منفصل —
+  // أرقام تقديرية أولية (علاوة سعرية أعلى مقابل NIY أضيق نسبياً بسبب رسوم الخدمة)، عدّليها من بيانات سوق فعلية.
+  "سكني - كمبوند مغلق ومسوّر (Gated Compound)": { mult:1.05, niy:0.055 },
 };
 const ASSET_CLASSES = {
   "عام":            { t:'عام (دخل قياسي)', en:'Standard income' },
@@ -1301,7 +1305,7 @@ function renderStepFields(idx, d){
       </div>`;
     case 3: return `
       <div class="grid2">
-        ${F.select('meta.useType','نوع الاستخدام الرئيسي','Primary use', d.meta.useType, Object.keys(USE_TYPES).map(k=>[`${k} — ×${USE_TYPES[k].mult.toFixed(2)}`,k]), {span2:true})}
+        ${F.select('meta.useType','نوع الاستخدام الرئيسي','Primary use', d.meta.useType, Object.keys(USE_TYPES).map(k=>[`${k} — ×${USE_TYPES[k].mult.toFixed(2)}`,k]), {rerender:true, span2:true})}
       </div>
       <div class="livebox" style="margin-top:8px;">
         <div class="lt">مرجع السوق للاستخدام المختار — Reference market yield</div>
