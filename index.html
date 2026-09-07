@@ -337,6 +337,12 @@ function canEditOpp(rec){
 // قاعدة بياناتكم الحقيقية على السحابة) — أي إضافة/تعديل/حذف يفعله الزائر لا يصل لبياناتكم أبداً ولا يُكلّف أي شيء.
 const DEMO_MODE = (()=>{ try{ return new URLSearchParams(location.search).get('demo')==='1'; }catch(e){ return false; } })();
 
+// رابط "بوابة الفريق" (?team=1) — شاشة دخول بعنوان/شكل مختلف شكلياً عن رابطك الرئيسي كأدمن، لتوزيعه على
+// فريق العمل بشكل منفصل وواضح. **النظام الفعلي واحد**: نفس تسجيل الدخول الحقيقي (Firebase Auth)، ونفس
+// قواعد الصلاحيات — بريدك = أدمن كامل الصلاحيات من أي رابط، أي بريد آخر مضاف في "إدارة الفريق" = عضو
+// فريق محدود من أي رابط أيضاً. الفرق هنا شكلي/تنظيمي فقط لتسهيل توزيع الروابط، مش صلاحية إضافية.
+const TEAM_ENTRY = (()=>{ try{ return new URLSearchParams(location.search).get('team')==='1'; }catch(e){ return false; } })();
+
 function authErrorMessage(err){
   const map = {
     'auth/invalid-email': 'صيغة البريد الإلكتروني غير صحيحة.',
@@ -2380,6 +2386,9 @@ function renderLogin(){
   return `
     <div style="min-height:90vh; display:flex; align-items:center; justify-content:center; padding:24px;">
       <div class="panel" style="width:100%; max-width:420px; padding:8px;">
+        ${TEAM_ENTRY? `
+        <div style="text-align:center; padding-top:14px;"><span class="tag" style="background:var(--accent-soft, var(--surface-2)); color:var(--accent);">👥 بوابة فريق العمل — Team Portal</span></div>
+        ` : ''}
         <div style="padding:22px 24px 6px; text-align:center;">
           <div class="brand" style="justify-content:center; margin-bottom:14px;">
             <div class="mark">ع</div>
@@ -2388,8 +2397,10 @@ function renderLogin(){
               <div class="sub">Real Estate Opportunity Ledger</div>
             </div>
           </div>
-          <div class="step-title" style="font-size:16px;">تسجيل الدخول</div>
-          <div class="step-sub">هذه الأداة لفريق العمل فقط — الحسابات تُنشأ من قِبل مسؤول النظام.</div>
+          <div class="step-title" style="font-size:16px;">${TEAM_ENTRY? 'تسجيل دخول أعضاء الفريق' : 'تسجيل الدخول'}</div>
+          <div class="step-sub">${TEAM_ENTRY
+            ? 'ادخلي بنفس البريد وكلمة المرور اللي جهّزهالك مسؤول النظام (أو "متابعة عبر Google" لو بريدك Gmail وأضافه المسؤول).'
+            : 'هذه الأداة لفريق العمل فقط — الحسابات تُنشأ من قِبل مسؤول النظام.'}</div>
         </div>
         <div style="padding:6px 24px 24px; display:flex; flex-direction:column; gap:12px;">
           ${authError? `<div class="note" style="background:var(--bad-soft); color:var(--bad); padding:9px 12px; border-radius:8px;">${esc(authError)}</div>` : ''}
@@ -2413,7 +2424,7 @@ function renderLogin(){
           <div style="text-align:center; font-size:11.5px; color:var(--ink-faint); margin-top:4px;">
             ليس لديك حساب؟ تواصلي مع مسؤول النظام لإضافتك.
           </div>
-          <a href="?demo=1" style="text-align:center; font-size:12px; color:var(--accent); font-weight:600; margin-top:2px;">🧪 أو جرّبي الأداة كزائر بدون تسجيل دخول (نسخة تجريبية معزولة)</a>
+          ${!TEAM_ENTRY? `<a href="?demo=1" style="text-align:center; font-size:12px; color:var(--accent); font-weight:600; margin-top:2px;">🧪 أو جرّبي الأداة كزائر بدون تسجيل دخول (نسخة تجريبية معزولة)</a>` : ''}
         </div>
       </div>
     </div>
