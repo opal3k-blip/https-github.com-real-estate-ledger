@@ -11,10 +11,11 @@
 // Firestore، الموضّحة في README.md (الخطوة 3). لا تتجاهلي تلك الخطوة.
 
 window.FIREBASE_CONFIG = {
-  apiKey: "REPLACE_ME",
-  authDomain: "REPLACE_ME.firebaseapp.com",
-  projectId: "REPLACE_ME",
-  storageBucket: "REPLACE_ME.appspot.com",
-  messagingSenderId: "REPLACE_ME",
-  appId: "REPLACE_ME",
+  apiKey: "AIzaSyBdKZaGc1PNeGwK8h_Von4EuuT5EmYADfw",
+  authDomain: "real-estate-ledger-f85a6.firebaseapp.com",
+  projectId: "real-estate-ledger-f85a6",
+  storageBucket: "real-estate-ledger-f85a6.firebasestorage.app",
+  messagingSenderId: "590032344408",
+  appId: "1:590032344408:web:6c2aad2b1f970320bb012d",
+  measurementId: "G-B4Q3E85VFC",
 };
