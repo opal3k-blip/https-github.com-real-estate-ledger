@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // بريد/بريدَي المسؤول (لهما صلاحية كاملة دائماً، ومش بيتأثرا بمدة الوصول).
+    // لازم يطابق تماماً قائمة ADMIN_EMAILS في index.html.
+    function isAdminEmail() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && (request.auth.token.email.lower() == 'opal3k@gmail.com'
+            || request.auth.token.email.lower() == 'ggocss@gmail.com');
+    }
+
+    // عضو فريق مضاف عبر لوحة "إدارة الفريق"، ولسه ضمن مدة الوصول المحدَّدة له
+    // (أو بدون تاريخ انتهاء = دائم). وثيقته الأساسية هي team_members/{بريده}.
+    function memberDoc() {
+      return get(/databases/$(database)/documents/team_members/$(request.auth.token.email.lower()));
+    }
+    function isAllowlisted() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && exists(/databases/$(database)/documents/team_members/$(request.auth.token.email.lower()))
+        && (memberDoc().data.expiresAt == null || memberDoc().data.expiresAt > request.time);
+    }
+
+    function isAuthorized() {
+      return isAdminEmail() || isAllowlisted();
+    }
+
+    // عضو الفريق (غير الأدمن) يقدر يعدّل/يحذف بس الفرصة اللي هو نفسه أضافها (meta.createdBy) —
+    // الأدمن يقدر على كل شيء دايماً. فرصة قديمة بدون meta.createdBy (من قبل تفعيل هذا القيد)
+    // تفضل قابلة للتعديل من أي عضو مصرَّح له، حتى لا تُحبَس بيانات سابقة بدون مالك مسجَّل.
+    function ownsOpp(existingData) {
+      return existingData.meta.createdBy == null
+        || existingData.meta.createdBy.lower() == request.auth.token.email.lower();
+    }
+
+    // بيانات الفرص الاستثمارية — للفريق المصرَّح له فقط (ولسه ضمن مدة الوصول).
+    // القراءة والإضافة: لأي عضو مصرَّح له. التعديل/الحذف: الأدمن، أو عضو الفريق لفرصته الخاصة فقط.
+    match /opportunities/{oppId} {
+      allow read, create: if isAuthorized();
+      allow update, delete: if isAdminEmail() || (isAllowlisted() && ownsOpp(resource.data));
+    }
+
+    // أعضاء الفريق المصرَّح لهم — إدارة (إضافة/إزالة/تعديل المدة) للمسؤول فقط.
+    // القراءة (لوحة إدارة الفريق) للمسؤول فقط أيضاً؛ فحص isAllowlisted() نفسه يستخدم get()
+    // الداخلي في القواعد وهو غير مقيَّد بهذه القاعدة.
+    match /team_members/{email} {
+      allow read, write: if isAdminEmail();
+    }
+
+    // إعدادات عامة (شعار الشركة/اسمها لتقارير الطباعة) — أي عضو مصرَّح له يقدر يقرأها
+    // (عشان الشعار يظهر له في التقارير)، لكن التعديل للمسؤول فقط.
+    match /settings/{docId} {
+      allow read: if isAuthorized();
+      allow write: if isAdminEmail();
+    }
+
+    // حضور لحظي ("من متصل الآن") — كل مستخدم يكتب في وثيقته الخاصة فقط، وأي مستخدم مصرَّح له
+    // (ولسه ضمن مدة وصوله) يقدر يقرأ الكل عشان يشوف قائمة المتصلين.
+    match /presence/{uid} {
+      allow read: if isAuthorized();
+      allow write: if request.auth != null && request.auth.uid == uid && isAuthorized();
+    }
+  }
+}

@@ -3,28 +3,29 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>دفتر الفرص العقارية</title>
-<meta name="description" content="دفتر الفرص العقارية — أداة تقييم وتحليل جدوى الفرص الاستثمارية العقارية">
+<title>دفتر الفرص العقارية — Opal</title>
+<meta name="description" content="دفتر الفرص العقارية — أداة تقييم وتحليل جدوى الفرص الاستثمارية العقارية من شركة أوبال القابضة (Opal Holding)">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 :root{
-  --paper:#F3F4F0; --surface:#FFFFFF; --surface-2:#EAEDE7; --surface-3:#E0E4DC;
-  --ink:#152019; --ink-soft:#4C5850; --ink-faint:#7C877E; --border:#D6DACF;
-  --accent:#0E6B4C; --accent-ink:#FFFFFF; --accent-soft:#E3EFE7; --accent-soft-ink:#0E5A3F;
-  --gold:#9C7B2E; --gold-soft:#F1E9D4;
-  --good:#1E8A56; --good-soft:#DFF1E6;
-  --warn:#9C6A0A; --warn-soft:#F6EAD2;
-  --bad:#AE2E22; --bad-soft:#F7E0DC;
-  --shadow: 0 1px 2px rgba(20,28,22,.06), 0 8px 24px -12px rgba(20,28,22,.18);
+  /* لوحة ألوان مُعاد تصميمها لتنسجم مع هوية أوبال البصرية (رمادي غرافيت + تركواز عميق راقٍ) بدل الأخضر الترابي السابق. */
+  --paper:#F5F5F3; --surface:#FFFFFF; --surface-2:#ECEBE7; --surface-3:#E1E0DA;
+  --ink:#1B1D22; --ink-soft:#565A63; --ink-faint:#888C95; --border:#DCDAD3;
+  --accent:#1F5F6B; --accent-ink:#FFFFFF; --accent-soft:#E3EEF0; --accent-soft-ink:#164A54;
+  --gold:#A8823A; --gold-soft:#F2E8D2;
+  --good:#1F7A52; --good-soft:#DEF0E5;
+  --warn:#A6741F; --warn-soft:#F5EAD3;
+  --bad:#B33A2C; --bad-soft:#F8E1DC;
+  --shadow: 0 1px 2px rgba(20,22,28,.06), 0 8px 24px -12px rgba(20,22,28,.18);
   --radius: 12px;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --paper:#10150F; --surface:#171E17; --surface-2:#1D251C; --surface-3:#252E23;
-    --ink:#E7ECE5; --ink-soft:#A7B3A6; --ink-faint:#748174; --border:#2B342A;
-    --accent:#49C388; --accent-ink:#08170F; --accent-soft:#17281F; --accent-soft-ink:#6FDBA4;
-    --gold:#D8B563; --gold-soft:#2A2413;
+    --paper:#14161B; --surface:#1B1E25; --surface-2:#21252D; --surface-3:#2A2F39;
+    --ink:#ECEDEF; --ink-soft:#A8ACB5; --ink-faint:#767B85; --border:#2F3440;
+    --accent:#54BFCB; --accent-ink:#06181B; --accent-soft:#1B2E32; --accent-soft-ink:#82D5DE;
+    --gold:#D9B978; --gold-soft:#2C260F;
     --good:#4FC988; --good-soft:#173125;
     --warn:#E3B25B; --warn-soft:#2E2611;
     --bad:#E38176; --bad-soft:#301917;
@@ -32,10 +33,10 @@
   }
 }
 :root[data-theme="dark"]{
-  --paper:#10150F; --surface:#171E17; --surface-2:#1D251C; --surface-3:#252E23;
-  --ink:#E7ECE5; --ink-soft:#A7B3A6; --ink-faint:#748174; --border:#2B342A;
-  --accent:#49C388; --accent-ink:#08170F; --accent-soft:#17281F; --accent-soft-ink:#6FDBA4;
-  --gold:#D8B563; --gold-soft:#2A2413;
+  --paper:#14161B; --surface:#1B1E25; --surface-2:#21252D; --surface-3:#2A2F39;
+  --ink:#ECEDEF; --ink-soft:#A8ACB5; --ink-faint:#767B85; --border:#2F3440;
+  --accent:#54BFCB; --accent-ink:#06181B; --accent-soft:#1B2E32; --accent-soft-ink:#82D5DE;
+  --gold:#D9B978; --gold-soft:#2C260F;
   --good:#4FC988; --good-soft:#173125;
   --warn:#E3B25B; --warn-soft:#2E2611;
   --bad:#E38176; --bad-soft:#301917;
@@ -67,10 +68,18 @@ button{font-family:inherit;}
 }
 .brand{ display:flex; align-items:center; gap:12px; }
 .brand .mark{
-  width:42px;height:42px;border-radius:10px;background:linear-gradient(155deg,var(--accent),var(--accent-soft-ink));
+  width:42px;height:42px;border-radius:10px;background:var(--surface-2);
   display:flex;align-items:center;justify-content:center;color:var(--accent-ink);font-weight:700;font-size:19px;
-  font-family:'Amiri',serif; flex:none;
+  font-family:'Amiri',serif; flex:none; overflow:hidden; padding:4px; box-shadow:inset 0 0 0 1px var(--border);
 }
+.brand .mark img{ width:100%; height:100%; object-fit:contain; }
+.opal-footer{
+  margin-top:28px; padding:18px 20px; text-align:center; color:var(--ink-faint); font-size:11.5px;
+  border-top:1px solid var(--border); display:flex; flex-direction:column; align-items:center; gap:8px;
+}
+.opal-footer img{ height:34px; width:auto; opacity:.92; }
+.opal-footer a{ color:var(--accent); text-decoration:none; font-weight:600; }
+.opal-footer a:hover{ text-decoration:underline; }
 .brand h1{ font-size:19px; margin:0; font-weight:700; }
 .brand .sub{ font-size:11.5px; color:var(--ink-faint); direction:ltr; text-align:right; letter-spacing:.02em; }
 .btn{
@@ -90,10 +99,51 @@ button{font-family:inherit;}
 
 /* ---------- KPI strip ---------- */
 .kpis{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:18px; }
-.kpi{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; box-shadow:var(--shadow); }
+.kpi{ background:var(--surface); border:1px solid var(--border); border-inline-start:3px solid transparent; border-radius:var(--radius); padding:14px 16px; box-shadow:var(--shadow); transition:transform .15s ease, box-shadow .15s ease; }
+.kpi:hover{ transform:translateY(-2px); box-shadow:0 4px 10px rgba(20,28,22,.10), 0 14px 30px -14px rgba(20,28,22,.24); }
 .kpi .l{ font-size:11.5px; color:var(--ink-faint); font-weight:600; margin-bottom:6px; }
 .kpi .v{ font-size:22px; font-weight:700; font-family:'IBM Plex Mono',monospace; direction:ltr; text-align:right; }
 .kpi .v small{ font-size:12px; color:var(--ink-faint); font-weight:500; font-family:'IBM Plex Sans Arabic'; }
+/* ألوان مؤشرات لوحة القيادة — لكل فئة لون مميز بدل الرمادي الموحّد */
+.kpi-accent{ border-inline-start-color:var(--accent); }
+.kpi-accent .v{ color:var(--accent); }
+.kpi-gold{ border-inline-start-color:var(--gold); }
+.kpi-gold .v{ color:var(--gold); }
+.kpi-warn{ border-inline-start-color:var(--warn); }
+.kpi-warn .v{ color:var(--warn); }
+.kpi-good{ border-inline-start-color:var(--good); }
+.kpi-good .v{ color:var(--good); }
+.kpi-bad{ border-inline-start-color:var(--bad); }
+.kpi-bad .v{ color:var(--bad); }
+.kpi-ink{ border-inline-start-color:var(--ink-soft); }
+
+/* ---------- شريط أهم مؤشرات لوحة القيادة (أول ما يُرى) ---------- */
+.dash-hero{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:16px; }
+.dash-hero-card{
+  position:relative; overflow:hidden; border-radius:var(--radius); padding:16px 18px 14px;
+  background:var(--surface); border:1px solid var(--border); box-shadow:var(--shadow);
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.dash-hero-card:hover{ transform:translateY(-3px); box-shadow:0 6px 14px rgba(20,28,22,.12), 0 18px 34px -16px rgba(20,28,22,.28); }
+.dash-hero-card::before{ content:""; position:absolute; inset:0 0 auto 0; height:4px; background:var(--accent-color, var(--accent)); }
+.dash-hero-card .icon{ font-size:18px; margin-bottom:8px; display:block; }
+.dash-hero-card .l{ font-size:11.5px; color:var(--ink-faint); font-weight:600; margin-bottom:6px; }
+.dash-hero-card .v{ font-size:24px; font-weight:800; font-family:'IBM Plex Mono',monospace; direction:ltr; text-align:right; color:var(--ink); }
+.dash-hero-card .v small{ font-size:13px; color:var(--ink-faint); font-weight:500; font-family:'IBM Plex Sans Arabic'; }
+.dash-hero-card .sub{ font-size:10.5px; color:var(--ink-faint); margin-top:4px; }
+
+/* ---------- عناوين أقسام لوحة القيادة (تجميع منطقي للمؤشرات) ---------- */
+.dash-section{ margin-bottom:16px; }
+.dash-section-title{
+  display:flex; align-items:center; gap:7px; font-size:12px; font-weight:700; color:var(--ink-soft);
+  margin-bottom:8px; padding-right:2px; letter-spacing:.01em;
+}
+.dash-section-title .bar{ width:3px; height:14px; border-radius:2px; background:var(--accent); display:inline-block; }
+
+@media (max-width: 900px){
+  .dash-hero{ grid-template-columns:repeat(2,1fr); }
+  .kpis{ grid-template-columns:repeat(2,1fr); }
+}
 
 /* ---------- table / database grid ---------- */
 .panel{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
@@ -193,6 +243,24 @@ table.report tr:last-child td{ border-bottom:none; }
 .badge-row{ display:flex; gap:8px; flex-wrap:wrap; }
 .small-btns{ display:flex; gap:8px; flex-wrap:wrap; }
 
+/* ---------- جرس النشاط الحديث (فرص أضافها الزملاء) ---------- */
+.activity-bell-wrap{ position:relative; display:inline-block; }
+.activity-bell-btn{ position:relative; }
+.activity-badge{
+  position:absolute; top:-6px; left:-6px; background:var(--bad); color:#fff; font-size:10px; font-weight:700;
+  min-width:16px; height:16px; border-radius:8px; display:flex; align-items:center; justify-content:center; padding:0 3px;
+}
+.activity-dropdown{
+  position:absolute; top:calc(100% + 8px); left:0; width:320px; max-height:380px; overflow-y:auto;
+  background:var(--panel); border:1px solid var(--border); border-radius:12px; box-shadow:0 12px 32px rgba(0,0,0,.22);
+  z-index:60; padding:10px;
+}
+.activity-item{ display:flex; flex-direction:column; gap:2px; padding:8px 9px; border-radius:8px; cursor:pointer; }
+.activity-item:hover{ background:var(--surface-2); }
+.activity-item.unseen{ background:var(--gold-soft, var(--surface-2)); }
+.activity-item .t{ font-size:12.5px; font-weight:600; }
+.activity-item .m{ font-size:11px; color:var(--ink-faint); }
+
 /* ---------- closing conditions list ---------- */
 .cond-list{ display:flex; flex-direction:column; gap:8px; }
 .cond-row{ display:flex; gap:8px; align-items:center; }
@@ -201,45 +269,69 @@ table.report tr:last-child td{ border-bottom:none; }
 table.db thead th:first-child, table.db tbody td:first-child{ width:32px; text-align:center; }
 
 /* ---------- print / PDF export (letterhead-style report) ---------- */
-@page{ margin: 20mm 16mm 18mm; }
+@page{ margin: 22mm 16mm 20mm; }
+/* غلاف/ترويسة الطباعة (شعار الشركة + اسمها) — عنصر DOM حقيقي، مخفي على الشاشة، يظهر فقط عند الطباعة */
+.print-letterhead{ display:none; }
+.print-run-header{ display:none; }
 @media print{
-  .topbar, .kpis.portfolio, .panel, .badge-row, .small-btns, .overlay, .db-toolbar{ display:none !important; }
-  html,body{ background:#fff; color:#111; font-family:'Sakkal Majalla','Arial',serif; font-size:12.5px; }
+  *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+  .topbar, .kpis.portfolio, .dash-hero, .dash-section, .panel, .badge-row, .small-btns, .overlay, .db-toolbar, .opal-footer, button{ display:none !important; }
+  html,body{ background:#fff; color:#1B1D22; font-family:'Sakkal Majalla','Amiri','Times New Roman','Arial',serif; font-size:12px; line-height:1.5; }
   .app{ padding:0; max-width:none; }
   .memo{ gap:0; }
+  /* أرقام/نصوص إنجليزية داخل التقرير المطبوع تبقى بخط لاتيني احترافي واضح، بدل الاعتماد على خط عربي لعرض أرقام */
+  .mono, .ltr, table.report td.num, .kv .v[dir=ltr]{ font-family:'Times New Roman','IBM Plex Mono',monospace !important; }
 
-  /* letterhead */
-  .memo::before{
-    content:"دفتر الفرص العقارية · Real Estate Opportunity Ledger";
-    display:block; text-align:center; font-family:'Sakkal Majalla','Amiri',serif;
-    font-size:11px; letter-spacing:.08em; color:#0E6B4C; font-weight:700;
-    border-bottom:2.5px solid #0E6B4C; padding-bottom:8px; margin-bottom:14px;
+  /* شريط علوي متكرر في كل صفحة (اسم الشركة + عنوان التقرير) — position:fixed يتكرر تلقائياً بمعظم المتصفحات عند الطباعة */
+  .print-run-header{
+    display:flex; align-items:center; justify-content:space-between; position:fixed; top:0; left:0; right:0;
+    font-size:8.5px; color:#9195A0; border-bottom:.5px solid #E3E1DA; padding-bottom:3px;
   }
+
+  /* letterhead (شعار + اسم الشركة، عنصر DOM حتى تُعرض صورة الشعار فعلياً) — غلاف التقرير، صفحة أولى فقط */
+  .print-letterhead{
+    display:flex; align-items:center; justify-content:center; gap:14px;
+    border-bottom:3px solid #1F5F6B; padding-bottom:14px; margin-bottom:18px;
+  }
+  .print-letterhead-logo{ height:42px; max-width:130px; object-fit:contain; }
+  .print-letterhead-text{ text-align:center; }
+  .print-letterhead-company{ font-size:14.5px; font-weight:700; color:#1B1D22; margin-bottom:3px; letter-spacing:.01em; }
+  .print-letterhead-app{ font-family:'Sakkal Majalla','Amiri',serif; font-size:11px; letter-spacing:.07em; color:#1F5F6B; font-weight:700; }
+  .print-letterhead-date{ font-size:9.5px; color:#565A63; margin-top:3px; }
 
   .memo-hero{
-    border:none; border-bottom:1.5px solid #0E6B4C; background:none;
-    border-radius:0; padding:0 0 14px; margin-bottom:16px; break-after:avoid;
+    border:none; border-bottom:2px solid #1F5F6B; background:linear-gradient(180deg,#F2F7F8,transparent);
+    border-radius:0; padding:12px 4px 16px; margin-bottom:18px; break-after:avoid;
   }
-  .memo-hero h2{ font-size:22px; margin:8px 0 6px; color:#0B2D1E; }
-  .memo-hero .eyebrow{ color:#0E6B4C; }
-  .verdict-banner{ -webkit-print-color-adjust:exact; print-color-adjust:exact; border:1px solid rgba(0,0,0,.15) !important; }
+  .memo-hero h2{ font-size:23px; margin:8px 0 6px; color:#1B1D22; font-weight:800; }
+  .memo-hero .eyebrow{ color:#1F5F6B; font-weight:800; }
+  .memo-hero .meta{ color:#565A63; }
+  .verdict-banner{ border:1px solid rgba(0,0,0,.15) !important; font-weight:700; }
 
   .section{
-    border:1px solid #D9DED6; border-radius:8px; break-inside:avoid; margin-bottom:12px;
+    border:1px solid #DCDAD3; border-radius:6px; break-inside:avoid; margin-bottom:13px;
     box-shadow:none;
   }
-  .section h3{ background:#F2F5F0; -webkit-print-color-adjust:exact; print-color-adjust:exact; border-radius:8px 8px 0 0; }
-  .kpis{ break-inside:avoid; }
-  .kpi{ border:1px solid #E3E6DE; }
-  table.report, table.db{ break-inside:auto; }
+  .section h3{
+    background:linear-gradient(90deg,#F2F7F8,#fff); border-inline-start:3.5px solid #1F5F6B;
+    border-radius:6px 6px 0 0; padding-inline-start:12px !important; font-weight:800; letter-spacing:.01em;
+  }
+  .kpis{ break-inside:avoid; grid-template-columns:repeat(3,1fr) !important; gap:9px; }
+  .kpi{ border:1px solid #E3E6DE; border-inline-start-width:3px; padding:10px 12px; box-shadow:none; }
+  .kpi .l{ font-size:10px; }
+  .kpi .v{ font-size:18px; }
+  table.report, table.db{ break-inside:auto; width:100% !important; min-width:0 !important; }
   table.report tr, table.db tr{ break-inside:avoid; }
-  canvas{ break-inside:avoid; max-height:220px !important; }
+  table.report th, table.db th{ background:#F2F7F8 !important; border-bottom:1.5px solid #1F5F6B !important; }
+  table.report tbody tr:nth-child(even) td, table.db tbody tr:nth-child(even) td{ background:#FAFAF8; }
+  canvas{ break-inside:avoid; max-height:200px !important; }
+  .tag, .verdict-good, .verdict-warn, .verdict-bad{ border:.5px solid rgba(0,0,0,.12); }
 
-  /* footer disclaimer */
+  /* footer disclaimer + العلامة التجارية */
   .memo::after{
-    content: "تم إنشاء هذا التقرير عبر دفتر الفرص العقارية — أرقام تقديرية لأغراض دراسة الجدوى الأولية وليست عرضاً ملزماً.";
-    display:block; text-align:center; font-size:9.5px; color:#7C877E; margin-top:18px;
-    border-top:1px solid #D9DED6; padding-top:8px;
+    content: "أوبال القابضة — دفتر الفرص العقارية — أرقام تقديرية لأغراض دراسة الجدوى الأولية وليست عرضاً ملزماً. Opal Holding — Real Estate Opportunity Ledger — figures are estimates for preliminary feasibility study purposes only and do not constitute a binding offer.";
+    display:block; text-align:center; font-size:9px; color:#888C95; margin-top:20px;
+    border-top:1px solid #DCDAD3; padding-top:9px;
   }
   a[href]:after{ content:""; }
 }
@@ -250,1878 +342,17 @@ table.db thead th:first-child, table.db tbody td:first-child{ width:32px; text-a
 <div class="app" id="app"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 
-<!-- Firebase (قاعدة البيانات السحابية) — عدّلي المفاتيح في firebase-config.js -->
+<!-- Firebase (قاعدة البيانات السحابية + تسجيل الدخول) — عدّل المفاتيح في firebase-config.js -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="firebase-config.js"></script>
 
-<script>
-/* =========================================================================
-   دفتر الفرص العقارية — Real Estate Opportunity Ledger
-   Single-file interactive intake + underwriting engine + database.
-   ========================================================================= */
 
-let DB = null;
-let claudeReady = false;
-async function initDb(){
-  try{
-    if(window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey && window.FIREBASE_CONFIG.apiKey !== 'REPLACE_ME'){
-      firebase.initializeApp(window.FIREBASE_CONFIG);
-      DB = firebase.firestore();
-      // مزامنة لحظية: أي تعديل يُحفظ في Firestore (من جهازك أو من زميل آخر) يظهر فوراً هنا بدون إعادة تحميل الصفحة.
-      DB.collection('opportunities').onSnapshot(snap => {
-        opportunities = snap.docs.map(d => ({ id: d.id, data: d.data() }));
-        render();
-      }, err => { console.error('Firestore sync error:', err); });
-    } else {
-      console.warn('Firebase غير مُهيّأ — راجعي firebase-config.js. سيتم استخدام تخزين محلي مؤقت (localStorage) في هذا المتصفح فقط.');
-    }
-  }catch(e){ DB = null; console.error('Firebase init failed:', e); }
-  claudeReady = true;
-  await loadAll();
-  render();
-}
-
-/* ---------------- utilities ---------------- */
-function uid(prefix){ return prefix+'-'+Math.random().toString(36).slice(2,8).toUpperCase(); }
-function getPath(obj,path){ return path.split('.').reduce((o,k)=> (o==null?undefined:o[k]), obj); }
-function setPath(obj,path,val){
-  const parts = path.split('.'); let o = obj;
-  for(let i=0;i<parts.length-1;i++){ if(o[parts[i]]==null) o[parts[i]]={}; o = o[parts[i]]; }
-  o[parts[parts.length-1]] = val;
-}
-function n(v,d){ v = parseFloat(v); return isFinite(v)? v : (d==null?0:d); }
-function fmtSAR(v){
-  if(v==null || !isFinite(v)) return '—';
-  const sign = v<0? '-':''; v = Math.abs(v);
-  let s;
-  if(v>=1e6) s = (v/1e6).toFixed(2)+'M';
-  else if(v>=1e3) s = Math.round(v).toLocaleString('en-US');
-  else s = v.toFixed(0);
-  return sign+s+' ر.س';
-}
-function fmtNum(v,dec){ if(v==null||!isFinite(v)) return '—'; return v.toLocaleString('en-US',{maximumFractionDigits:dec==null?0:dec, minimumFractionDigits:dec==null?0:dec}); }
-function fmtPct(v,dec){ if(v==null||!isFinite(v)) return '—'; return (v*100).toFixed(dec==null?1:dec)+'%'; }
-function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function todayStr(){ return new Date().toISOString().slice(0,10); }
-
-/* ---------------- reference tables ---------------- */
-const CITIES = ["الرياض","جدة","مكة المكرمة","المدينة المنورة","الدمام","الخبر","الأحساء","أخرى"];
-const TIERS = { "بريميوم":1.50, "راقي":1.20, "متوسط":1.00, "شعبي":0.75 };
-const USE_TYPES = {
-  "سكني (Residential)":            { mult:0.90, niy:0.060 },
-  "تجاري - تجزئة (Retail)":         { mult:1.15, niy:0.080 },
-  "مكاتب (Office)":                 { mult:1.20, niy:0.075 },
-  "مختلط سكني+تجاري (Mixed Use)":   { mult:1.08, niy:0.072 },
-  "فندقي (Hospitality)":            { mult:1.45, niy:0.090 },
-  "مستودعات ولوجستيات (Logistics)": { mult:0.70, niy:0.085 },
-  "رعاية صحية (Healthcare)":        { mult:1.35, niy:0.070 },
-  "تعليمي (Education)":             { mult:1.10, niy:0.065 },
-  "مركز بيانات (Data Center)":      { mult:1.90, niy:0.065 },
-  "مخطط رئيسي شامل (Master Plan)":  { mult:1.40, niy:null },
-};
-const ASSET_CLASSES = {
-  "عام":            { t:'عام (دخل قياسي)', en:'Standard income' },
-  "gas_station":     { t:'محطة وقود (NNN)', en:'Gas station — NNN' },
-  "qsr_pharmacy":    { t:'مطعم / صيدلية (NNN)', en:'QSR / Pharmacy — NNN' },
-  "hospitality":     { t:'فندقي', en:'Hospitality' },
-  "logistics":       { t:'لوجستي / مستودعات', en:'Logistics / Warehouse' },
-  "data_center":     { t:'مركز بيانات', en:'Data center' },
-};
-const CREDIT_TIERS = {
-  "استثماري (Investment Grade)": '6.0%–7.0%',
-  "وطني (National)":            '7.0%–8.5%',
-  "إقليمي/مستقل (Regional/Independent)": '8.5%–10.0%+',
-};
-const SITE_FACTORS = {
-  soil:      [ ["🟢 صخرية / تحمل عالٍ (>300 kN/m²)",0.95], ["🟡 متوسطة — تحتاج فحص", 1.00], ["🔴 رملية ضعيفة — تحسين تربة", 1.10] ],
-  water:     [ ["🟢 منسوب عميق (>10م) — آمن",1.00], ["🟡 متوسط — عزل رطوبة",1.05], ["🔴 مرتفع — نزح دائم",1.15] ],
-  tower:     [ ["🟢 مبنى منخفض (≤4 أدوار)",1.00], ["🟡 متوسط (5-9 أدوار)",1.08], ["🔴 برج (≥10 أدوار)",1.20] ],
-  topo:      [ ["🟢 مستوية (ميل <2%)",1.00], ["🟡 ميل معتدل (2-8%)",1.06], ["🔴 شديدة الانحدار (>8%)",1.15] ],
-  infra:     [ ["🟢 جاهزة على حدود الأرض",1.00], ["🟡 تحتاج تمديد قريب",1.06], ["🔴 تحتاج بنية تحتية كاملة",1.18] ],
-};
-const EXIT_STRATEGIES = { "بيع كامل (Build-to-Sell)":1.00, "تأجير وإبقاء (Build-to-Rent)":0.00, "مختلط (Mixed Sell+Rent)":0.50, "إعادة تمويل (Hold/Refinance)":0.00 };
-const CRITERIA_DEFAULTS = { irrMin:0.15, dscrMin:1.30, moicMin:1.50, yocMin:0.08, projIrrMin:0.10, preLeasingMin:0.30 };
-const STATUS_OPTS = [["⚪ لم يبدأ","not_started"],["🟡 قيد التنفيذ","in_progress"],["✅ مكتمل","completed"]];
-const STATUS_LABEL = Object.fromEntries(STATUS_OPTS.map(([l,v])=>[v,l]));
-
-function blankOpportunity(){
-  return {
-    id: null,
-    meta: { name:'', city:CITIES[0], neighborhood:'', tier:'راقي', oppType:'income', useType:Object.keys(USE_TYPES)[3], analyst:'Opal', createdAt:null, updatedAt:null },
-    land: { area:5000, price:3500, far:2.0, bar:0.5, floorsAllowed:4, basements:1, floorHeight:3.6, setbacks:0.15 },
-    site: { soil:0, water:0, tower:0, topo:0, infra:0 },
-    strategy: { exitStrategy:"مختلط (Mixed Sell+Rent)", salePct:0.5 },
-    income: { gla:null, rent:1000, occupancy:0.92, opex:0.28, wale:4.0, tenantConc:0.20, distFreq:"ربع سنوي (Quarterly)",
-      assetClass:'عام', holdStrategy:'exit_sale',
-      nnn: { tenantCreditTier:'وطني (National)', leaseTermRemaining:10, pctRent:false, pctRentRate:0.06, annualSales:0, envReserveAnnual:0 },
-      hospitality: { adr:450, keys:120, gopMargin:0.35 },
-      logisticsSpec: { clearHeight:11, dockDoors:8 },
-      dataCenterSpec: { powerDensityKw:1.5, redundancyTier:'Tier III (N+1)' },
-      refinance: { intervalYears:5, refiLtv:0.65, refiCostPct:0.01, analysisHorizon:10 },
-    },
-    development: { salePrice:9000, buildCost:3800, constructionYears:2, operationYears:1, exitCapRate:0.08, efficiency:0.85, contingency:0.05,
-      scopeType:'both', infraCostPerSqm:0,
-      costBreakdown:{ structure:0.42, mep:0.18, finishes:0.20, external:0.08, fees:0.12 } },
-    landbank: { appreciation:0.08, holdingYears:4, carryAnnual:250000, zoningNote:'', hbuNote:'' },
-    subscription: { minInvestment:100000, subscriptionFee:0.02, lockupYears:5, distPolicy:"عند الإغلاق فقط (At Exit Only)", investorClass:"Class A - تجزئة (Retail)", hwm:true },
-    economics: { hurdle:0.12, carry:0.20, lpShare:0.60, gpShare:0.25, devShare:0.15 },
-    fees: { mgmt:0.008, structuring:0.008, arrangement:0.010, acquisition:0.015, disposition:0.010, assetMgmt:0.0075, propMgmt:0.04, regAuditCustodian:200000, cmaSetup:750000, dueDiligence:200000, valuation:150000 },
-    financing: { ltc:0.60, saibor:0.055, margin:0.025, tenor:5, structure:'single', seniorPct:0.80, mezzMarginAdj:0.04, amortType:'interest_only', graceYears:0, amortYears:10 },
-    wacc: { rf:0.045, mrp:0.065, beta:0.95, crp:0.012, sp:0.020, alpha:0.015, marketCap:0.075, growth:0.03 },
-    exitCosts: { broker:0.025, legal:0.010, rett:0.05, exitFee:0.005 },
-    criteria: Object.assign({}, CRITERIA_DEFAULTS, { preLeasingActual:0.30 }),
-    scenarios: {
-      optimistic: { rentMult:1.08, salePriceMult:1.08, costMult:0.95, capRateDelta:-0.005, rateDelta:-0.0025 },
-      pessimistic:{ rentMult:0.90, salePriceMult:0.88, costMult:1.10, capRateDelta:0.010, rateDelta:0.0075 },
-    },
-    closing: {
-      titleDeed:'completed', zoning:'in_progress', environmental:'not_started',
-      conditions: [
-        { text:'تثبيت سعر الأرض عبر اتفاقية شراء موقعة', status:'pending' },
-        { text:'توقيع عقود إيجار مسبقة ≥ 30% من GLA قبل بدء الإنشاء', status:'pending' },
-      ],
-      ddNotes: '',
-    },
-    notes: '',
-  };
-}
-
-/* ---------------- state ---------------- */
-let opportunities = []; // list of saved records {id, data}
-let sortKey = 'updatedAt', sortDir = 'desc';
-let wizard = null; // { step, draft }
-let openDetailId = null;
-let confirmDeleteId = null;
-let compareIds = [];
-let compareOpen = false;
-
-async function loadAll(){
-  if(!DB){ opportunities = JSON.parse(localStorageSafe('reop_fallback')||'[]'); return; }
-  // مع Firebase، المزامنة اللحظية (onSnapshot في initDb) هي التي تملأ opportunities — لا حاجة لجلب مرة واحدة هنا.
-}
-function localStorageSafe(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
-function saveLocalFallback(){ try{ localStorage.setItem('reop_fallback', JSON.stringify(opportunities)); }catch(e){} }
-
-async function persistOpportunity(rec){
-  if(DB){
-    try{
-      // Firestore يرفض القيم undefined — تمريرها عبر JSON يحذفها تلقائياً بأمان.
-      const clean = JSON.parse(JSON.stringify(rec.data));
-      await DB.collection('opportunities').doc(rec.id).set(clean);
-      return true;
-    }
-    catch(e){ console.error(e); alert('تعذّر الحفظ في قاعدة البيانات السحابية: '+e.message); return false; }
-  } else {
-    const idx = opportunities.findIndex(o=>o.id===rec.id);
-    if(idx>=0) opportunities[idx]=rec; else opportunities.push(rec);
-    saveLocalFallback();
-    return true;
-  }
-}
-async function deleteOpportunity(id){
-  if(DB){ try{ await DB.collection('opportunities').doc(id).delete(); }catch(e){} }
-  opportunities = opportunities.filter(o=>o.id!==id);
-  if(!DB) saveLocalFallback();
-}
-
-/* =========================================================================
-   محرك الحسابات — Underwriting / Feasibility engine
-   ========================================================================= */
-function irr(cashflows){
-  // Newton's method with bisection fallback. cashflows[0] is year 0.
-  function npv(r){ let s=0; for(let t=0;t<cashflows.length;t++) s += cashflows[t]/Math.pow(1+r,t); return s; }
-  let r = 0.15;
-  for(let i=0;i<60;i++){
-    const f = npv(r);
-    const df = (npv(r+1e-5)-f)/1e-5;
-    if(Math.abs(df)<1e-9) break;
-    const rn = r - f/df;
-    if(!isFinite(rn)) break;
-    if(Math.abs(rn-r)<1e-7){ r=rn; break; }
-    r = rn;
-  }
-  if(isFinite(r) && Math.abs(npv(r))<1) return r;
-  // bisection fallback over a wide range
-  let lo=-0.95, hi=5, flo=npv(lo), fhi=npv(hi);
-  if(flo*fhi>0) return NaN;
-  for(let i=0;i<200;i++){
-    const mid=(lo+hi)/2, fm=npv(mid);
-    if(Math.abs(fm)<1) return mid;
-    if(flo*fm<0){ hi=mid; fhi=fm; } else { lo=mid; flo=fm; }
-  }
-  return (lo+hi)/2;
-}
-function npvAt(rate, cashflows){ let s=0; for(let t=0;t<cashflows.length;t++) s+=cashflows[t]/Math.pow(1+rate,t); return s; }
-
-/* Backward-compatible defaults merge: fills any field missing from an older
-   saved record (or a partially-built draft) with blankOpportunity()'s defaults,
-   without touching anything the record already has. */
-function withDefaults(o){
-  const b = blankOpportunity();
-  function merge(dst, src){
-    for(const k in src){
-      const sv = src[k];
-      if(sv && typeof sv==='object' && !Array.isArray(sv)){
-        if(dst[k]==null || typeof dst[k]!=='object' || Array.isArray(dst[k])) dst[k] = {};
-        merge(dst[k], sv);
-      } else if(dst[k]===undefined){
-        dst[k] = sv;
-      }
-    }
-    return dst;
-  }
-  return merge(JSON.parse(JSON.stringify(o||{})), b);
-}
-
-function compute(o, scenarioKey){
-  o = withDefaults(o);
-  const scn = (scenarioKey && scenarioKey!=='base' && o.scenarios && o.scenarios[scenarioKey]) ? o.scenarios[scenarioKey] : null;
-  const rentMult = scn? scn.rentMult : 1;
-  const salePriceMult = scn? scn.salePriceMult : 1;
-  const costMult = scn? scn.costMult : 1;
-  const capRateDelta = scn? scn.capRateDelta : 0;
-  const rateDelta = scn? scn.rateDelta : 0;
-
-  const land = o.land, site = o.site, strat = o.strategy, meta = o.meta;
-  const tierMult = TIERS[meta.tier] ?? 1.0;
-  const useInfo = USE_TYPES[meta.useType] || {mult:1,niy:0.07};
-  const siteFactor = [site.soil,site.water,site.tower,site.topo,site.infra].reduce((prod,idx,i)=>{
-    const keys=['soil','water','tower','topo','infra'];
-    const opt = SITE_FACTORS[keys[i]][idx||0];
-    return prod * opt[1];
-  },1);
-
-  const landCost = land.area * land.price;
-  const gfa = land.area * land.far;
-  const footprint = land.area * land.bar;
-  const floorsNeeded = footprint>0? Math.ceil(gfa/footprint) : 0;
-  const buildingHeight = floorsNeeded * land.floorHeight;
-  const landCostPerGFA = gfa>0? landCost/gfa : 0;
-  const masterMultiplier = tierMult * useInfo.mult * siteFactor;
-
-  const type = meta.oppType; // income | development | landbank
-  const assetClass = type==='income' ? (o.income.assetClass||'عام') : 'عام';
-  const holdStrategy = type==='income' ? (o.income.holdStrategy||'exit_sale') : 'exit_sale';
-  const refi = Object.assign({intervalYears:5, refiLtv:0.65, refiCostPct:0.01, analysisHorizon:10}, o.income.refinance||{});
-  const scopeType = (type==='development'||type==='income') ? (o.development.scopeType||'both') : 'both';
-  const infraCostPerSqm = o.development.infraCostPerSqm || 0;
-
-  let hardCostBase = 0, hardCost = 0, salePct = strat.salePct;
-  let constructionYears = 0, operationYears = 0;
-  let verticalCost = 0;
-  const contingencyPct = o.development.contingency ?? 0.05;
-  const cb = o.development.costBreakdown || {structure:0.42,mep:0.18,finishes:0.20,external:0.08,fees:0.12};
-  const infraCostAmt = (type!=='landbank' && scopeType!=='vertical_only') ? land.area * infraCostPerSqm * costMult : 0;
-
-  if(type==='landbank'){
-    hardCostBase = 0; hardCost = 0;
-    constructionYears = 0;
-    operationYears = o.landbank.holdingYears;
-  } else if(type==='development'){
-    verticalCost = scopeType==='infra_only' ? 0 : gfa * (o.development.buildCost*costMult) * useInfo.mult * siteFactor;
-    hardCostBase = verticalCost + infraCostAmt;
-    hardCost = hardCostBase * (1+contingencyPct);
-    constructionYears = o.development.constructionYears;
-    operationYears = o.development.operationYears;
-  } else { // income
-    verticalCost = scopeType==='infra_only' ? 0 : gfa * ((o.development.buildCost||3500)*costMult) * useInfo.mult * siteFactor;
-    hardCostBase = verticalCost + infraCostAmt;
-    hardCost = hardCostBase * (1+contingencyPct);
-    constructionYears = o.development.constructionYears || 1;
-    operationYears = o.development.operationYears || 5;
-  }
-  // Cost breakdown (structure/MEP/finishes/external/fees) describes the composition of the
-  // VERTICAL building cost only — infrastructure cost is a separate, structurally distinct
-  // line item and must not dilute these percentages.
-  const costBreakdownAmounts = {
-    structure: verticalCost*(cb.structure||0), mep: verticalCost*(cb.mep||0), finishes: verticalCost*(cb.finishes||0),
-    external: verticalCost*(cb.external||0), fees: verticalCost*(cb.fees||0), contingency: hardCostBase*contingencyPct,
-  };
-
-  // one-time / fixed fund fees
-  const oneTimeFixed = o.fees.cmaSetup + o.fees.dueDiligence + o.fees.valuation;
-  const structuringFee = o.fees.structuring * (landCost + hardCost);
-  const acquisitionFee = o.fees.acquisition * landCost;
-
-  const totalYears = holdStrategy==='perpetual_hold'
-    ? Math.max(1, constructionYears + Math.max(1, refi.analysisHorizon||10))
-    : Math.max(1, constructionYears + operationYears);
-
-  // Debt sizing — single tranche, or Senior + Mezzanine
-  const preTPC = landCost + hardCost + oneTimeFixed + structuringFee + acquisitionFee;
-  const totalDebtTarget = preTPC * o.financing.ltc;
-  const seniorRate = o.financing.saibor + o.financing.margin + rateDelta;
-  let seniorDebt, mezzDebt, interestRate;
-  if(o.financing.structure==='senior_mezz'){
-    seniorDebt = totalDebtTarget * (o.financing.seniorPct??0.80);
-    mezzDebt = totalDebtTarget - seniorDebt;
-    const mezzRate = seniorRate + (o.financing.mezzMarginAdj??0.04);
-    interestRate = totalDebtTarget>0 ? (seniorDebt*seniorRate + mezzDebt*mezzRate)/totalDebtTarget : seniorRate;
-  } else {
-    seniorDebt = totalDebtTarget; mezzDebt = 0;
-    interestRate = seniorRate;
-  }
-  const debt = totalDebtTarget;
-  const arrangementFee = o.financing.ltc>0 ? o.fees.arrangement * debt : 0;
-  const TPC = preTPC + arrangementFee;
-  const equity = TPC - debt;
-
-  // WACC (CAPM build-up)
-  const Ke = o.wacc.rf + o.wacc.beta*o.wacc.mrp + o.wacc.crp + o.wacc.sp + o.wacc.alpha;
-  const Kd = interestRate;
-  const V = debt + equity;
-  const WACC = V>0 ? (equity/V)*Ke + (debt/V)*Kd : Ke;
-
-  // GLA / revenue assumptions
-  const efficiency = (o.development.efficiency)||0.85;
-  const gla = type==='income' ? (o.income.gla || gfa*efficiency) : gfa*efficiency;
-  const rentAnnual = o.income.rent*rentMult;
-  const occupancy = o.income.occupancy;
-  const opexPct = o.income.opex;
-  const exitCapRateEff = Math.max(0.02, o.development.exitCapRate + capRateDelta);
-  const marketCapEff = Math.max(0.02, (o.wacc.marketCap||0.075) + capRateDelta);
-  const salePriceEff = o.development.salePrice * salePriceMult;
-  const amortType = o.financing.amortType || 'interest_only';
-  const graceYears = o.financing.graceYears||0;
-  const amortYears = Math.max(1, o.financing.amortYears||10);
-
-  function noiForYear(){
-    if(type==='landbank') return 0;
-    if(type==='development' && scopeType==='infra_only') return 0; // serviced-plot sale: no interim rental income
-    if(assetClass==='hospitality'){
-      const hosp = o.income.hospitality||{};
-      const revPAR = (hosp.adr||0) * occupancy; // occupancy reused as hotel occupancy rate
-      const totalRevenue = revPAR * 365 * (hosp.keys||0);
-      const gop = totalRevenue * (hosp.gopMargin!=null? hosp.gopMargin : 0.35);
-      return gop * (1 - o.fees.propMgmt);
-    }
-    if(assetClass==='gas_station' || assetClass==='qsr_pharmacy'){
-      const nnn = o.income.nnn||{};
-      let totalRent = gla * rentAnnual;
-      if(nnn.pctRent){
-        const naturalBreakpoint = nnn.pctRentRate>0 ? totalRent/nnn.pctRentRate : Infinity;
-        const overage = Math.max(0, (nnn.annualSales||0) - naturalBreakpoint) * nnn.pctRentRate;
-        totalRent += overage;
-      }
-      // NNN (triple-net): tenant covers opex directly, so no opexPct deduction on the landlord's side
-      let noi = totalRent * occupancy * (1 - o.fees.propMgmt);
-      if(assetClass==='gas_station') noi -= (nnn.envReserveAnnual||0);
-      return noi;
-    }
-    const pgi = gla * rentAnnual;
-    const effOcc = type==='development' ? occupancy*(1-salePct) : occupancy; // if selling, rented share shrinks
-    const noi = pgi * effOcc * (1-opexPct) * (1 - o.fees.propMgmt);
-    return noi;
-  }
-
-  // ---- Build year-by-year cashflows (unlevered / project, and levered / equity) ----
-  const projectCF = []; const equityCF = []; const dscrSeries = [];
-  let remainingDebt = debt;
-
-  projectCF.push(-TPC);
-  const initialEquityOutlay = -(equity) - o.subscription.subscriptionFee*equity;
-  equityCF.push(initialEquityOutlay);
-
-  for(let yr=1; yr<=totalYears; yr++){
-    const inConstruction = yr<=constructionYears && type!=='landbank';
-    let noi = 0;
-    if(type==='landbank'){
-      noi = -o.landbank.carryAnnual;
-    } else if(!inConstruction){
-      noi = noiForYear();
-    }
-    const interest = remainingDebt * interestRate;
-    let principalPay = 0;
-    if(amortType==='amortizing' && type!=='landbank' && !inConstruction && yr>constructionYears+graceYears && remainingDebt>0){
-      principalPay = Math.min(remainingDebt, debt/amortYears);
-    }
-    const debtService = (type!=='landbank' && remainingDebt>0) ? interest+principalPay : 0;
-    const isLast = (yr===totalYears);
-    const yearsIntoOperation = yr - constructionYears;
-    const isRefiYear = (holdStrategy==='perpetual_hold' && !inConstruction && !isLast && yearsIntoOperation>0
-                        && refi.intervalYears>0 && yearsIntoOperation % refi.intervalYears === 0);
-
-    let exitValue = 0, exitCostsAmt = 0, debtPayoff = 0;
-    if(isLast){
-      if(type==='landbank'){
-        exitValue = landCost * Math.pow(1+o.landbank.appreciation, totalYears);
-      } else if(type==='development'){
-        const sellableArea = scopeType==='infra_only' ? land.area : gfa*efficiency;
-        const saleValue = sellableArea * salePriceEff * salePct;
-        const rentedValue = (1-salePct)>0 ? (gla*rentAnnual*occupancy*(1-opexPct)*(1-o.fees.propMgmt))/exitCapRateEff : 0;
-        exitValue = saleValue + (scopeType==='infra_only' ? 0 : rentedValue);
-      } else { // income fund exit via cap rate
-        const stabilizedNOI = noiForYear() * Math.pow(1+o.wacc.growth, totalYears);
-        exitValue = stabilizedNOI / marketCapEff;
-      }
-      const exitCostPct = o.exitCosts.broker + o.exitCosts.legal + o.exitCosts.rett + o.exitCosts.exitFee + o.fees.disposition;
-      exitCostsAmt = exitValue * exitCostPct;
-      debtPayoff = remainingDebt - principalPay; // remaining balance after this year's amortization, paid off at exit
-    }
-
-    const projFlow = noi + (isLast? (exitValue - exitCostsAmt) : 0);
-    const netOperatingCF = noi - debtService; // can be negative: a shortfall is a real equity capital call, not floored to zero
-
-    let equityFlow, newLoanAfterRefi = null;
-    if(isLast && holdStrategy==='refinance_close'){
-      // exit via cash-out refinance instead of a sale: a new loan pays off the old one,
-      // the surplus goes to equity, and the property itself is not sold (no disposition costs).
-      const propertyValue = noiForYear() * Math.pow(1+o.wacc.growth, totalYears) / marketCapEff;
-      const newLoan = propertyValue * (refi.refiLtv||0.65);
-      const refiCost = newLoan * (refi.refiCostPct||0.01);
-      const oldDebtRemaining = remainingDebt - principalPay;
-      const distribution = Math.max(0, newLoan - oldDebtRemaining - refiCost);
-      equityFlow = netOperatingCF + distribution;
-    } else if(isRefiYear){
-      const propertyValue = noiForYear() * Math.pow(1+o.wacc.growth, yr) / marketCapEff;
-      const newLoan = propertyValue * (refi.refiLtv||0.65);
-      const refiCost = newLoan * (refi.refiCostPct||0.01);
-      const oldDebtRemaining = remainingDebt - principalPay;
-      const distribution = Math.max(0, newLoan - oldDebtRemaining - refiCost);
-      equityFlow = netOperatingCF + distribution;
-      if(distribution>0) newLoanAfterRefi = oldDebtRemaining + distribution + refiCost; // == newLoan
-    } else if(isLast){
-      equityFlow = netOperatingCF + (exitValue - exitCostsAmt - debtPayoff);
-    } else {
-      equityFlow = netOperatingCF;
-    }
-
-    projectCF.push(projFlow);
-    equityCF.push(equityFlow);
-    if(!inConstruction && type!=='landbank'){
-      dscrSeries.push(debtService>0 ? noi/debtService : (noi>0? 99:0));
-    }
-    remainingDebt = isLast ? 0 : (newLoanAfterRefi!=null ? newLoanAfterRefi : Math.max(0, remainingDebt - principalPay));
-  }
-
-  // perpetual hold: report both a "cash-only" realized series and a "mark-to-market" series
-  // that adds the unrealized residual property value (net of remaining debt) at the horizon's end.
-  const equityCFCashOnly = equityCF.slice();
-  if(holdStrategy==='perpetual_hold'){
-    const propertyValueEnd = noiForYear() * Math.pow(1+o.wacc.growth, totalYears) / marketCapEff;
-    const residualEquityValue = Math.max(0, propertyValueEnd - remainingDebt);
-    equityCF[equityCF.length-1] += residualEquityValue;
-  }
-
-  const equityIRR = irr(equityCF);
-  const projectIRR = irr(projectCF);
-  const npvEquity = npvAt(Ke, equityCF);
-  const npvProject = npvAt(WACC, projectCF);
-  const totalDistrib = equityCF.slice(1).reduce((a,b)=>a+Math.max(0,b),0);
-  const MOIC = equity>0 ? totalDistrib/equity : 0;
-  const DPI = MOIC; const RVPI = 0; const TVPI = DPI+RVPI;
-  const dscrMin = dscrSeries.length? Math.min(...dscrSeries.filter(x=>isFinite(x))) : null;
-  const dscrAvg = dscrSeries.length? dscrSeries.reduce((a,b)=>a+b,0)/dscrSeries.length : null;
-
-  const equityIRRCashOnly = holdStrategy==='perpetual_hold' ? irr(equityCFCashOnly) : equityIRR;
-  const totalDistribCashOnly = equityCFCashOnly.slice(1).reduce((a,b)=>a+Math.max(0,b),0);
-  const MOICCashOnly = holdStrategy==='perpetual_hold' ? (equity>0 ? totalDistribCashOnly/equity : 0) : MOIC;
-
-  const stabilizedNOIyr1 = type!=='landbank' ? noiForYear() : 0;
-  const yieldOnCost = TPC>0 ? stabilizedNOIyr1/TPC : 0;
-
-  // ---- Fees rollups ----
-  const mgmtFeeTotal = o.fees.mgmt * (equity+debt)/2 * totalYears; // approx on avg NAV proxy
-  const assetMgmtTotal = o.fees.assetMgmt * TPC * totalYears;
-  const regAuditCustodianTotal = (o.fees.regAuditCustodian + o.fees.mgmt*0) * totalYears;
-  const custodianTotal = 0.0015*(equity)*totalYears;
-  const fundSideFees = structuringFee + arrangementFee + mgmtFeeTotal + assetMgmtTotal + regAuditCustodianTotal + oneTimeFixed + acquisitionFee;
-  const investorSideFees = o.subscription.subscriptionFee*equity;
-  const dispositionFeeAmt = (equityCF[equityCF.length-1]||0) * 0; // already embedded in exit cost pct above
-  const feesPctOfTPC = TPC>0 ? fundSideFees/TPC : 0;
-
-  // ---- Waterfall ----
-  const PIC = equity;
-  const roc = Math.min(PIC, totalDistrib);
-  let remaining = totalDistrib - roc;
-  const prefTarget = PIC*(Math.pow(1+o.economics.hurdle, totalYears)-1);
-  const pref = Math.min(remaining, Math.max(0,prefTarget));
-  remaining -= pref;
-  const catchupTarget = remaining>0 ? (o.economics.carry/(1-o.economics.carry))*pref : 0;
-  const catchup = Math.min(remaining, Math.max(0,catchupTarget));
-  remaining -= catchup;
-  const lpStandard = (1-o.economics.carry)*remaining;
-  const carryPool = o.economics.carry*remaining;
-  const lpBonus = o.economics.lpShare*carryPool;
-  const gpManager = o.economics.gpShare*carryPool;
-  const devPromote = o.economics.devShare*carryPool;
-  const lpTotal = roc+pref+lpStandard+lpBonus;
-  const gpTotal = catchup+gpManager;
-  const devTotal = devPromote;
-
-  // ---- IC verdict checks ----
-  const checks = [
-    { k:'Equity IRR', v:equityIRR, min:o.criteria.irrMin, fmt:'pct' },
-    { k:'DSCR', v:dscrMin, min:o.criteria.dscrMin, fmt:'x' },
-    { k:'MOIC', v:MOIC, min:o.criteria.moicMin, fmt:'x' },
-    { k:'Yield on Cost', v:type==='landbank'?null:yieldOnCost, min:o.criteria.yocMin, fmt:'pct', skip:type==='development'&&salePct>=0.999 },
-    { k:'Project IRR', v:projectIRR, min:o.criteria.projIrrMin, fmt:'pct' },
-    { k:'Pre-Leasing', v:o.criteria.preLeasingActual, min:o.criteria.preLeasingMin, fmt:'pct', skip:type!=='income' },
-  ];
-  let passCount=0, failCount=0, applicable=0;
-  checks.forEach(c=>{ if(c.skip || c.v==null || !isFinite(c.v)) return; applicable++; if(c.v>=c.min) passCount++; else failCount++; });
-  let verdict = 'good';
-  if(npvProject<0 || failCount>=3) verdict='bad';
-  else if(failCount>=1) verdict='warn';
-
-  return {
-    tierMult, useInfo, siteFactor, landCost, gfa, footprint, floorsNeeded, buildingHeight, landCostPerGFA, masterMultiplier,
-    hardCost, hardCostBase, contingencyPct, costBreakdownAmounts,
-    oneTimeFixed, structuringFee, acquisitionFee, arrangementFee, TPC, debt, seniorDebt, mezzDebt, equity, interestRate, Ke, Kd, WACC,
-    amortType, assetClass, holdStrategy, scopeType, infraCostAmt, verticalCost,
-    gla, totalYears, constructionYears, operationYears,
-    equityIRR, projectIRR, npvEquity, npvProject, totalDistrib, MOIC, DPI, RVPI, TVPI, dscrMin, dscrAvg,
-    equityIRRCashOnly, MOICCashOnly, totalDistribCashOnly,
-    stabilizedNOIyr1, yieldOnCost,
-    mgmtFeeTotal, assetMgmtTotal, regAuditCustodianTotal, fundSideFees, investorSideFees, feesPctOfTPC,
-    PIC, roc, pref, catchup, lpStandard, carryPool, lpBonus, gpManager, devPromote, lpTotal, gpTotal, devTotal,
-    checks, passCount, failCount, applicable, verdict, salePct,
-    projectCF, equityCF, equityCFCashOnly, scenarioKey: scenarioKey||'base',
-  };
-}
-
-/* Tornado-style one-variable-at-a-time sensitivity on Equity IRR. */
-function sensitivityRows(o){
-  const isDev = o.meta.oppType==='development';
-  const bumps = [
-    { key:'land.price', label:'سعر شراء الأرض (م²)', deltaPct:0.10 },
-    { key: isDev?'development.salePrice':'income.rent', label: isDev?'سعر البيع (م²)':'سعر الإيجار (م²/سنة)', deltaPct:0.10 },
-    { key: isDev?'development.exitCapRate':'wacc.marketCap', label:'معدل الرسملة عند الخروج', deltaAbs:0.01 },
-    { key:'financing.saibor', label:'سعر الفائدة (SAIBOR)', deltaAbs:0.01 },
-  ];
-  const base = compute(o,'base');
-  return bumps.map(b=>{
-    const up = JSON.parse(JSON.stringify(o)); const down = JSON.parse(JSON.stringify(o));
-    const cur = getPath(up,b.key);
-    if(b.deltaPct!=null){ setPath(up,b.key, cur*(1+b.deltaPct)); setPath(down,b.key, cur*(1-b.deltaPct)); }
-    else { setPath(up,b.key, cur+b.deltaAbs); setPath(down,b.key, Math.max(0.001,cur-b.deltaAbs)); }
-    return { label:b.label, base:base.equityIRR, down:compute(down,'base').equityIRR, up:compute(up,'base').equityIRR };
-  });
-}
-
-function scenarioCompareRows(o){
-  return [
-    {key:'pessimistic', label:'🔴 متشائم (Pessimistic)'},
-    {key:'base', label:'🔵 الأساسي (Base)'},
-    {key:'optimistic', label:'🟢 متفائل (Optimistic)'},
-  ].map(s=>{
-    const c = compute(o, s.key);
-    return { label:s.label, key:s.key, irr:c.equityIRR, npv:c.npvProject, moic:c.MOIC, verdict:c.verdict };
-  });
-}
-
-/* =========================================================================
-   واجهة الإدخال — Field builder helpers
-   ========================================================================= */
-const F = {
-  num(path,label,labelEn,val,opts={}){
-    return `<div class="field ${opts.span2?'span2':''}"><label><span>${label}</span><span class="en">${labelEn||''}</span></label>
-      <div class="suffix-wrap"><input type="number" name="${path}" value="${val==null?'':val}" step="${opts.step||'any'}"
-        ${opts.min!=null?'min="'+opts.min+'"':''} ${opts.max!=null?'max="'+opts.max+'"':''}>
-        ${opts.suffix?'<span class="suffix">'+opts.suffix+'</span>':''}</div>
-      ${opts.hint?'<div class="hint">'+opts.hint+'</div>':''}</div>`;
-  },
-  pct(path,label,labelEn,val,opts={}){
-    return `<div class="field ${opts.span2?'span2':''}"><label><span>${label}</span><span class="en">${labelEn||''}</span></label>
-      <div class="suffix-wrap"><input type="number" data-pct="1" name="${path}" value="${(val*100).toFixed(opts.dec==null?2:opts.dec)}" step="${opts.step||'0.1'}">
-        <span class="suffix">%</span></div>
-      ${opts.hint?'<div class="hint">'+opts.hint+'</div>':''}</div>`;
-  },
-  select(path,label,labelEn,val,options,opts={}){
-    // options: array of [label,value]
-    const opts_html = options.map(([lab,v])=>`<option value="${esc(v)}" ${String(v)===String(val)?'selected':''}>${lab}</option>`).join('');
-    return `<div class="field ${opts.span2?'span2':''}"><label><span>${label}</span><span class="en">${labelEn||''}</span></label>
-      <select name="${path}" ${opts.isInt?'data-int="1"':''} ${opts.rerender?'data-rerender="1"':''}>${opts_html}</select>
-      ${opts.hint?'<div class="hint">'+opts.hint+'</div>':''}</div>`;
-  },
-  text(path,label,labelEn,val,opts={}){
-    return `<div class="field ${opts.span2?'span2':''}"><label><span>${label}</span><span class="en">${labelEn||''}</span></label>
-      <input type="text" name="${path}" value="${esc(val||'')}" placeholder="${opts.placeholder||''}">
-      ${opts.hint?'<div class="hint">'+opts.hint+'</div>':''}</div>`;
-  },
-  textarea(path,label,labelEn,val,opts={}){
-    return `<div class="field span2"><label><span>${label}</span><span class="en">${labelEn||''}</span></label>
-      <textarea name="${path}" placeholder="${opts.placeholder||''}">${esc(val||'')}</textarea></div>`;
-  },
-  checkbox(path,label,labelEn,val,opts={}){
-    return `<div class="field"><label><span>${label}</span><span class="en">${labelEn||''}</span></label>
-      <select name="${path}" data-bool="1" ${opts.rerender?'data-rerender="1"':''}><option value="true" ${val?'selected':''}>نعم — Yes</option><option value="false" ${!val?'selected':''}>لا — No</option></select></div>`;
-  }
-};
-
-const OPP_TYPE_INFO = {
-  income:      { ic:'🏢', t:'دخل تأجيري', en:'Income-Generating', d:'إيجار مستقر — NIY, إشغال, WALE' },
-  development: { ic:'🏗️', t:'تطوير وبيع', en:'Development / Capital Growth', d:'IRR, بيع/تأجير, هامش تطوير' },
-  landbank:    { ic:'🗺️', t:'تخزين أراضٍ', en:'Land Banking', d:'تثمين، تغيير تصنيف، أعلى استخدام' },
-};
-
-function siteSelectHtml(path,label,labelEn,key,val){
-  const opts = SITE_FACTORS[key].map((o,i)=>[`${o[0]} — ×${o[1].toFixed(2)}`, i]);
-  return F.select(path,label,labelEn,val||0,opts,{isInt:true});
-}
-
-/* =========================================================================
-   خطوات المعالج — Wizard steps
-   ========================================================================= */
-const STEPS = [
-  { t:'الهوية والموقع', en:'Identity & Location' },
-  { t:'الأرض والأنظمة البلدية', en:'Land & Building Regs' },
-  { t:'عوامل الموقع الفيزيائية', en:'Site Physical Factors' },
-  { t:'نوع الاستخدام الرئيسي', en:'Primary Use Type' },
-  { t:'الإيراد والخروج', en:'Revenue & Exit' },
-  { t:'الاكتتاب والمستثمرون', en:'Subscription & Investors' },
-  { t:'اقتصاديات الصندوق', en:'Fund Economics' },
-  { t:'رسوم الصندوق', en:'Fund Fees' },
-  { t:'التمويل وتكلفة رأس المال', en:'Financing & WACC' },
-  { t:'معايير القبول', en:'IC Criteria' },
-  { t:'شروط الإغلاق والعناية الواجبة', en:'Closing Conditions & DD' },
-  { t:'المراجعة والحفظ', en:'Review & Save' },
-];
-
-function renderStepFields(idx, d){
-  switch(idx){
-    case 0: return `
-      <div class="chooser" style="margin-bottom:20px;">
-        ${Object.entries(OPP_TYPE_INFO).map(([k,info])=>`
-          <div class="opt ${d.meta.oppType===k?'sel':''}" data-action="choose" data-path="meta.oppType" data-value="${k}">
-            <div class="ic">${info.ic}</div><div class="t">${info.t}</div><div class="d">${info.en}</div>
-          </div>`).join('')}
-      </div>
-      <div class="grid2">
-        ${F.text('meta.name','اسم الفرصة / المشروع','Opportunity name', d.meta.name, {placeholder:'مثال: برج مختلط — حي الهدا'})}
-        ${F.select('meta.city','المدينة','City', d.meta.city, CITIES.map(c=>[c,c]))}
-        ${F.text('meta.neighborhood','الحي / الموقع','District', d.meta.neighborhood, {placeholder:'مثال: الهدا'})}
-        ${F.select('meta.tier','فئة الحي (Tier)','Tier', d.meta.tier, Object.keys(TIERS).map(k=>[`${k} — ×${TIERS[k].toFixed(2)}`,k]))}
-      </div>`;
-    case 1: return `
-      <div class="grid3">
-        ${F.num('land.area','مساحة الأرض','Land area', d.land.area, {suffix:'م²', min:0})}
-        ${F.num('land.price','سعر شراء المتر','Price / m²', d.land.price, {suffix:'ر.س/م²', min:0})}
-        ${F.num('land.far','معامل البناء (FAR)','FAR', d.land.far, {suffix:'×', step:0.1, hint:'سكني 1.5-3× · تجاري 4-6×'})}
-        ${F.pct('land.bar','نسبة التغطية (BAR)','BAR', d.land.bar, {dec:0})}
-        ${F.num('land.floorsAllowed','عدد الأدوار المسموحة','Floors allowed', d.land.floorsAllowed, {suffix:'دور'})}
-        ${F.num('land.basements','عدد البدرومات','Basements', d.land.basements, {suffix:'بدروم'})}
-        ${F.num('land.floorHeight','ارتفاع الدور','Floor height', d.land.floorHeight, {suffix:'م', step:0.1})}
-        ${F.pct('land.setbacks','الارتدادات (Setbacks)','Setbacks', d.land.setbacks, {dec:0})}
-      </div>
-      ${d.meta.oppType!=='landbank'? `
-      <p class="step-sub" style="margin-top:16px;">نطاق التطوير — يحدد ما إذا كانت التكلفة تشمل البنية التحتية، الفوقية، أو كلاهما</p>
-      <div class="grid3">
-        ${F.select('development.scopeType','نطاق التطوير','Development scope', d.development.scopeType,
-          [['بنية تحتية وفوقية (Full Turnkey)','both'],['بنية فوقية فقط (Vertical Only — أرض مخدومة مسبقاً)','vertical_only']]
-          .concat(d.meta.oppType==='development'? [['بنية تحتية فقط (Infra Only — أراضٍ مخدومة للبيع)','infra_only']] : []),
-          {rerender:true, span2:true})}
-        ${d.development.scopeType!=='vertical_only'? F.num('development.infraCostPerSqm','تكلفة البنية التحتية للمتر','Infra cost / m² (land)', d.development.infraCostPerSqm, {suffix:'ر.س/م²', hint:'طرق، شبكات، تسوية أرض'}) : ''}
-      </div>`:''}`;
-    case 2: return `
-      <p class="step-sub" style="margin-top:-8px;">تُضرب هذه المعاملات معاً لتكوين معامل الموقع الإجمالي — تؤثر مباشرة على تكلفة البناء (Hard Cost)</p>
-      <div class="grid2">
-        ${siteSelectHtml('site.soil','نوع التربة / قدرة التحمل','Soil bearing', 'soil', d.site.soil)}
-        ${siteSelectHtml('site.water','منسوب المياه الجوفية','Groundwater', 'water', d.site.water)}
-        ${siteSelectHtml('site.tower','علاوة الأبراج','Tower premium', 'tower', d.site.tower)}
-        ${siteSelectHtml('site.topo','التضاريس / الميول','Topography', 'topo', d.site.topo)}
-        ${siteSelectHtml('site.infra','جاهزية البنية التحتية','Infrastructure', 'infra', d.site.infra)}
-      </div>`;
-    case 3: return `
-      <div class="grid2">
-        ${F.select('meta.useType','نوع الاستخدام الرئيسي','Primary use', d.meta.useType, Object.keys(USE_TYPES).map(k=>[`${k} — ×${USE_TYPES[k].mult.toFixed(2)}`,k]), {span2:true})}
-      </div>
-      <div class="livebox" style="margin-top:8px;">
-        <div class="lt">مرجع السوق للاستخدام المختار — Reference market yield</div>
-        <div class="lg">
-          <div class="li">معامل التكلفة<b>${'×'+USE_TYPES[d.meta.useType].mult.toFixed(2)}</b></div>
-          <div class="li">NIY المرجعي<b>${USE_TYPES[d.meta.useType].niy!=null? fmtPct(USE_TYPES[d.meta.useType].niy):'—'}</b></div>
-        </div>
-      </div>
-      ${d.meta.oppType==='income'? `
-      <p class="step-sub" style="margin-top:16px;">الفئة الفرعية للأصل (اختياري) — تُظهر مدخلات متخصصة حسب طبيعة النشاط</p>
-      <div class="grid2">
-        ${F.select('income.assetClass','الفئة الفرعية للأصل','Asset sub-class', d.income.assetClass, Object.entries(ASSET_CLASSES).map(([k,v])=>[`${v.t} — ${v.en}`,k]), {rerender:true, span2:true})}
-      </div>`:''}`;
-    case 4: {
-      const cb = d.development.costBreakdown;
-      const sumCB = (cb.structure||0)+(cb.mep||0)+(cb.finishes||0)+(cb.external||0)+(cb.fees||0);
-      const costBreakdownHtml = `
-        <p class="step-sub" style="margin-top:16px;">توزيع التكلفة الإنشائية (Cost Breakdown) ونسبة الطوارئ</p>
-        <div class="grid3">
-          ${F.pct('development.costBreakdown.structure','الهيكل الإنشائي','Structure', cb.structure, {dec:0})}
-          ${F.pct('development.costBreakdown.mep','الأعمال الكهروميكانيكية','MEP', cb.mep, {dec:0})}
-          ${F.pct('development.costBreakdown.finishes','التشطيبات','Finishes', cb.finishes, {dec:0})}
-          ${F.pct('development.costBreakdown.external','الأعمال الخارجية','External works', cb.external, {dec:0})}
-          ${F.pct('development.costBreakdown.fees','رسوم استشارية وإشراف','Fees/Supervision', cb.fees, {dec:0})}
-          ${F.pct('development.contingency','نسبة الطوارئ (Contingency)','Contingency', d.development.contingency, {dec:0})}
-        </div>
-        <div class="livebox"><div class="lt">تحقق المجموع (بدون الطوارئ) — Sum check</div>
-          <div class="li">مجموع النسب: <b class="num" style="display:inline">${fmtPct(sumCB,0)}</b> ${Math.abs(sumCB-1)<0.005?'✅':'⚠️ يجب أن يساوي 100%'}</div>
-        </div>`;
-      if(d.meta.oppType==='income'){
-        const ac = d.income.assetClass||'عام';
-        const isHosp = ac==='hospitality';
-        const isNNN = ac==='gas_station' || ac==='qsr_pharmacy';
-        const holdStrategy = d.income.holdStrategy||'exit_sale';
-        const rf = d.income.refinance;
-        const revenueFieldsHtml = isHosp ? `
-          <div class="grid3">
-            ${F.num('income.hospitality.adr','متوسط سعر الغرفة (ADR)','ADR', d.income.hospitality.adr, {suffix:'ر.س/ليلة'})}
-            ${F.num('income.hospitality.keys','عدد الغرف (Keys)','Keys', d.income.hospitality.keys, {suffix:'غرفة'})}
-            ${F.pct('income.occupancy','نسبة الإشغال الفندقي','Hotel occupancy', d.income.occupancy, {dec:0})}
-            ${F.pct('income.hospitality.gopMargin','هامش الربح التشغيلي (GOP)','GOP margin', d.income.hospitality.gopMargin, {dec:0, hint:'الهامش بعد جميع المصاريف التشغيلية الفندقية'})}
-            ${F.num('development.constructionYears','مدة الإنشاء (إن وجدت)','Construction yrs', d.development.constructionYears, {suffix:'سنة'})}
-            ${F.num('development.operationYears','مدة التشغيل حتى الخروج','Hold period', d.development.operationYears, {suffix:'سنة'})}
-          </div>` : `
-          <div class="grid3">
-            ${F.num('income.gla','المساحة المؤجّرة (GLA)','GLA', d.income.gla||'', {suffix:'م²', hint:'اتركه فارغاً لاستخدام GFA × كفاءة 85%'})}
-            ${F.num('income.rent','سعر الإيجار (إيجار أساسي)','Base rent / m² / yr', d.income.rent, {suffix:'ر.س/م²/سنة'})}
-            ${F.pct('income.occupancy','نسبة الإشغال','Occupancy', d.income.occupancy, {dec:0})}
-            ${isNNN? '' : F.pct('income.opex','مصاريف التشغيل (OpEx)','OpEx ratio', d.income.opex, {dec:0})}
-            ${F.num('income.wale','متوسط عمر العقود (WALE)','WALE', d.income.wale, {suffix:'سنة', step:0.1})}
-            ${F.pct('income.tenantConc','تركّز أكبر مستأجر','Tenant concentration', d.income.tenantConc, {dec:0})}
-            ${F.select('income.distFreq','وتيرة التوزيع','Distribution freq', d.income.distFreq, ["ربع سنوي (Quarterly)","نصف سنوي (Semi-Annual)","سنوي (Annual)","عند الإغلاق فقط (At Exit Only)"].map(x=>[x,x]))}
-            ${F.num('development.constructionYears','مدة الإنشاء (إن وجدت)','Construction yrs', d.development.constructionYears, {suffix:'سنة'})}
-            ${F.num('development.operationYears','مدة التشغيل حتى الخروج','Hold period', d.development.operationYears, {suffix:'سنة'})}
-          </div>`;
-        const nnnHtml = isNNN? `
-          <p class="step-sub" style="margin-top:16px;">مدخلات عقد الإيجار الصافي (NNN) — المستأجر يتحمّل مصاريف التشغيل</p>
-          <div class="grid3">
-            ${F.select('income.nnn.tenantCreditTier','تصنيف ائتمان المستأجر','Tenant credit tier', d.income.nnn.tenantCreditTier, Object.keys(CREDIT_TIERS).map(k=>[`${k} — Cap ${CREDIT_TIERS[k]}`,k]), {span2:true, hint:'مرجعي فقط — لا يُعدّل معدل الرسملة تلقائياً'})}
-            ${F.num('income.nnn.leaseTermRemaining','مدة العقد المتبقية','Lease term remaining', d.income.nnn.leaseTermRemaining, {suffix:'سنة'})}
-            ${F.checkbox('income.nnn.pctRent','تفعيل إيجار نسبي من المبيعات؟','Percentage rent?', d.income.nnn.pctRent, {rerender:true})}
-            ${d.income.nnn.pctRent? F.pct('income.nnn.pctRentRate','نسبة الإيجار من المبيعات','Pct rent rate', d.income.nnn.pctRentRate, {dec:1}) : ''}
-            ${d.income.nnn.pctRent? F.num('income.nnn.annualSales','المبيعات السنوية المقدّرة للمستأجر','Est. tenant annual sales', d.income.nnn.annualSales, {suffix:'ر.س', hint:'يُحتسب إيجار إضافي (Overage) فوق نقطة الارتكاز'}) : ''}
-            ${ac==='gas_station'? F.num('income.nnn.envReserveAnnual','احتياطي بيئي سنوي (خزانات/تلوث)','Annual environmental reserve', d.income.nnn.envReserveAnnual, {suffix:'ر.س/سنة'}) : ''}
-          </div>` : '';
-        const specialtyHtml = ac==='logistics'? `
-          <p class="step-sub" style="margin-top:16px;">مواصفات مستودع/منشأة لوجستية (معلوماتية — تُعرض في المذكرة)</p>
-          <div class="grid3">
-            ${F.num('income.logisticsSpec.clearHeight','الارتفاع الصافي (Clear Height)','Clear height', d.income.logisticsSpec.clearHeight, {suffix:'م'})}
-            ${F.num('income.logisticsSpec.dockDoors','عدد أبواب الشحن (Dock Doors)','Dock doors', d.income.logisticsSpec.dockDoors, {suffix:'باب'})}
-          </div>` : ac==='data_center'? `
-          <p class="step-sub" style="margin-top:16px;">مواصفات مركز البيانات (معلوماتية — تُعرض في المذكرة)</p>
-          <div class="grid3">
-            ${F.num('income.dataCenterSpec.powerDensityKw','كثافة الطاقة','Power density', d.income.dataCenterSpec.powerDensityKw, {suffix:'kW/م²', step:0.1})}
-            ${F.select('income.dataCenterSpec.redundancyTier','مستوى التكرار (Redundancy Tier)','Redundancy tier', d.income.dataCenterSpec.redundancyTier, ["Tier I (N)","Tier II (N+1 جزئي)","Tier III (N+1)","Tier IV (2N)"].map(x=>[x,x]), {span2:true})}
-          </div>` : '';
-        const holdStrategyHtml = `
-          <p class="step-sub" style="margin-top:16px;">استراتيجية الاحتفاظ والخروج</p>
-          <div class="grid3">
-            ${F.select('income.holdStrategy','استراتيجية الاحتفاظ','Hold strategy', holdStrategy,
-              [['بيع عند نهاية المدة (Exit via Sale)','exit_sale'],['إعادة تمويل لإغلاق الصندوق (Refinance to Close)','refinance_close'],['احتفاظ دائم بدخل مستمر (Perpetual Hold)','perpetual_hold']],
-              {rerender:true, span2:true})}
-          </div>
-          ${holdStrategy==='refinance_close'? `
-          <div class="grid3">
-            ${F.pct('income.refinance.refiLtv','نسبة التمويل عند إعادة التمويل (Refi LTV)','Refi LTV', rf.refiLtv, {dec:0})}
-            ${F.pct('income.refinance.refiCostPct','تكاليف إعادة التمويل (% من القرض الجديد)','Refi cost %', rf.refiCostPct, {dec:1})}
-          </div>
-          <p class="note" style="margin-top:8px;">بدلاً من بيع العقار، يتم تسييل قرض جديد بنهاية مدة الصندوق، سداد القرض القائم، وتوزيع الفائض على المستثمرين — إغلاق للصندوق دون بيع الأصل فعلياً.</p>`
-          : holdStrategy==='perpetual_hold'? `
-          <div class="grid3">
-            ${F.num('income.refinance.analysisHorizon','أفق التحليل (لأغراض القياس فقط)','Analysis horizon', rf.analysisHorizon, {suffix:'سنة', hint:'الأصل يُحتفظ به إلى ما لا نهاية — هذا الأفق لغرض حساب العائد فقط'})}
-            ${F.num('income.refinance.intervalYears','دورية إعادة التمويل','Refinance interval', rf.intervalYears, {suffix:'سنة'})}
-            ${F.pct('income.refinance.refiLtv','نسبة التمويل عند كل إعادة تمويل','Refi LTV (each cycle)', rf.refiLtv, {dec:0})}
-            ${F.pct('income.refinance.refiCostPct','تكاليف كل إعادة تمويل','Refi cost % (each cycle)', rf.refiCostPct, {dec:1})}
-          </div>
-          <p class="note" style="margin-top:8px;">لا يُباع الأصل إطلاقاً — يُعاد تمويله دورياً لتوزيع جزء من رأس المال، مع استمرار توليد الدخل. سيتم عرض عائد "نقدي محقّق فقط" بجانب العائد الكلي (شامل القيمة غير المحققة) في المذكرة.</p>`
-          : ''}`;
-        return `${revenueFieldsHtml}${nnnHtml}${specialtyHtml}${holdStrategyHtml}${costBreakdownHtml}`;
-      }
-      if(d.meta.oppType==='development') return `
-        <div class="grid3">
-          ${F.select('strategy.exitStrategy','استراتيجية الخروج','Exit strategy', d.strategy.exitStrategy, Object.keys(EXIT_STRATEGIES).map(k=>[k,k]), {span2:true})}
-          ${F.pct('strategy.salePct','نسبة البيع','Sale %', d.strategy.salePct, {dec:0, hint:'محسوبة تلقائياً حسب الاستراتيجية — قابلة للتعديل'})}
-          ${F.num('development.salePrice','سعر البيع','Sale price / m²', d.development.salePrice, {suffix:'ر.س/م²'})}
-          ${F.num('development.buildCost','تكلفة البناء','Build cost / m²', d.development.buildCost, {suffix:'ر.س/م²'})}
-          ${F.pct('development.exitCapRate','معدل الرسملة عند الخروج','Exit cap rate (rented %)', d.development.exitCapRate, {dec:1})}
-          ${F.pct('development.efficiency','كفاءة المساحة (GLA/GFA)','Efficiency', d.development.efficiency, {dec:0})}
-          ${F.num('development.constructionYears','مدة الإنشاء','Construction', d.development.constructionYears, {suffix:'سنة'})}
-          ${F.num('development.operationYears','مدة التشغيل حتى الخروج','Operation/hold', d.development.operationYears, {suffix:'سنة'})}
-          ${F.num('income.rent','إيجار الجزء المُبقى (إن Mixed)','Retained rent / m²/yr', d.income.rent, {suffix:'ر.س/م²'})}
-          ${F.pct('income.occupancy','إشغال الجزء المؤجّر','Occupancy (retained)', d.income.occupancy, {dec:0})}
-          ${F.pct('income.opex','OpEx على الجزء المؤجّر','OpEx (retained)', d.income.opex, {dec:0})}
-        </div>
-        ${costBreakdownHtml}`;
-      // landbank
-      return `
-        <div class="grid3">
-          ${F.pct('landbank.appreciation','معدل الارتفاع السنوي المتوقع','Annual appreciation', d.landbank.appreciation, {dec:1})}
-          ${F.num('landbank.holdingYears','مدة الاحتفاظ','Holding period', d.landbank.holdingYears, {suffix:'سنة'})}
-          ${F.num('landbank.carryAnnual','تكاليف الحمل السنوية','Annual carry cost', d.landbank.carryAnnual, {suffix:'ر.س/سنة', hint:'رسوم، تأمين، صيانة أساسية'})}
-        </div>
-        <div class="grid2" style="margin-top:12px;">
-          ${F.textarea('landbank.zoningNote','احتمالية تغيير التصنيف (Zoning)','Zoning upside', d.landbank.zoningNote, {placeholder:'مثال: توسّع نطاق عمراني متوقع خلال 3 سنوات...'})}
-          ${F.textarea('landbank.hbuNote','أعلى وأفضل استخدام (HBU)','Highest & Best Use', d.landbank.hbuNote, {placeholder:'التحليل المبدئي لأفضل استخدام مستقبلي...'})}
-        </div>`;
-    }
-    case 5: return `
-      <div class="grid3">
-        ${F.num('subscription.minInvestment','حد أدنى للاستثمار','Min investment', d.subscription.minInvestment, {suffix:'ر.س'})}
-        ${F.pct('subscription.subscriptionFee','رسوم الاشتراك (لمرة واحدة)','Subscription fee', d.subscription.subscriptionFee, {dec:1})}
-        ${F.num('subscription.lockupYears','فترة حظر البيع / عمر الصندوق','Lock-up / fund life', d.subscription.lockupYears, {suffix:'سنة'})}
-        ${F.select('subscription.distPolicy','سياسة توزيع الأرباح','Distribution policy', d.subscription.distPolicy, ["عند الإغلاق فقط (At Exit Only)","ربع سنوي (Quarterly)","نصف سنوي (Semi-Annual)","سنوي (Annual)","مرن (Hybrid)"].map(x=>[x,x]))}
-        ${F.select('subscription.investorClass','فئة المستثمر','Investor class', d.subscription.investorClass, ["Class A - تجزئة (Retail)","Class B - مؤهل (Qualified)","Class C - مؤسسي (Institutional)"].map(x=>[x,x]))}
-        ${F.checkbox('subscription.hwm','High-Water Mark','HWM', d.subscription.hwm)}
-      </div>`;
-    case 6: return `
-      <div class="grid3">
-        ${F.pct('economics.hurdle','معدل العائد المستهدف (Hurdle)','Hurdle rate', d.economics.hurdle, {dec:1})}
-        ${F.pct('economics.carry','إجمالي حصة الأداء (Carried Interest)','Total carry', d.economics.carry, {dec:1})}
-      </div>
-      <p class="step-sub" style="margin-top:16px;">توزيع حصة الأداء (Carried) داخلياً — يجب أن يساوي المجموع 100%</p>
-      <div class="grid3">
-        ${F.pct('economics.lpShare','🟢 حصة المستثمر (LP Bonus)','LP bonus share', d.economics.lpShare, {dec:0})}
-        ${F.pct('economics.gpShare','🔵 حصة مدير الصندوق (GP)','GP share', d.economics.gpShare, {dec:0})}
-        ${F.pct('economics.devShare','🟠 حصة المطور (Promote)','Developer promote', d.economics.devShare, {dec:0})}
-      </div>
-      <div class="livebox"><div class="lt">تحقق المجموع — Sum check</div>
-        <div class="li">مجموع الحصص: <b class="num" style="display:inline">${fmtPct(d.economics.lpShare+d.economics.gpShare+d.economics.devShare,0)}</b> ${Math.abs(d.economics.lpShare+d.economics.gpShare+d.economics.devShare-1)<0.005?'✅':'⚠️ يجب أن يساوي 100%'}</div>
-      </div>`;
-    case 7: return `
-      <div class="grid3">
-        ${F.pct('fees.mgmt','رسوم إدارة الصندوق (سنوي)','Management fee /yr', d.fees.mgmt, {dec:2})}
-        ${F.pct('fees.structuring','رسوم الهيكلة (لمرة واحدة)','Structuring fee', d.fees.structuring, {dec:2})}
-        ${F.pct('fees.arrangement','رسوم ترتيب التمويل','Arrangement fee (on debt)', d.fees.arrangement, {dec:2})}
-        ${F.pct('fees.acquisition','رسوم الاستحواذ','Acquisition fee (on land)', d.fees.acquisition, {dec:2})}
-        ${F.pct('fees.disposition','رسوم البيع / الخروج','Disposition fee', d.fees.disposition, {dec:2})}
-        ${F.pct('fees.assetMgmt','رسوم إدارة الأصول (سنوي)','Asset mgmt fee /yr', d.fees.assetMgmt, {dec:2})}
-        ${F.pct('fees.propMgmt','رسوم إدارة العقارات (من الإيجار)','Property mgmt (of rent)', d.fees.propMgmt, {dec:1})}
-        ${F.num('fees.regAuditCustodian','تدقيق + أمين حفظ (سنوي ثابت)','Audit + custodian /yr', d.fees.regAuditCustodian, {suffix:'ر.س'})}
-      </div>
-      <p class="step-sub" style="margin-top:16px;">رسوم تأسيسية ثابتة (لمرة واحدة)</p>
-      <div class="grid3">
-        ${F.num('fees.cmaSetup','رسوم تأسيس الصندوق (CMA)','CMA setup', d.fees.cmaSetup, {suffix:'ر.س'})}
-        ${F.num('fees.dueDiligence','العناية الواجبة','Due diligence', d.fees.dueDiligence, {suffix:'ر.س'})}
-        ${F.num('fees.valuation','تثمين الأصول الأولي','Initial valuation', d.fees.valuation, {suffix:'ر.س'})}
-      </div>`;
-    case 8: return `
-      <div class="grid3">
-        ${F.pct('financing.ltc','نسبة التمويل بالدين (LTC)','LTC', d.financing.ltc, {dec:0})}
-        ${F.pct('financing.saibor','سايبور 3 أشهر (SAIBOR)','SAIBOR 3M', d.financing.saibor, {dec:2})}
-        ${F.pct('financing.margin','هامش البنك (الشريحة الأولى)','Bank margin (senior)', d.financing.margin, {dec:2})}
-        ${F.num('financing.tenor','مدة القرض','Loan tenor', d.financing.tenor, {suffix:'سنة'})}
-        ${F.select('financing.structure','هيكل الدين','Debt structure', d.financing.structure, [['قرض واحد (Single Tranche)','single'],['أول + ثانوي (Senior + Mezzanine)','senior_mezz']], {rerender:true})}
-        ${F.select('financing.amortType','نمط السداد','Amortization type', d.financing.amortType, [['فوائد فقط (Interest-Only)','interest_only'],['مستهلك (Amortizing)','amortizing']], {rerender:true})}
-      </div>
-      ${d.financing.structure==='senior_mezz'? `
-      <p class="step-sub" style="margin-top:16px;">هيكل الشريحتين — Senior + Mezzanine</p>
-      <div class="grid3">
-        ${F.pct('financing.seniorPct','نسبة الشريحة الأولى (Senior) من إجمالي الدين','Senior % of total debt', d.financing.seniorPct, {dec:0})}
-        ${F.pct('financing.mezzMarginAdj','هامش إضافي على الميزانين (Mezzanine)','Mezzanine margin add-on', d.financing.mezzMarginAdj, {dec:2})}
-      </div>`:''}
-      ${d.financing.amortType==='amortizing'? `
-      <p class="step-sub" style="margin-top:16px;">جدول الاستهلاك (Amortization Schedule)</p>
-      <div class="grid3">
-        ${F.num('financing.graceYears','سنوات السماح (بدون سداد أصل)','Grace years', d.financing.graceYears, {suffix:'سنة'})}
-        ${F.num('financing.amortYears','مدة استهلاك الأصل','Amortization period', d.financing.amortYears, {suffix:'سنة'})}
-      </div>`:''}
-      <p class="step-sub" style="margin-top:16px;">مدخلات السوق لحساب تكلفة رأس المال (WACC عبر CAPM)</p>
-      <div class="grid3">
-        ${F.pct('wacc.rf','العائد الخالي من المخاطر (Rf)','Risk-free (10y Sukuk)', d.wacc.rf, {dec:2})}
-        ${F.pct('wacc.mrp','علاوة مخاطر السوق (MRP)','Market risk premium', d.wacc.mrp, {dec:2})}
-        ${F.num('wacc.beta','بيتا القطاع العقاري','Sector beta (β)', d.wacc.beta, {step:0.05})}
-        ${F.pct('wacc.crp','علاوة مخاطر الدولة (CRP)','Country risk premium', d.wacc.crp, {dec:2})}
-        ${F.pct('wacc.sp','علاوة مخاطر الحجم (SP)','Size premium', d.wacc.sp, {dec:2})}
-        ${F.pct('wacc.alpha','علاوة مخاطر المشروع (α)','Project-specific α', d.wacc.alpha, {dec:2})}
-        ${F.pct('wacc.marketCap','معدل الرسملة السوقي (مرجعي)','Market cap rate', d.wacc.marketCap, {dec:2})}
-        ${F.pct('wacc.growth','معدل النمو طويل الأجل (g)','Long-term growth', d.wacc.growth, {dec:1})}
-      </div>
-      <p class="step-sub" style="margin-top:16px;">تكاليف الخروج (% من قيمة البيع)</p>
-      <div class="grid3">
-        ${F.pct('exitCosts.broker','عمولة السمسرة','Broker commission', d.exitCosts.broker, {dec:2})}
-        ${F.pct('exitCosts.legal','رسوم قانونية وتصرف','Legal / disposal', d.exitCosts.legal, {dec:2})}
-        ${F.pct('exitCosts.rett','ضريبة التصرف العقاري (RETT)','RETT', d.exitCosts.rett, {dec:2})}
-      </div>`;
-    case 9: return `
-      <div class="grid3">
-        ${F.pct('criteria.irrMin','الحد الأدنى Equity IRR','Min equity IRR', d.criteria.irrMin, {dec:1})}
-        ${F.num('criteria.dscrMin','الحد الأدنى DSCR','Min DSCR', d.criteria.dscrMin, {suffix:'×', step:0.05})}
-        ${F.num('criteria.moicMin','الحد الأدنى MOIC','Min MOIC', d.criteria.moicMin, {suffix:'×', step:0.05})}
-        ${F.pct('criteria.yocMin','الحد الأدنى Yield on Cost','Min yield on cost', d.criteria.yocMin, {dec:1})}
-        ${F.pct('criteria.projIrrMin','الحد الأدنى Project IRR','Min project IRR', d.criteria.projIrrMin, {dec:1})}
-        ${F.pct('criteria.preLeasingMin','الحد الأدنى للتأجير المسبق','Min pre-leasing', d.criteria.preLeasingMin, {dec:0})}
-        ${F.pct('criteria.preLeasingActual','نسبة التأجير المسبق الفعلية','Actual pre-leasing', d.criteria.preLeasingActual, {dec:0})}
-      </div>
-      ${F.textarea('notes','ملاحظات إضافية','Notes', d.notes, {placeholder:'أي ملاحظات، شروط تفاوضية، أو مخاطر إضافية...'})}
-      <div class="field span2" style="margin-top:8px;"></div>`;
-    case 10: {
-      const cd = d.closing;
-      return `
-      <div class="grid3">
-        ${F.select('closing.titleDeed','صك الملكية','Title deed', cd.titleDeed, STATUS_OPTS)}
-        ${F.select('closing.zoning','اعتماد التصنيف والمخطط','Zoning approval', cd.zoning, STATUS_OPTS)}
-        ${F.select('closing.environmental','الموافقات البيئية','Environmental approvals', cd.environmental, STATUS_OPTS)}
-      </div>
-      <p class="step-sub" style="margin-top:16px;">شروط الإغلاق وقائمة العناية الواجبة (Closing Conditions Checklist)</p>
-      <div class="cond-list">
-        ${cd.conditions.map((row,i)=>`
-          <div class="cond-row">
-            <input type="text" name="closing.conditions.${i}.text" value="${esc(row.text)}" placeholder="وصف الشرط...">
-            <select name="closing.conditions.${i}.status">
-              <option value="pending" ${row.status==='pending'?'selected':''}>⏳ قيد الانتظار</option>
-              <option value="met" ${row.status==='met'?'selected':''}>✅ مستوفى</option>
-              <option value="waived" ${row.status==='waived'?'selected':''}>➖ متنازل عنه</option>
-            </select>
-            <button type="button" class="btn btn-sm btn-ghost" data-action="remove-condition" data-idx="${i}" title="حذف">🗑️</button>
-          </div>`).join('')}
-      </div>
-      <button type="button" class="btn btn-sm" data-action="add-condition" style="margin-top:10px;">＋ إضافة شرط</button>
-      ${F.textarea('closing.ddNotes','ملاحظات العناية الواجبة','Due diligence notes', cd.ddNotes, {placeholder:'نتائج مبدئية لفحص العناية الواجبة، مخاطر مكتشفة، إلخ...'})}
-      `;
-    }
-    case 11: {
-      const c = compute(d);
-      return renderReviewSummary(d,c);
-    }
-  }
-  return '';
-}
-
-function liveMetricsHtml(d){
-  const c = compute(d);
-  return `<div class="lg">
-    <div class="li">تكلفة الأرض<b>${fmtSAR(c.landCost)}</b></div>
-    <div class="li">GFA<b>${fmtNum(c.gfa)} م²</b></div>
-    <div class="li">إجمالي تكلفة المشروع (TPC)<b>${fmtSAR(c.TPC)}</b></div>
-    <div class="li">حقوق الملكية<b>${fmtSAR(c.equity)}</b></div>
-    <div class="li">WACC<b>${fmtPct(c.WACC)}</b></div>
-    <div class="li">Equity IRR<b>${fmtPct(c.equityIRR)}</b></div>
-    <div class="li">MOIC<b>${c.MOIC.toFixed(2)}×</b></div>
-    <div class="li">الحكم الأولي<b>${c.verdict==='good'?'🟢 قوي':c.verdict==='warn'?'🟡 مراجعة':'🔴 دون المعايير'}</b></div>
-  </div>`;
-}
-
-function updateLivePreview(){
-  const el = document.getElementById('livePreviewBox');
-  if(el) el.innerHTML = liveMetricsHtml(wizard.draft);
-}
-
-function renderReviewSummary(d,c){
-  return `
-  <div class="section" style="padding:0; border:none; background:transparent;">
-    <div class="kv" style="background:var(--surface-2); border-radius:10px; padding:16px 18px; margin-bottom:14px;">
-      <div class="k">اسم الفرصة</div><div class="v" style="font-family:inherit; direction:rtl; unicode-bidi:plaintext;">${esc(d.meta.name||'—')}</div>
-      <div class="k">المدينة / الحي / الفئة</div><div class="v" style="font-family:inherit; direction:rtl; unicode-bidi:plaintext;">${esc(d.meta.city)} · ${esc(d.meta.neighborhood||'—')} · ${esc(d.meta.tier)}</div>
-      <div class="k">نوع الفرصة</div><div class="v" style="font-family:inherit; direction:rtl; unicode-bidi:plaintext;">${OPP_TYPE_INFO[d.meta.oppType].ic} ${OPP_TYPE_INFO[d.meta.oppType].t}</div>
-    </div>
-    <div class="grid3">
-      <div class="kpi" style="box-shadow:none;"><div class="l">إجمالي تكلفة المشروع (TPC)</div><div class="v">${fmtSAR(c.TPC)}</div></div>
-      <div class="kpi" style="box-shadow:none;"><div class="l">Equity IRR</div><div class="v">${fmtPct(c.equityIRR)}</div></div>
-      <div class="kpi" style="box-shadow:none;"><div class="l">MOIC</div><div class="v">${c.MOIC.toFixed(2)}<small>×</small></div></div>
-      <div class="kpi" style="box-shadow:none;"><div class="l">DSCR الأدنى</div><div class="v">${c.dscrMin!=null?c.dscrMin.toFixed(2)+'×':'—'}</div></div>
-      <div class="kpi" style="box-shadow:none;"><div class="l">WACC</div><div class="v">${fmtPct(c.WACC)}</div></div>
-      <div class="kpi" style="box-shadow:none;"><div class="l">NPV المشروع</div><div class="v" style="font-size:16px;">${fmtSAR(c.npvProject)}</div></div>
-    </div>
-    <div class="verdict-banner ${c.verdict==='good'?'verdict-good':c.verdict==='warn'?'verdict-warn':'verdict-bad'}" style="margin-top:14px;">
-      ${c.verdict==='good'?'🟢 الفرصة تتجاوز معظم معايير القبول — جاهزة لعرضها على لجنة الاستثمار':
-        c.verdict==='warn'?'🟡 الفرصة تحتاج مراجعة — بعض المؤشرات دون العتبة المحددة':
-        '🔴 الفرصة دون معايير القبول الحالية — تحتاج إعادة هيكلة قبل العرض'}
-    </div>
-    <p class="note" style="margin-top:14px;">بالحفظ، سيتم إنشاء سجل كامل في قاعدة بيانات الفرص مع مذكرة استثمارية تفصيلية قابلة للرجوع إليها ومقارنتها لاحقاً بفرص أخرى.</p>
-  </div>`;
-}
-
-/* =========================================================================
-   القاعدة الرئيسية — Database list view
-   ========================================================================= */
-function portfolioKPIs(){
-  const n_ = opportunities.length;
-  let tpcSum=0, irrs=[], good=0,warn=0,bad=0;
-  const byType = {};
-  opportunities.forEach(o=>{
-    const c = compute(o.data);
-    tpcSum += c.TPC;
-    if(isFinite(c.equityIRR)) irrs.push(c.equityIRR);
-    if(c.verdict==='good') good++; else if(c.verdict==='warn') warn++; else bad++;
-    const ti = OPP_TYPE_INFO[o.data.meta.oppType];
-    const tlabel = ti? ti.t : o.data.meta.oppType;
-    byType[tlabel] = (byType[tlabel]||0) + c.TPC;
-  });
-  const avgIrr = irrs.length? irrs.reduce((a,b)=>a+b,0)/irrs.length : null;
-  return { n_, tpcSum, avgIrr, good, warn, bad, byType };
-}
-
-function renderKPIs(){
-  const k = portfolioKPIs();
-  return `<div class="kpis portfolio">
-    <div class="kpi"><div class="l">عدد الفرص المسجّلة</div><div class="v">${k.n_}</div></div>
-    <div class="kpi"><div class="l">إجمالي حجم المحفظة (TPC)</div><div class="v" style="font-size:18px;">${fmtSAR(k.tpcSum)}</div></div>
-    <div class="kpi"><div class="l">متوسط Equity IRR</div><div class="v">${k.avgIrr!=null?fmtPct(k.avgIrr):'—'}</div></div>
-    <div class="kpi"><div class="l">🟢 قوي</div><div class="v">${k.good}</div></div>
-    <div class="kpi"><div class="l">🟡 مراجعة &nbsp;/&nbsp; 🔴 دون المعايير</div><div class="v" style="font-size:18px;">${k.warn} <small>/</small> ${k.bad}</div></div>
-  </div>
-  ${k.n_>0? `
-  <div class="panel" style="display:flex; gap:20px; flex-wrap:wrap; align-items:center; padding:14px 18px; margin-bottom:14px;">
-    <div style="flex:1 1 220px; min-width:180px; max-width:260px;">
-      <p class="step-sub" style="margin:0 0 6px;">تركيبة المحفظة حسب النوع (TPC)</p>
-      <div style="position:relative; height:150px;"><canvas id="chart-portfolio-type"></canvas></div>
-    </div>
-    <div style="flex:1 1 220px; min-width:180px; max-width:260px;">
-      <p class="step-sub" style="margin:0 0 6px;">توزيع الفرص حسب الحكم الاستثماري</p>
-      <div style="position:relative; height:150px;"><canvas id="chart-portfolio-verdict"></canvas></div>
-    </div>
-  </div>`:''}`;
-}
-
-/* =========================================================================
-   مقارنة الفرص — Comparison view
-   ========================================================================= */
-function renderCompare(){
-  if(!compareOpen) return '';
-  const recs = compareIds.map(id=>opportunities.find(o=>o.id===id)).filter(Boolean);
-  if(recs.length<2) return '';
-  const rows = [
-    ['نوع الفرصة', o=>`${OPP_TYPE_INFO[o.data.meta.oppType].ic} ${OPP_TYPE_INFO[o.data.meta.oppType].t}`],
-    ['المدينة / الحي / الفئة', o=>`${esc(o.data.meta.city)} · ${esc(o.data.meta.neighborhood||'—')} · ${esc(o.data.meta.tier)}`],
-    ['إجمالي تكلفة المشروع (TPC)', o=>fmtSAR(compute(o.data).TPC)],
-    ['حقوق الملكية', o=>fmtSAR(compute(o.data).equity)],
-    ['الدين', o=>fmtSAR(compute(o.data).debt)],
-    ['Equity IRR', o=>fmtPct(compute(o.data).equityIRR)],
-    ['Project IRR', o=>fmtPct(compute(o.data).projectIRR)],
-    ['MOIC', o=>compute(o.data).MOIC.toFixed(2)+'×'],
-    ['DSCR الأدنى', o=>{const c=compute(o.data); return c.dscrMin!=null?c.dscrMin.toFixed(2)+'×':'—';}],
-    ['WACC', o=>fmtPct(compute(o.data).WACC)],
-    ['NPV المشروع', o=>fmtSAR(compute(o.data).npvProject)],
-    ['مدة الصندوق', o=>compute(o.data).totalYears+' سنة'],
-    ['الحكم', o=>{const c=compute(o.data); return c.verdict==='good'?'🟢 قوي':c.verdict==='warn'?'🟡 مراجعة':'🔴 دون المعايير';}],
-  ];
-  return `<div class="panel" style="margin-top:16px;">
-    <div class="panel-head">
-      <h2>⇄ مقارنة الفرص <span style="color:var(--ink-faint); font-weight:500;">— Opportunity Comparison</span></h2>
-      <button class="btn btn-sm btn-ghost" data-action="close-compare">✕ إغلاق</button>
-    </div>
-    <div class="tablewrap"><table class="report">
-      <thead><tr><th></th>${recs.map(r=>`<th style="direction:rtl; unicode-bidi:plaintext;">${esc(r.data.meta.name||r.id)}</th>`).join('')}</tr></thead>
-      <tbody>
-        ${rows.map(([label,fn])=>`<tr><td style="font-weight:600;">${label}</td>${recs.map(r=>`<td class="num" style="direction:rtl; unicode-bidi:plaintext;">${fn(r)}</td>`).join('')}</tr>`).join('')}
-      </tbody>
-    </table></div>
-  </div>`;
-}
-
-function sortedOpportunities(){
-  const arr = opportunities.slice();
-  arr.sort((a,b)=>{
-    function val(o){
-      if(sortKey==='name') return o.data.meta.name||'';
-      if(sortKey==='city') return o.data.meta.city||'';
-      if(sortKey==='type') return o.data.meta.oppType||'';
-      if(sortKey==='tpc') return compute(o.data).TPC;
-      if(sortKey==='irr') return compute(o.data).equityIRR||-999;
-      if(sortKey==='moic') return compute(o.data).MOIC||0;
-      if(sortKey==='verdict') return ({good:2,warn:1,bad:0})[compute(o.data).verdict];
-      return o.data.meta.updatedAt||o.data.meta.createdAt||'';
-    }
-    const va=val(a), vb=val(b);
-    let cmp = typeof va==='string'? va.localeCompare(vb) : (va-vb);
-    return sortDir==='asc'? cmp : -cmp;
-  });
-  return arr;
-}
-
-function renderTable(){
-  const rows = sortedOpportunities();
-  if(rows.length===0){
-    return `<div class="panel"><div class="empty">
-      <div class="display">لا توجد فرص مسجّلة بعد</div>
-      <p>ابدأ بإضافة أول فرصة عقارية لبناء قاعدة بياناتك الاحترافية</p>
-      <button class="btn btn-primary" data-action="open-wizard" style="margin-top:8px;">＋ فرصة جديدة</button>
-    </div></div>`;
-  }
-  const th = (key,label)=>`<th data-action="sort" data-key="${key}">${label} ${sortKey===key?(sortDir==='asc'?'▲':'▼'):''}</th>`;
-  return `<div class="panel">
-    <div class="panel-head">
-      <h2>📊 قاعدة الفرص العقارية <span style="color:var(--ink-faint); font-weight:500;">— Opportunity Database</span></h2>
-      <div style="display:flex; gap:8px; align-items:center;">
-        ${compareIds.length>0? `<span class="tag" style="background:var(--surface-2);">${compareIds.length} مُحددة للمقارنة</span>`:''}
-        ${compareIds.length>0? `<button class="btn btn-sm btn-ghost" data-action="clear-compare">إلغاء التحديد</button>`:''}
-        <button class="btn btn-sm" data-action="open-compare" ${compareIds.length<2?'disabled':''}>⇄ مقارنة الفرص المحددة</button>
-        <button class="btn btn-primary" data-action="open-wizard">＋ فرصة جديدة</button>
-      </div>
-    </div>
-    <div class="tablewrap"><table class="db">
-      <thead><tr>
-        <th></th>${th('name','الفرصة')}${th('type','النوع')}${th('city','المدينة')}
-        <th>الفئة</th>${th('tpc','TPC')}${th('irr','Equity IRR')}${th('moic','MOIC')}${th('verdict','الحكم')}<th></th>
-      </tr></thead>
-      <tbody>
-        ${rows.map(o=>{
-          const c = compute(o.data);
-          const ti = OPP_TYPE_INFO[o.data.meta.oppType];
-          const vcls = c.verdict==='good'?'verdict-good':c.verdict==='warn'?'verdict-warn':'verdict-bad';
-          const vlbl = c.verdict==='good'?'🟢 قوي':c.verdict==='warn'?'🟡 مراجعة':'🔴 دون المعايير';
-          return `<tr data-action="open-detail" data-id="${o.id}">
-            <td><input type="checkbox" data-action="toggle-compare" data-id="${o.id}" ${compareIds.includes(o.id)?'checked':''}></td>
-            <td><b>${esc(o.data.meta.name||'بدون اسم')}</b><div style="font-size:11px;color:var(--ink-faint);" class="mono">${o.id}</div></td>
-            <td><span class="tag tag-${o.data.meta.oppType==='income'?'income':o.data.meta.oppType==='development'?'dev':'land'}">${ti.ic} ${ti.t}</span></td>
-            <td>${esc(o.data.meta.city)}</td>
-            <td>${esc(o.data.meta.tier)}</td>
-            <td class="num mono">${fmtSAR(c.TPC)}</td>
-            <td class="num mono">${fmtPct(c.equityIRR)}</td>
-            <td class="num mono">${c.MOIC.toFixed(2)}×</td>
-            <td><span class="tag ${vcls}">${vlbl}</span></td>
-            <td><button class="btn btn-sm btn-ghost" data-action="delete-opp" data-id="${o.id}" title="حذف">🗑️</button></td>
-          </tr>`;
-        }).join('')}
-      </tbody>
-    </table></div>
-  </div>`;
-}
-
-/* =========================================================================
-   المذكرة التفصيلية — Detail / IC-memo view
-   ========================================================================= */
-function checkRow(c){
-  const rows = c.checks.filter(x=>!x.skip && x.v!=null && isFinite(x.v));
-  return rows.map(r=>{
-    const pass = r.v>=r.min;
-    const vs = r.fmt==='pct'? fmtPct(r.v) : r.v.toFixed(2)+'×';
-    const ms = r.fmt==='pct'? fmtPct(r.min) : r.min.toFixed(2)+'×';
-    return `<tr><td>${r.k}</td><td class="num">${vs}</td><td class="num">≥ ${ms}</td>
-      <td><span class="pill" style="background:${pass?'var(--good-soft)':'var(--bad-soft)'};color:${pass?'var(--good)':'var(--bad)'}">${pass?'✅ متجاوز':'❌ دون الهدف'}</span></td></tr>`;
-  }).join('');
-}
-
-function barRow(label,val,total,color){
-  const pct = total>0? Math.max(0,Math.min(100,(val/total)*100)) : 0;
-  return `<div class="barrow"><div class="lbl"><span>${label}</span><span class="num mono">${fmtSAR(val)} · ${pct.toFixed(0)}%</span></div>
-    <div class="track"><div class="fill" style="width:${pct}%; background:${color};"></div></div></div>`;
-}
-
-const MARKET_BENCH = {
-  irr: ['15%–20% (تطوير سكني/تجاري نموذجي)'],
-  cap: ['7%–9% (الرياض) · 7.5%–8.5% (جدة/الدمام)'],
-  dscr: ['≥ 1.25× (الحد الأدنى البنكي)'],
-  yoc: ['≥ 8% (سبريد فوق Cap Rate)'],
-};
-
-function renderDetail(id){
-  const rec = opportunities.find(o=>o.id===id);
-  if(!rec) return '';
-  const d = withDefaults(rec.data), c = compute(d);
-  const ti = OPP_TYPE_INFO[d.meta.oppType];
-  const vcls = c.verdict==='good'?'verdict-good':c.verdict==='warn'?'verdict-warn':'verdict-bad';
-  const vlbl = c.verdict==='good'?'🟢 التوصية: قابلة للعرض على لجنة الاستثمار':c.verdict==='warn'?'🟡 التوصية: تحت المراجعة — تحتاج تحسين مؤشرات محددة':'🔴 التوصية: دون معايير القبول — تحتاج إعادة هيكلة';
-
-  return `
-  <div class="memo">
-    <div class="memo-hero">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
-        <div>
-          <div class="eyebrow">مذكرة تقييم فرصة استثمارية — ${esc(rec.id)}</div>
-          <h2>${esc(d.meta.name||'فرصة بدون اسم')}</h2>
-          <div class="meta">
-            <span>📍 ${esc(d.meta.city)} · ${esc(d.meta.neighborhood||'—')} · ${esc(d.meta.tier)}</span>
-            <span>${ti.ic} ${ti.t}</span>
-            <span>🗓️ ${esc(d.meta.updatedAt||d.meta.createdAt||todayStr())}</span>
-          </div>
-        </div>
-        <div class="small-btns">
-          <button class="btn btn-sm" data-action="print-memo">🖨️ طباعة / PDF</button>
-          <button class="btn btn-sm" data-action="export-excel" data-id="${rec.id}">⬇️ Excel</button>
-          <button class="btn btn-sm" data-action="export-pptx" data-id="${rec.id}">⬇️ PowerPoint</button>
-          <button class="btn btn-sm" data-action="edit-opp" data-id="${rec.id}">✎ تعديل</button>
-          <button class="btn btn-sm btn-danger" data-action="delete-opp" data-id="${rec.id}">🗑️ حذف</button>
-          <button class="btn btn-sm btn-ghost" data-action="close-detail">✕ إغلاق</button>
-        </div>
-      </div>
-      <div class="verdict-banner ${vcls}">${vlbl}</div>
-    </div>
-
-    <div class="kpis">
-      <div class="kpi"><div class="l">Equity IRR${c.holdStrategy==='perpetual_hold'?' (دفترية / Mark-to-Market)':''}</div><div class="v">${fmtPct(c.equityIRR)}</div></div>
-      <div class="kpi"><div class="l">Project IRR (Unlevered)</div><div class="v">${fmtPct(c.projectIRR)}</div></div>
-      <div class="kpi"><div class="l">MOIC${c.holdStrategy==='perpetual_hold'?' (دفترية)':''}</div><div class="v">${c.MOIC.toFixed(2)}<small>×</small></div></div>
-      <div class="kpi"><div class="l">DSCR (أدنى / متوسط)</div><div class="v" style="font-size:17px;">${c.dscrMin!=null?c.dscrMin.toFixed(2):'—'}<small>×</small> / ${c.dscrAvg!=null?c.dscrAvg.toFixed(2):'—'}<small>×</small></div></div>
-      <div class="kpi"><div class="l">WACC</div><div class="v">${fmtPct(c.WACC)}</div></div>
-    </div>
-    ${d.constructionFinancing? `
-    <div class="section" style="margin-top:0;">
-      <h3><span class="n">💡</span> التمويل الفعلي — على تكلفة الإنشاء فقط (${esc(d.constructionFinancing.note||'')})</h3>
-      <p style="color:var(--ink-faint); font-size:13px; margin:0 0 12px;">
-        المؤشرات أعلاه (Equity IRR / Project IRR / MOIC) محسوبة بافتراض شراء الأرض كاملة كاش — سيناريو استراتيجي/مرجعي فقط.
-        الأرقام هنا تعكس وضع العميل الفعلي (الأرض مملوكة، التمويل على الإنشاء فقط) وهي المقياس المعتمد لقرار التمويل الفعلي.
-      </p>
-      <div class="kv">
-        <div class="k">إجمالي التكلفة الإنشائية (تسليم مفتاح، شامل عمولة المقاول)</div><div class="v">${fmtSAR(d.constructionFinancing.fullConstructionCost)}</div>
-        <div class="k">إجمالي قابل للتمويل (إنشاء + أتعاب مطوّر + رسوم)</div><div class="v">${fmtSAR(d.constructionFinancing.totalFundable)}</div>
-        <div class="k">القرض البنكي (${fmtPct(d.constructionFinancing.ltcPct)} LTC)</div><div class="v">${fmtSAR(d.constructionFinancing.bankLoan)}</div>
-        <div class="k">النقد المطلوب من المالك/المستثمرين</div><div class="v" style="font-weight:700;">${fmtSAR(d.constructionFinancing.cashRequiredFromOwnerOrInvestors)}</div>
-        <div class="k">DSCR على تمويل الإنشاء</div><div class="v">${(d.constructionFinancing.dscr||0).toFixed(2)}×</div>
-        <div class="k">العائد النقدي السنوي (Cash-on-Cash)</div><div class="v">${fmtPct(d.constructionFinancing.cashOnCashYieldPct)}</div>
-        ${d.constructionFinancing.ownerActualIRR!=null? `<div class="k">Owner Actual Equity IRR (10 سنوات، بدون بيع)</div><div class="v" style="font-weight:700;">${fmtPct(d.constructionFinancing.ownerActualIRR)}</div>`:''}
-        ${d.constructionFinancing.ownerActualMOIC!=null? `<div class="k">Owner Actual MOIC</div><div class="v">${d.constructionFinancing.ownerActualMOIC.toFixed(2)}×</div>`:''}
-        <div class="k">قيمة الأرض (للعلم فقط، غير مموَّلة)</div><div class="v">${fmtSAR(d.constructionFinancing.landValueInformationalOnly)}</div>
-      </div>
-      ${d.constructionFinancing.sourceFile? `<p class="note" style="margin-top:8px; font-size:12px;">المرجع الرسمي للمعادلات الكاملة: ${esc(d.constructionFinancing.sourceFile)}</p>`:''}
-    </div>`:''}
-    ${c.holdStrategy==='perpetual_hold'? `
-    <div class="section" style="margin-top:0;">
-      <h3><span class="n">💡</span> صندوق دخل دائم — عائد نقدي محقق مقابل عائد دفتري (Perpetual Hold — Cash-Only vs Mark-to-Market)</h3>
-      <p style="color:var(--ink-faint); font-size:13px; margin:0 0 12px;">
-        هذا الأصل يُحتفظ به إلى ما لا نهاية ولا يُباع — لذا يُعرض مؤشرا أداء منفصلان: الأول "دفتري" يفترض بيع افتراضي/تقييم للأصل في نهاية أفق التحليل
-        (${fmtNum(c.totalYears)} سنة) شاملاً القيمة المتبقية غير المحققة، والثاني "نقدي محقق فقط" يعكس التوزيعات النقدية الفعلية التي استلمها المستثمر
-        دون افتراض أي بيع — وهو المقياس الأكثر تحفظاً وواقعية لصندوق لا ينوي بيع الأصل.
-      </p>
-      <div class="kv">
-        <div class="k">Equity IRR — نقدي محقق فقط (Cash-Only)</div><div class="v">${fmtPct(c.equityIRRCashOnly)}</div>
-        <div class="k">MOIC — نقدي محقق فقط (Cash-Only)</div><div class="v">${c.MOICCashOnly.toFixed(2)}×</div>
-        <div class="k">إجمالي التوزيعات النقدية المحققة</div><div class="v">${fmtSAR(c.totalDistribCashOnly)}</div>
-        <div class="k">دورة إعادة التمويل</div><div class="v">كل ${fmtNum(d.income.refinance.intervalYears)} سنوات — LTV إعادة التمويل ${fmtPct(d.income.refinance.refiLtv)}</div>
-      </div>
-    </div>`:''}
-    ${c.holdStrategy==='refinance_close'? `
-    <div class="section" style="margin-top:0;">
-      <h3><span class="n">💡</span> إغلاق الصندوق عبر إعادة التمويل (Refinance to Close)</h3>
-      <p style="color:var(--ink-faint); font-size:13px; margin:0;">
-        بدلاً من بيع الأصل في نهاية المدة، يقوم الصندوق بإعادة تمويل العقار (قرض جديد بنسبة LTV ${fmtPct(d.income.refinance.refiLtv)} من قيمته السوقية)،
-        وسداد الدين القائم، وتوزيع الفائض على المستثمرين — مع بقاء الملكية والقيمة المتبقية للأصل دون تحققها نقداً، وتفادي تكاليف بيع/تصرف كاملة (سمسرة، رسوم قانونية، رسوم تصرفات عقارية).
-      </p>
-    </div>`:''}
-
-    <div class="chart-box" style="padding:16px 18px; margin-bottom:16px;">
-      <p class="step-sub" style="margin:0 0 10px;">مسار التدفقات النقدية لحقوق الملكية سنوياً (Equity Cash Flow Profile)</p>
-      <div style="position:relative; height:220px;"><canvas id="chart-cashflow" data-opp-id="${esc(rec.id)}"></canvas></div>
-    </div>
-
-    <div class="grid-2col">
-      <div style="display:flex; flex-direction:column; gap:16px;">
-
-        <div class="section">
-          <h3><span class="n">1</span> ملخص الأرض والبناء (Land & Building Summary)</h3>
-          <div class="kv">
-            <div class="k">مساحة الأرض</div><div class="v">${fmtNum(d.land.area)} م²</div>
-            <div class="k">سعر الشراء / التكلفة الإجمالية</div><div class="v">${fmtNum(d.land.price)} ر.س/م² — ${fmtSAR(c.landCost)}</div>
-            <div class="k">GFA (حق البناء الإجمالي)</div><div class="v">${fmtNum(c.gfa)} م²</div>
-            <div class="k">بصمة المبنى / الأدوار اللازمة</div><div class="v">${fmtNum(c.footprint)} م² / ${c.floorsNeeded} دور</div>
-            <div class="k">الارتفاع الإجمالي</div><div class="v">${fmtNum(c.buildingHeight,1)} م</div>
-            <div class="k">تكلفة الأرض لكل م² GFA</div><div class="v">${fmtNum(c.landCostPerGFA)} ر.س/م²</div>
-            <div class="k">معامل الموقع المجمّع (Site Factor)</div><div class="v">×${c.siteFactor.toFixed(3)}</div>
-            <div class="k">المعامل المركّب الكلي (Master Multiplier)</div><div class="v">×${c.masterMultiplier.toFixed(3)}</div>
-            ${c.scopeType!=='both'? `<div class="k">نطاق التطوير (Development Scope)</div><div class="v">${c.scopeType==='infra_only'?'بنية تحتية فقط (Infrastructure Only)':'بنية فوقية فقط (Vertical Only)'}</div>`:''}
-            ${c.infraCostAmt>0? `<div class="k">تكلفة البنية التحتية</div><div class="v">${fmtSAR(c.infraCostAmt)}</div>`:''}
-          </div>
-        </div>
-
-        ${c.assetClass!=='عام'? `
-        <div class="section">
-          <h3><span class="n">2</span> مؤشرات الفئة المتخصصة (Specialized Asset-Class Metrics)</h3>
-          <div class="kv">
-            <div class="k">الفئة الفرعية</div><div class="v">${esc(ASSET_CLASSES[c.assetClass]? ASSET_CLASSES[c.assetClass].t : c.assetClass)}</div>
-            ${c.assetClass==='hospitality'? `
-            <div class="k">ADR (متوسط سعر الغرفة)</div><div class="v">${fmtSAR(d.income.hospitality.adr)}</div>
-            <div class="k">عدد الغرف (Keys)</div><div class="v">${fmtNum(d.income.hospitality.keys)}</div>
-            <div class="k">نسبة الإشغال الفندقي</div><div class="v">${fmtPct(d.income.occupancy)}</div>
-            <div class="k">RevPAR</div><div class="v">${fmtSAR(d.income.hospitality.adr*d.income.occupancy)}</div>
-            <div class="k">هامش GOP</div><div class="v">${fmtPct(d.income.hospitality.gopMargin)}</div>`:''}
-            ${(c.assetClass==='gas_station'||c.assetClass==='qsr_pharmacy')? `
-            <div class="k">الفئة الائتمانية للمستأجر</div><div class="v">${esc(d.income.nnn.tenantCreditTier)} — نطاق Cap Rate مقترح: ${CREDIT_TIERS[d.income.nnn.tenantCreditTier]||'—'}</div>
-            <div class="k">مدة العقد المتبقية</div><div class="v">${fmtNum(d.income.nnn.leaseTermRemaining)} سنة</div>
-            <div class="k">إيجار نسبي (Percentage Rent)</div><div class="v">${d.income.nnn.pctRent? `مُفعّل — ${fmtPct(d.income.nnn.pctRentRate)} فوق نقطة الكسر الطبيعية`:'غير مُفعّل — إيجار أساسي ثابت فقط'}</div>
-            ${c.assetClass==='gas_station'? `<div class="k">احتياطي بيئي سنوي</div><div class="v">${fmtSAR(d.income.nnn.envReserveAnnual)}</div>`:''}`:''}
-            ${c.assetClass==='logistics'? `
-            <div class="k">الارتفاع الصافي (Clear Height)</div><div class="v">${fmtNum(d.income.logisticsSpec.clearHeight)} م</div>
-            <div class="k">عدد أبواب الشحن (Dock Doors)</div><div class="v">${fmtNum(d.income.logisticsSpec.dockDoors)}</div>`:''}
-            ${c.assetClass==='data_center'? `
-            <div class="k">كثافة الطاقة (Power Density)</div><div class="v">${fmtNum(d.income.dataCenterSpec.powerDensityKw,2)} kW/م²</div>
-            <div class="k">مستوى التكرار (Redundancy Tier)</div><div class="v">${esc(d.income.dataCenterSpec.redundancyTier)}</div>`:''}
-          </div>
-        </div>`:''}
-
-        <div class="section">
-          <h3><span class="n">3</span> مصادر واستخدامات التمويل (Sources & Uses)</h3>
-          <div class="bars">
-            ${barRow('حقوق الملكية (Equity)', c.equity, c.TPC, 'var(--accent)')}
-            ${d.financing.structure==='senior_mezz'
-              ? barRow('الدين — الشريحة الأولى (Senior)', c.seniorDebt, c.TPC, 'var(--gold)') + barRow('الدين — الميزانين (Mezzanine)', c.mezzDebt, c.TPC, 'var(--ink-faint)')
-              : barRow('الدين (Debt)', c.debt, c.TPC, 'var(--gold)')}
-          </div>
-          <div class="kv" style="margin-top:14px;">
-            <div class="k">إجمالي تكلفة المشروع (TPC)</div><div class="v">${fmtSAR(c.TPC)}</div>
-            <div class="k">تكلفة الأرض</div><div class="v">${fmtSAR(c.landCost)}</div>
-            <div class="k">التكلفة الإنشائية (Hard Cost)</div><div class="v">${fmtSAR(c.hardCost)}</div>
-            <div class="k">رسوم ومصاريف الصندوق (Soft Costs)</div><div class="v">${fmtSAR(c.TPC-c.landCost-c.hardCost)}</div>
-            <div class="k">نسبة LTC</div><div class="v">${fmtPct(d.financing.ltc)}</div>
-            <div class="k">نمط السداد</div><div class="v">${c.amortType==='amortizing'?'مستهلك (Amortizing)':'فوائد فقط (Interest-Only)'}</div>
-            ${d.financing.structure==='senior_mezz'? `<div class="k">تكلفة الدين المرجّحة (Kd)</div><div class="v">${fmtPct(c.Kd)}</div>`:''}
-          </div>
-          ${c.verticalCost>0? `
-          <p class="step-sub" style="margin-top:14px;">توزيع التكلفة الإنشائية للمبنى (Vertical Building Cost Breakdown)</p>
-          <div class="bars">
-            ${barRow('الهيكل الإنشائي (Structure)', c.costBreakdownAmounts.structure, c.verticalCost, 'var(--accent)')}
-            ${barRow('الكهروميكانيكية (MEP)', c.costBreakdownAmounts.mep, c.verticalCost, 'var(--gold)')}
-            ${barRow('التشطيبات (Finishes)', c.costBreakdownAmounts.finishes, c.verticalCost, 'var(--good)')}
-            ${barRow('الأعمال الخارجية (External)', c.costBreakdownAmounts.external, c.verticalCost, 'var(--warn)')}
-            ${barRow('رسوم استشارية وإشراف (Fees)', c.costBreakdownAmounts.fees, c.verticalCost, 'var(--ink-faint)')}
-          </div>`:''}
-          ${c.hardCostBase>0? `
-          <div class="bars" style="margin-top:8px;">
-            ${c.infraCostAmt>0? barRow('البنية التحتية (Infrastructure — خارج المبنى)', c.infraCostAmt, c.hardCostBase, 'var(--info, #4a90d9)') : ''}
-            ${barRow('الطوارئ (Contingency، على إجمالي التكلفة الإنشائية)', c.costBreakdownAmounts.contingency, c.hardCostBase, 'var(--bad)')}
-          </div>`:''}
-        </div>
-
-        <div class="section">
-          <h3><span class="n">4</span> تكلفة رأس المال (WACC Build-up — CAPM)</h3>
-          <div class="kv">
-            <div class="k">تكلفة حقوق الملكية (Ke = Rf+β·MRP+CRP+SP+α)</div><div class="v">${fmtPct(c.Ke)}</div>
-            <div class="k">تكلفة الدين (Kd = SAIBOR + هامش)</div><div class="v">${fmtPct(c.Kd)}</div>
-            <div class="k">WACC المرجّح</div><div class="v">${fmtPct(c.WACC)}</div>
-            <div class="k">فارق Project IRR عن WACC (Spread)</div><div class="v">${fmtPct(c.projectIRR-c.WACC)}</div>
-          </div>
-        </div>
-
-        <div class="section">
-          <h3><span class="n">5</span> شلال التوزيعات (Distribution Waterfall)</h3>
-          <table class="report">
-            <thead><tr><th>الطبقة</th><th>المبلغ</th><th>المستفيد</th></tr></thead>
-            <tbody>
-              <tr><td>1٠ عودة رأس المال (ROC)</td><td class="num">${fmtSAR(c.roc)}</td><td>100% LP</td></tr>
-              <tr><td>2٠ العائد التفضيلي (Pref @ ${fmtPct(d.economics.hurdle)})</td><td class="num">${fmtSAR(c.pref)}</td><td>100% LP</td></tr>
-              <tr><td>3٠ اللحاق (GP Catch-up)</td><td class="num">${fmtSAR(c.catchup)}</td><td>100% GP</td></tr>
-              <tr><td>4٠ التوزيع المتبقي (<span class="ltr">${fmtPct(1-d.economics.carry)} / ${fmtPct(d.economics.carry)}</span>)</td><td class="num">${fmtSAR(c.lpStandard+c.carryPool)}</td><td>LP / Carry Pool</td></tr>
-              <tr><td style="padding-right:20px; color:var(--ink-faint);">↳ حصة المستثمر الإضافية من الـ Carry</td><td class="num">${fmtSAR(c.lpBonus)}</td><td>LP Bonus</td></tr>
-              <tr><td style="padding-right:20px; color:var(--ink-faint);">↳ حصة مدير الصندوق (GP)</td><td class="num">${fmtSAR(c.gpManager)}</td><td>GP</td></tr>
-              <tr><td style="padding-right:20px; color:var(--ink-faint);">↳ حصة المطور (Promote)</td><td class="num">${fmtSAR(c.devPromote)}</td><td>Developer</td></tr>
-              <tr style="font-weight:700;"><td>🎯 إجمالي التوزيعات</td><td class="num">${fmtSAR(c.totalDistrib)}</td><td>—</td></tr>
-            </tbody>
-          </table>
-          <div class="bars" style="margin-top:14px;">
-            ${barRow('LP — المستثمرون', c.lpTotal, c.totalDistrib, 'var(--accent)')}
-            ${barRow('GP — مدير الصندوق', c.gpTotal, c.totalDistrib, 'var(--gold)')}
-            ${barRow('المطور (Promote)', c.devTotal, c.totalDistrib, 'var(--ink-faint)')}
-          </div>
-        </div>
-
-        <div class="section">
-          <h3><span class="n">6</span> مضاعفات الصندوق (Fund Multiples)</h3>
-          <div class="grid3">
-            <div class="kv" style="grid-column:span 1;"><div class="k">DPI</div><div class="v">${c.DPI.toFixed(2)}×</div></div>
-            <div class="kv"><div class="k">RVPI</div><div class="v">${c.RVPI.toFixed(2)}×</div></div>
-            <div class="kv"><div class="k">TVPI</div><div class="v">${c.TVPI.toFixed(2)}×</div></div>
-          </div>
-        </div>
-
-        <div class="section">
-          <h3><span class="n">7</span> إجمالي الرسوم (Fee Summary)</h3>
-          <div class="kv">
-            <div class="k">رسوم إدارة الصندوق (منظور الصندوق)</div><div class="v">${fmtSAR(c.fundSideFees)} — ${fmtPct(c.feesPctOfTPC)} من TPC</div>
-            <div class="k">رسوم الاشتراك (منظور المستثمر)</div><div class="v">${fmtSAR(c.investorSideFees)}</div>
-          </div>
-        </div>
-
-        <div class="section">
-          <h3><span class="n">8</span> سيناريوهات وحساسية (Scenarios & Sensitivity)</h3>
-          <div style="position:relative; height:170px; margin-bottom:14px;"><canvas id="chart-scenarios" data-opp-id="${esc(rec.id)}"></canvas></div>
-          <table class="report">
-            <thead><tr><th>السيناريو</th><th>Equity IRR</th><th>NPV المشروع</th><th>MOIC</th><th>الحكم</th></tr></thead>
-            <tbody>
-              ${scenarioCompareRows(d).map(s=>{
-                const vlbl2 = s.verdict==='good'?'🟢 قوي':s.verdict==='warn'?'🟡 مراجعة':'🔴 دون المعايير';
-                return `<tr ${s.key==='base'?'style="font-weight:700;"':''}><td>${s.label}</td><td class="num">${fmtPct(s.irr)}</td><td class="num">${fmtSAR(s.npv)}</td><td class="num">${s.moic.toFixed(2)}×</td><td>${vlbl2}</td></tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-          <p class="step-sub" style="margin-top:14px;">تحليل حساسية Equity IRR — Sensitivity (± تغيير في كل متغير)</p>
-          <div style="position:relative; height:200px; margin-bottom:14px;"><canvas id="chart-sensitivity" data-opp-id="${esc(rec.id)}"></canvas></div>
-          <table class="report">
-            <thead><tr><th>المتغيّر</th><th>سلبي (Down)</th><th>الأساسي (Base)</th><th>إيجابي (Up)</th></tr></thead>
-            <tbody>
-              ${sensitivityRows(d).map(r=>`<tr><td>${r.label}</td><td class="num">${fmtPct(r.down)}</td><td class="num" style="font-weight:700;">${fmtPct(r.base)}</td><td class="num">${fmtPct(r.up)}</td></tr>`).join('')}
-            </tbody>
-          </table>
-        </div>
-
-        <div class="section">
-          <h3><span class="n">9</span> شروط الإغلاق والعناية الواجبة (Closing Conditions & DD)</h3>
-          <div class="kv">
-            <div class="k">صك الملكية</div><div class="v">${STATUS_LABEL[d.closing.titleDeed]||'—'}</div>
-            <div class="k">اعتماد التصنيف والمخطط</div><div class="v">${STATUS_LABEL[d.closing.zoning]||'—'}</div>
-            <div class="k">الموافقات البيئية</div><div class="v">${STATUS_LABEL[d.closing.environmental]||'—'}</div>
-          </div>
-          ${d.closing.conditions.length? `
-          <table class="report" style="margin-top:12px;">
-            <thead><tr><th>الشرط</th><th>الحالة</th></tr></thead>
-            <tbody>
-              ${d.closing.conditions.map(row=>{
-                const pillCls = row.status==='met'?'good':row.status==='waived'?'warn':'bad';
-                const pillLbl = row.status==='met'?'✅ مستوفى':row.status==='waived'?'➖ متنازل عنه':'⏳ قيد الانتظار';
-                return `<tr><td style="direction:rtl; unicode-bidi:plaintext;">${esc(row.text||'—')}</td><td><span class="pill" style="background:var(--${pillCls}-soft);color:var(--${pillCls})">${pillLbl}</span></td></tr>`;
-              }).join('')}
-            </tbody>
-          </table>`:''}
-          ${d.closing.ddNotes? `<p class="note" style="margin-top:12px; font-size:13px; color:var(--ink);">${esc(d.closing.ddNotes)}</p>`:''}
-        </div>
-
-        ${d.notes? `<div class="section"><h3><span class="n">10</span> ملاحظات</h3><p class="note" style="font-size:13px; color:var(--ink);">${esc(d.notes)}</p></div>`:''}
-      </div>
-
-      <div style="display:flex; flex-direction:column; gap:16px;">
-        <div class="section">
-          <h3>✅ معايير القبول الاستثماري (IC Checklist)</h3>
-          <table class="report">
-            <thead><tr><th>المؤشر</th><th>القيمة</th><th>المعيار</th><th>الحكم</th></tr></thead>
-            <tbody>${checkRow(c)}</tbody>
-          </table>
-        </div>
-
-        <div class="section">
-          <h3>📊 مقارنة بمعايير السوق السعودي</h3>
-          <div class="kv">
-            <div class="k">Equity IRR مقابل نطاق السوق</div><div class="v" style="font-family:inherit; font-size:12px; direction:rtl; unicode-bidi:plaintext; font-weight:500;">${MARKET_BENCH.irr[0]}</div>
-            <div class="k">Cap Rate عند الخروج</div><div class="v" style="font-family:inherit; font-size:12px; direction:rtl; unicode-bidi:plaintext; font-weight:500;">${MARKET_BENCH.cap[0]}</div>
-            <div class="k">DSCR</div><div class="v" style="font-family:inherit; font-size:12px; direction:rtl; unicode-bidi:plaintext; font-weight:500;">${MARKET_BENCH.dscr[0]}</div>
-          </div>
-        </div>
-
-        <div class="section">
-          <h3>🎯 الاستراتيجية والهيكل</h3>
-          <div class="kv">
-            <div class="k">استراتيجية الخروج</div><div class="v" style="font-family:inherit; font-size:12.5px; direction:rtl; unicode-bidi:plaintext;">${esc(d.strategy.exitStrategy)}</div>
-            <div class="k">نسبة البيع</div><div class="v">${fmtPct(c.salePct)}</div>
-            <div class="k">مدة الصندوق</div><div class="v">${c.totalYears} سنة</div>
-            <div class="k">الحد الأدنى للاستثمار</div><div class="v">${fmtSAR(d.subscription.minInvestment)}</div>
-            <div class="k">فئة المستثمر</div><div class="v" style="font-family:inherit; font-size:12px; direction:rtl; unicode-bidi:plaintext;">${esc(d.subscription.investorClass)}</div>
-            <div class="k">Hurdle / Carry</div><div class="v">${fmtPct(d.economics.hurdle)} / ${fmtPct(d.economics.carry)}</div>
-          </div>
-        </div>
-
-        <div class="section" style="background:var(--surface-2); border-style:dashed;">
-          <p class="note">أداة فرز أولي لتقييم جدوى الفرص العقارية بمنهجية موحّدة عبر المحفظة. النتائج تقديرية بناءً على المدخلات المُدرجة، ولا تُغني عن نموذج تدفقات نقدية تفصيلي ودراسة جدوى معتمدة قبل اتخاذ قرار استثماري نهائي.</p>
-        </div>
-      </div>
-    </div>
-  </div>`;
-}
-
-/* =========================================================================
-   المعالج — Wizard modal
-   ========================================================================= */
-function renderWizardModal(){
-  if(!wizard) return '';
-  const idx = wizard.step, d = wizard.draft;
-  const isLast = idx===STEPS.length-1;
-  const pct = ((idx+1)/STEPS.length)*100;
-  const showLive = idx>=1 && idx<=10;
-  return `<div class="overlay" data-action="overlay-noop">
-    <div class="modal" id="wizard-modal">
-      <div class="modal-head">
-        <div>
-          <div style="font-weight:700; font-size:14.5px;">${esc(STEPS[idx].t)} <span style="color:var(--ink-faint); font-weight:500;">— ${STEPS[idx].en}</span></div>
-        </div>
-        <div style="display:flex; align-items:center; gap:14px;">
-          <div class="steps">${idx+1} / ${STEPS.length}</div>
-          <button class="btn btn-sm btn-ghost" data-action="close-wizard">✕</button>
-        </div>
-      </div>
-      <div class="progress"><i style="width:${pct}%"></i></div>
-      <div class="modal-body" id="wizard-body">
-        ${renderStepFields(idx,d)}
-        ${showLive? `<div class="livebox" id="livePreviewBox">${liveMetricsHtml(d)}</div>` : ''}
-      </div>
-      <div class="modal-foot">
-        <button class="btn" data-action="wizard-back" ${idx===0?'style="visibility:hidden"':''}>→ السابق</button>
-        ${isLast
-          ? `<button class="btn btn-primary" data-action="wizard-save">✅ حفظ في القاعدة</button>`
-          : `<button class="btn btn-primary" data-action="wizard-next">التالي ←</button>`}
-      </div>
-    </div>
-  </div>`;
-}
-
-function renderConfirmDelete(){
-  if(!confirmDeleteId) return '';
-  const rec = opportunities.find(o=>o.id===confirmDeleteId);
-  return `<div class="overlay" data-action="cancel-delete">
-    <div class="modal" style="max-width:400px;">
-      <div class="modal-body" style="text-align:center; padding:30px 26px;">
-        <div style="font-size:32px; margin-bottom:10px;">🗑️</div>
-        <h3 style="margin:0 0 8px; font-size:16px;">حذف هذه الفرصة؟</h3>
-        <p class="note" style="font-size:13px;">سيتم حذف «${esc(rec? rec.data.meta.name||'بدون اسم':'')}» نهائياً من قاعدة البيانات. لا يمكن التراجع عن هذا الإجراء.</p>
-      </div>
-      <div class="modal-foot" style="justify-content:center;">
-        <button class="btn" data-action="cancel-delete">إلغاء</button>
-        <button class="btn btn-danger" data-action="confirm-delete">حذف نهائياً</button>
-      </div>
-    </div>
-  </div>`;
-}
-
-/* ---------------- charts (Chart.js) ---------------- */
-const CHART_COLORS = { accent:'#0E6B4C', accentSoft:'rgba(14,107,76,0.16)', gold:'#9C7B2E', good:'#1E8A56', goodSoft:'rgba(30,138,86,0.18)', warn:'#9C6A0A', warnSoft:'rgba(156,106,10,0.18)', bad:'#AE2E22', badSoft:'rgba(174,46,34,0.18)', inkFaint:'#7C877E', grid:'rgba(20,28,22,0.08)' };
-let chartInstances = {};
-function destroyChart(id){ if(chartInstances[id]){ try{ chartInstances[id].destroy(); }catch(e){} delete chartInstances[id]; } }
-function mkChart(id, config){
-  if(typeof Chart==='undefined') return; // CDN blocked/offline — charts are a visual enhancement, never load-bearing
-  const canvas = document.getElementById(id);
-  if(!canvas) return;
-  destroyChart(id);
-  try{ chartInstances[id] = new Chart(canvas, config); }catch(e){ console.error('chart render failed:', id, e); }
-}
-const CHART_BASE_OPTS = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:CHART_COLORS.inkFaint, font:{ family:'IBM Plex Sans Arabic, sans-serif', size:11 } } } },
-  scales:{ x:{ ticks:{ color:CHART_COLORS.inkFaint, font:{ size:10 } }, grid:{ color:CHART_COLORS.grid } }, y:{ ticks:{ color:CHART_COLORS.inkFaint, font:{ size:10 } }, grid:{ color:CHART_COLORS.grid } } } };
-
-function initPortfolioCharts(){
-  const k = portfolioKPIs();
-  if(k.n_===0) return;
-  const typeLabels = Object.keys(k.byType);
-  mkChart('chart-portfolio-type', { type:'doughnut',
-    data:{ labels:typeLabels, datasets:[{ data:typeLabels.map(t=>k.byType[t]), backgroundColor:[CHART_COLORS.accent, CHART_COLORS.gold, CHART_COLORS.inkFaint, CHART_COLORS.good, CHART_COLORS.warn], borderColor:'var(--surface)', borderWidth:2 }] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:CHART_COLORS.inkFaint, font:{ family:'IBM Plex Sans Arabic, sans-serif', size:10 }, boxWidth:10, padding:8 } } } } });
-  mkChart('chart-portfolio-verdict', { type:'bar',
-    data:{ labels:['🟢 قوي','🟡 مراجعة','🔴 دون المعايير'], datasets:[{ data:[k.good,k.warn,k.bad], backgroundColor:[CHART_COLORS.good, CHART_COLORS.warn, CHART_COLORS.bad], borderRadius:6, maxBarThickness:40 }] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
-      scales:{ x:{ ticks:{ color:CHART_COLORS.inkFaint, font:{ size:10 } }, grid:{ display:false } }, y:{ beginAtZero:true, ticks:{ color:CHART_COLORS.inkFaint, precision:0 }, grid:{ color:CHART_COLORS.grid } } } } });
-}
-
-function initDetailCharts(id){
-  const rec = opportunities.find(o=>o.id===id);
-  if(!rec) return;
-  const d = withDefaults(rec.data), c = compute(d);
-
-  if(document.getElementById('chart-cashflow')){
-    const years = c.equityCF.map((_,i)=>i===0?'الإنشاء':'سنة '+i);
-    mkChart('chart-cashflow', { type:'bar',
-      data:{ labels:years, datasets:[{ label:'التدفق النقدي لحقوق الملكية', data:c.equityCF,
-        backgroundColor:c.equityCF.map(v=>v>=0?CHART_COLORS.goodSoft:CHART_COLORS.badSoft), borderColor:c.equityCF.map(v=>v>=0?CHART_COLORS.good:CHART_COLORS.bad), borderWidth:1.5, borderRadius:4 }] },
-      options:Object.assign({}, CHART_BASE_OPTS, { plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:(ctx)=>fmtSAR(ctx.raw) } } },
-        scales:{ x:CHART_BASE_OPTS.scales.x, y:Object.assign({}, CHART_BASE_OPTS.scales.y, { ticks:{ color:CHART_COLORS.inkFaint, callback:(v)=>fmtSAR(v) } }) } }) });
-  }
-  if(document.getElementById('chart-scenarios')){
-    const rows = scenarioCompareRows(d);
-    mkChart('chart-scenarios', { type:'bar',
-      data:{ labels:rows.map(r=>r.label), datasets:[{ label:'Equity IRR', data:rows.map(r=>r.irr*100),
-        backgroundColor:[CHART_COLORS.badSoft, CHART_COLORS.accentSoft, CHART_COLORS.goodSoft], borderColor:[CHART_COLORS.bad, CHART_COLORS.accent, CHART_COLORS.good], borderWidth:1.5, borderRadius:6, maxBarThickness:60 }] },
-      options:Object.assign({}, CHART_BASE_OPTS, { indexAxis:'y', plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:(ctx)=>ctx.raw.toFixed(1)+'%' } } },
-        scales:{ x:Object.assign({}, CHART_BASE_OPTS.scales.x, { ticks:{ color:CHART_COLORS.inkFaint, callback:(v)=>v+'%' } }), y:CHART_BASE_OPTS.scales.y } }) });
-  }
-  if(document.getElementById('chart-sensitivity')){
-    const rows = sensitivityRows(d);
-    // floating-bar tornado: each row spans [min(down,up), max(down,up)] around the base value
-    mkChart('chart-sensitivity', { type:'bar',
-      data:{ labels:rows.map(r=>r.label), datasets:[{ label:'مدى Equity IRR', data:rows.map(r=>[Math.min(r.down,r.up)*100, Math.max(r.down,r.up)*100]),
-        backgroundColor:CHART_COLORS.accentSoft, borderColor:CHART_COLORS.accent, borderWidth:1.5, borderRadius:6 }] },
-      options:Object.assign({}, CHART_BASE_OPTS, { indexAxis:'y', plugins:{ legend:{ display:false },
-        tooltip:{ callbacks:{ label:(ctx)=>`سلبي ${ctx.raw[0].toFixed(1)}% — إيجابي ${ctx.raw[1].toFixed(1)}%` } } },
-        scales:{ x:Object.assign({}, CHART_BASE_OPTS.scales.x, { ticks:{ color:CHART_COLORS.inkFaint, callback:(v)=>v+'%' } }), y:CHART_BASE_OPTS.scales.y } }) });
-  }
-}
-
-function initCharts(){
-  initPortfolioCharts();
-  if(openDetailId) initDetailCharts(openDetailId);
-}
-
-/* ---------------- main render ---------------- */
-function render(){
-  const app = document.getElementById('app');
-  let html = `
-    <div class="topbar">
-      <div class="brand">
-        <div class="mark">ع</div>
-        <div>
-          <h1>دفتر الفرص العقارية</h1>
-          <div class="sub">Real Estate Opportunity Ledger — SAR</div>
-        </div>
-      </div>
-      <div class="badge-row">
-        ${!DB? '<span class="tag" style="background:var(--warn-soft); color:var(--warn);">⚠️ وضع محلي (بدون قاعدة سحابية)</span>':''}
-      </div>
-    </div>
-    ${renderKPIs()}
-    ${renderTable()}
-    ${compareOpen? renderCompare(): ''}
-    ${openDetailId? renderDetail(openDetailId): ''}
-  `;
-  app.innerHTML = html;
-  const overlay = document.createElement('div');
-  overlay.innerHTML = renderWizardModal() + renderConfirmDelete();
-  while(overlay.firstChild) app.appendChild(overlay.firstChild);
-  initCharts();
-}
-
-/* ---------------- event delegation ---------------- */
-document.addEventListener('click', async (e)=>{
-  const el = e.target.closest('[data-action]');
-  if(!el) return;
-  const action = el.dataset.action;
-
-  if(action==='overlay-noop' || action==='close-wizard'){
-    if(action==='close-wizard' || e.target.classList.contains('overlay')){
-      wizard = null; render();
-    }
-    return;
-  }
-  if(action==='cancel-delete'){ if(e.target===el || el.classList.contains('overlay')||el.dataset.action==='cancel-delete'){ confirmDeleteId=null; render(); } return; }
-
-  if(action==='open-wizard'){ wizard = { step:0, draft: blankOpportunity(), editId:null }; render(); return; }
-  if(action==='edit-opp'){
-    const rec = opportunities.find(o=>o.id===el.dataset.id);
-    if(rec){ wizard = { step:0, draft: withDefaults(rec.data), editId: rec.id }; openDetailId=null; render(); }
-    return;
-  }
-  if(action==='choose'){
-    setPath(wizard.draft, el.dataset.path, el.dataset.value);
-    render();
-    return;
-  }
-  if(action==='wizard-next'){
-    if(wizard.step < STEPS.length-1){ wizard.step++; render(); }
-    return;
-  }
-  if(action==='wizard-back'){
-    if(wizard.step>0){ wizard.step--; render(); }
-    return;
-  }
-  if(action==='wizard-save'){
-    const d = wizard.draft;
-    const now = todayStr();
-    if(!d.meta.createdAt) d.meta.createdAt = now;
-    d.meta.updatedAt = now;
-    const id = wizard.editId || uid('OPP');
-    await persistOpportunity({ id, data: d });
-    await loadAll();
-    wizard = null;
-    openDetailId = id;
-    render();
-    return;
-  }
-  if(action==='open-detail'){
-    openDetailId = el.dataset.id; render(); return;
-  }
-  if(action==='close-detail'){ openDetailId=null; render(); return; }
-  if(action==='delete-opp'){ confirmDeleteId = el.dataset.id; render(); return; }
-  if(action==='confirm-delete'){
-    await deleteOpportunity(confirmDeleteId);
-    if(openDetailId===confirmDeleteId) openDetailId=null;
-    confirmDeleteId=null;
-    render();
-    return;
-  }
-  if(action==='sort'){
-    const key = el.dataset.key;
-    if(sortKey===key) sortDir = sortDir==='asc'?'desc':'asc'; else { sortKey=key; sortDir='desc'; }
-    render();
-    return;
-  }
-  if(action==='add-condition'){
-    wizard.draft.closing.conditions.push({text:'', status:'pending'});
-    render();
-    return;
-  }
-  if(action==='remove-condition'){
-    const idx = parseInt(el.dataset.idx,10);
-    wizard.draft.closing.conditions.splice(idx,1);
-    render();
-    return;
-  }
-  if(action==='toggle-compare'){
-    const id = el.dataset.id;
-    const i = compareIds.indexOf(id);
-    if(i>=0) compareIds.splice(i,1);
-    else if(compareIds.length<3) compareIds.push(id);
-    render();
-    return;
-  }
-  if(action==='open-compare'){
-    if(compareIds.length>=2){ compareOpen=true; openDetailId=null; render(); }
-    return;
-  }
-  if(action==='close-compare'){ compareOpen=false; render(); return; }
-  if(action==='clear-compare'){ compareIds=[]; render(); return; }
-  if(action==='print-memo'){ window.print(); return; }
-  if(action==='export-excel'){ exportOpportunityExcel(el.dataset.id); return; }
-  if(action==='export-pptx'){ exportOpportunityPptx(el.dataset.id); return; }
-});
-
-/* ---------------- Excel / PowerPoint export ---------------- */
-function exportOpportunityExcel(id){
-  const rec = opportunities.find(o=>o.id===id);
-  if(!rec) return;
-  const d = withDefaults(rec.data), c = compute(d);
-  const yrs = c.projectCF.length;
-  try{
-    const wb = XLSX.utils.book_new();
-
-    const wsSummary = XLSX.utils.aoa_to_sheet([
-      ['دفتر الفرص العقارية — مذكرة تقييم فرصة', ''],
-      ['معرّف الفرصة', rec.id],
-      ['اسم الفرصة', d.meta.name||''],
-      ['المدينة / الحي / الفئة', `${d.meta.city} · ${d.meta.neighborhood||'—'} · ${d.meta.tier}`],
-      ['نوع الفرصة', OPP_TYPE_INFO[d.meta.oppType].t],
-      ['تاريخ آخر تحديث', d.meta.updatedAt||d.meta.createdAt||todayStr()],
-      [],
-      ['المؤشر', 'القيمة'],
-      ['Equity IRR', fmtPct(c.equityIRR,2)],
-      ['Project IRR (Unlevered)', fmtPct(c.projectIRR,2)],
-      ['MOIC', c.MOIC.toFixed(2)+'x'],
-      ['DSCR (أدنى/متوسط)', `${c.dscrMin.toFixed(2)} / ${c.dscrAvg.toFixed(2)}`],
-      ['Yield on Cost', fmtPct(c.yieldOnCost,2)],
-      ['WACC', fmtPct(c.WACC,2)],
-      ['التوصية', c.verdict==='good'?'قابلة للعرض':c.verdict==='warn'?'تحت المراجعة':'دون معايير القبول'],
-      [],
-      ['البند', 'المبلغ (ريال)'],
-      ['قيمة الأرض', Math.round(c.landCost||0)],
-      ['التكلفة الإنشائية', Math.round(c.hardCost||0)],
-      ['إجمالي تكلفة المشروع (TPC)', Math.round(c.TPC||0)],
-      ['التمويل بالدين', Math.round(c.debt||0)],
-      ['حقوق الملكية (Equity)', Math.round(c.equity||0)],
-      ['صافي الدخل التشغيلي (سنة 1 مستقر)', Math.round(c.stabilizedNOIyr1||0)],
-      ['إجمالي التوزيعات', Math.round(c.totalDistrib||0)],
-    ]);
-    wsSummary['!cols'] = [{wch:34},{wch:26}];
-    XLSX.utils.book_append_sheet(wb, wsSummary, 'الملخص');
-
-    const cfRows = [['السنة','تدفق المشروع (غير مرفوع)','تدفق حقوق الملكية']];
-    for(let i=0;i<yrs;i++){ cfRows.push([i, Math.round(c.projectCF[i]||0), Math.round(c.equityCF[i]||0)]); }
-    const wsCF = XLSX.utils.aoa_to_sheet(cfRows);
-    wsCF['!cols'] = [{wch:8},{wch:24},{wch:24}];
-    XLSX.utils.book_append_sheet(wb, wsCF, 'التدفقات النقدية');
-
-    if(d.constructionFinancing){
-      const cfin = d.constructionFinancing;
-      const wsFin = XLSX.utils.aoa_to_sheet([
-        ['التمويل الفعلي — على تكلفة الإنشاء فقط', ''],
-        [cfin.note||'', ''],
-        [],
-        ['البند', 'المبلغ/النسبة'],
-        ['إجمالي التكلفة الإنشائية (تسليم مفتاح، شامل عمولة المقاول)', Math.round(cfin.fullConstructionCost||0)],
-        ['إجمالي قابل للتمويل (إنشاء + أتعاب مطوّر + رسوم)', Math.round(cfin.totalFundable||0)],
-        [`القرض البنكي (${Math.round((cfin.ltcPct||0)*100)}% LTC)`, Math.round(cfin.bankLoan||0)],
-        ['النقد المطلوب من المالك/المستثمرين', Math.round(cfin.cashRequiredFromOwnerOrInvestors||0)],
-        ['DSCR على تمويل الإنشاء', (cfin.dscr||0).toFixed(2)+'x'],
-        ['العائد النقدي السنوي (Cash-on-Cash)', fmtPct(cfin.cashOnCashYieldPct,1)],
-        ...(cfin.ownerActualIRR!=null? [['Owner Actual Equity IRR (10 سنوات، بدون بيع)', fmtPct(cfin.ownerActualIRR,1)]]:[]),
-        ...(cfin.ownerActualMOIC!=null? [['Owner Actual MOIC', cfin.ownerActualMOIC.toFixed(2)+'x']]:[]),
-        ['قيمة الأرض (للعلم فقط، غير مموَّلة)', Math.round(cfin.landValueInformationalOnly||0)],
-        [],
-        ['المرجع الرسمي للمعادلات الكاملة', cfin.sourceFile||''],
-      ]);
-      wsFin['!cols'] = [{wch:48},{wch:26}];
-      XLSX.utils.book_append_sheet(wb, wsFin, 'التمويل الفعلي');
-    }
-
-    XLSX.writeFile(wb, `${rec.id}.xlsx`);
-  }catch(e){
-    alert('تعذّر تصدير ملف Excel من داخل المتصفح: '+e.message+'\nافتح رابط الأداة مباشرة في تبويب متصفح جديد (وليس داخل نافذة المعاينة) ثم أعد المحاولة.');
-  }
-}
-
-function exportOpportunityPptx(id){
-  const rec = opportunities.find(o=>o.id===id);
-  if(!rec) return;
-  const d = withDefaults(rec.data), c = compute(d);
-  try{
-    const Ctor = window.PptxGenJS || (window.pptxgenjs && window.pptxgenjs.default);
-    const pres = new Ctor();
-    pres.defineLayout({ name:'WIDE', width:13.33, height:7.5 });
-    pres.layout = 'WIDE';
-
-    const s1 = pres.addSlide();
-    s1.addText(d.meta.name||'فرصة استثمارية', { x:0.5,y:0.5,w:12.3,h:1, fontSize:28, bold:true, color:'0E6B4C', align:'right' });
-    s1.addText(`${d.meta.city} · ${d.meta.neighborhood||'—'} · ${d.meta.tier}  |  ${rec.id}`, { x:0.5,y:1.4,w:12.3,h:0.5, fontSize:14, color:'4C5850', align:'right' });
-    const vlbl = c.verdict==='good'?'التوصية: قابلة للعرض على لجنة الاستثمار':c.verdict==='warn'?'التوصية: تحت المراجعة':'التوصية: دون معايير القبول';
-    s1.addText(vlbl, { x:0.5,y:2.0,w:12.3,h:0.5, fontSize:16, bold:true, color: c.verdict==='good'?'1E8A56':c.verdict==='warn'?'9C6A0A':'AE2E22', align:'right' });
-
-    const kpis = [
-      ['Equity IRR', fmtPct(c.equityIRR,2)],
-      ['Project IRR', fmtPct(c.projectIRR,2)],
-      ['MOIC', c.MOIC.toFixed(2)+'x'],
-      ['DSCR', c.dscrMin.toFixed(2)],
-      ['Yield on Cost', fmtPct(c.yieldOnCost,2)],
-      ['WACC', fmtPct(c.WACC,2)],
-    ];
-    let kx = 0.5;
-    kpis.forEach(([l,v])=>{
-      s1.addText([{text:v+'\n',options:{fontSize:20,bold:true,color:'0E6B4C'}},{text:l,options:{fontSize:11,color:'4C5850'}}],
-        { x:kx,y:2.8,w:1.95,h:1.1, align:'center', valign:'middle', fill:{color:'F3F4F0'}, line:{color:'D6DACF',width:1} });
-      kx += 2.0;
-    });
-
-    s1.addText([
-      {text:'قيمة الأرض: ', options:{bold:true}}, {text:fmtSAR(c.landCost)+'\n'},
-      {text:'التكلفة الإنشائية: ', options:{bold:true}}, {text:fmtSAR(c.hardCost)+'\n'},
-      {text:'إجمالي تكلفة المشروع: ', options:{bold:true}}, {text:fmtSAR(c.TPC)+'\n'},
-      {text:'صافي الدخل التشغيلي: ', options:{bold:true}}, {text:fmtSAR(c.stabilizedNOIyr1)},
-    ], { x:0.5,y:4.2,w:12.3,h:2, fontSize:14, align:'right', color:'152019' });
-
-    const s2 = pres.addSlide();
-    s2.addText('التدفقات النقدية السنوية', { x:0.5,y:0.4,w:12.3,h:0.6, fontSize:22, bold:true, color:'0E6B4C', align:'right' });
-    const rows = [[
-      {text:'تدفق حقوق الملكية', options:{bold:true, fill:{color:'E3EFE7'}}},
-      {text:'تدفق المشروع', options:{bold:true, fill:{color:'E3EFE7'}}},
-      {text:'السنة', options:{bold:true, fill:{color:'E3EFE7'}}},
-    ]];
-    for(let i=0;i<c.projectCF.length;i++){
-      rows.push([ fmtSAR(c.equityCF[i]), fmtSAR(c.projectCF[i]), String(i) ]);
-    }
-    s2.addTable(rows, { x:0.5,y:1.1,w:12.3, fontSize:11, autoPage:true, border:{type:'solid',color:'D6DACF',pt:0.5} });
-
-    if(d.constructionFinancing){
-      const cfin = d.constructionFinancing;
-      const s3 = pres.addSlide();
-      s3.addText('التمويل الفعلي — على تكلفة الإنشاء فقط', { x:0.5,y:0.4,w:12.3,h:0.6, fontSize:22, bold:true, color:'0E6B4C', align:'right' });
-      s3.addText(cfin.note||'', { x:0.5,y:1.0,w:12.3,h:0.5, fontSize:13, color:'4C5850', align:'right' });
-      const finKpis = [
-        ['القرض البنكي', fmtSAR(cfin.bankLoan)],
-        ['النقد المطلوب من المالك', fmtSAR(cfin.cashRequiredFromOwnerOrInvestors)],
-        ['DSCR', (cfin.dscr||0).toFixed(2)+'x'],
-        ['عائد نقدي سنوي', fmtPct(cfin.cashOnCashYieldPct,1)],
-      ];
-      let fx = 0.5;
-      finKpis.forEach(([l,v])=>{
-        s3.addText([{text:v+'\n',options:{fontSize:20,bold:true,color:'0E6B4C'}},{text:l,options:{fontSize:11,color:'4C5850'}}],
-          { x:fx,y:1.7,w:2.95,h:1.1, align:'center', valign:'middle', fill:{color:'F3F4F0'}, line:{color:'D6DACF',width:1} });
-        fx += 3.0;
-      });
-      const finRows = [
-        {text:'إجمالي التكلفة الإنشائية (تسليم مفتاح)', options:{bold:true}}, {text:fmtSAR(cfin.fullConstructionCost)+'\n'},
-        {text:'إجمالي قابل للتمويل', options:{bold:true}}, {text:fmtSAR(cfin.totalFundable)+'\n'},
-      ];
-      if(cfin.ownerActualIRR!=null){ finRows.push({text:'Owner Actual Equity IRR (10 سنوات)', options:{bold:true}}, {text:fmtPct(cfin.ownerActualIRR,1)+'\n'}); }
-      if(cfin.ownerActualMOIC!=null){ finRows.push({text:'Owner Actual MOIC', options:{bold:true}}, {text:cfin.ownerActualMOIC.toFixed(2)+'x\n'}); }
-      finRows.push({text:'قيمة الأرض (للعلم فقط، غير مموَّلة)', options:{bold:true}}, {text:fmtSAR(cfin.landValueInformationalOnly)});
-      s3.addText(finRows, { x:0.5,y:3.1,w:12.3,h:3, fontSize:14, align:'right', color:'152019' });
-    }
-
-    pres.writeFile({ fileName: `${rec.id}.pptx` });
-  }catch(e){
-    alert('تعذّر تصدير ملف PowerPoint من داخل المتصفح: '+e.message+'\nافتح رابط الأداة مباشرة في تبويب متصفح جديد (وليس داخل نافذة المعاينة) ثم أعد المحاولة.');
-  }
-}
-
-document.addEventListener('input', (e)=>{
-  if(!wizard) return;
-  const t = e.target;
-  if(!t.name) return;
-  if(!t.closest('#wizard-modal')) return;
-  let val;
-  if(t.dataset.pct){ val = parseFloat(t.value); val = isFinite(val)? val/100 : 0; }
-  else if(t.type==='number'){ val = parseFloat(t.value); if(!isFinite(val)) val=0; }
-  else if(t.dataset.int){ val = parseInt(t.value,10)||0; }
-  else if(t.dataset.bool){ val = t.value==='true'; }
-  else val = t.value;
-  setPath(wizard.draft, t.name, val);
-  updateLivePreview();
-});
-document.addEventListener('change', (e)=>{
-  const t = e.target;
-  if(!wizard || !t.name) return;
-  if(!t.closest('#wizard-modal')) return;
-  if(t.tagName==='SELECT'){
-    let val;
-    if(t.dataset.int) val = parseInt(t.value,10)||0;
-    else if(t.dataset.bool) val = t.value==='true';
-    else val = t.value;
-    setPath(wizard.draft, t.name, val);
-    if(t.dataset.rerender) render(); else updateLivePreview();
-  }
-});
-
-initDb();
-</script>
+<script type="module" src="src/main.js"></script>
 
 </body>
 </html>
