@@ -2,15 +2,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // بريد المسؤول (له صلاحية كاملة دائماً، ومش بيتأثر بمدة الوصول).
-    // لازم يطابق تماماً الـ ADMIN_EMAIL في index.html.
+    // بريد/بريدَي المسؤول (لهما صلاحية كاملة دائماً، ومش بيتأثرا بمدة الوصول).
+    // لازم يطابق تماماً قائمة ADMIN_EMAILS في index.html.
     function isAdminEmail() {
       return request.auth != null
         && request.auth.token.email != null
-        && (
-          request.auth.token.email.lower() == 'ggocss@gmail.com'
-          || request.auth.token.email.lower() == 'opal3k@gmail.com'
-        );
+        && (request.auth.token.email.lower() == 'opal3k@gmail.com'
+            || request.auth.token.email.lower() == 'ggocss@gmail.com');
     }
 
     // عضو فريق مضاف عبر لوحة "إدارة الفريق"، ولسه ضمن مدة الوصول المحدَّدة له
@@ -63,6 +61,33 @@ service cloud.firestore {
     match /presence/{uid} {
       allow read: if isAuthorized();
       allow write: if request.auth != null && request.auth.uid == uid && isAuthorized();
+    }
+
+    // سجلات المستثمرين والصناديق والحركات المالية — بيانات داخلية للفريق المصرَّح له.
+    match /investors/{docId} {
+      allow read, write: if isAuthorized();
+    }
+    match /funds/{docId} {
+      allow read, write: if isAuthorized();
+    }
+    match /commitments/{docId} {
+      allow read, write: if isAuthorized();
+    }
+    match /capitalCalls/{docId} {
+      allow read, write: if isAuthorized();
+    }
+    match /distributions/{docId} {
+      allow read, write: if isAuthorized();
+    }
+    match /transactions/{docId} {
+      allow read, write: if isAuthorized();
+    }
+
+    // سجل التعديلات يُنشأ مع حفظ الفرصة ويُقرأ من شاشة التفاصيل.
+    // لا يُسمح للمستخدمين بتعديل أو حذف السجل بعد إنشائه.
+    match /oppAuditLog/{auditId} {
+      allow read, create: if isAuthorized();
+      allow update, delete: if isAdminEmail();
     }
   }
 }

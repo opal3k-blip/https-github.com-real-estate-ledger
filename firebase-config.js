@@ -7,7 +7,7 @@
 // ملاحظة أمان: هذه القيم ليست "سرية" بالمعنى التقليدي (تظهر لأي زائر يفتح
 // الموقع أصلاً) — الحماية الفعلية تأتي من "قواعد الأمان" (Security Rules) في
 // Firestore + من تفعيل تسجيل الدخول (Authentication)، الموضّحين في README.md.
- 
+
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyBdKZaGc1PNeGwK8h_Von4EuuT5EmYADfw",
   authDomain: "real-estate-ledger-f85a6.firebaseapp.com",
@@ -17,4 +17,3 @@ window.FIREBASE_CONFIG = {
   appId: "1:590032344408:web:81b593ecea511761bb012d",
   measurementId: "G-DEHYN30GZJ",
 };
- 
