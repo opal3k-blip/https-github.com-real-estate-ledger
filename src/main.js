@@ -56,5 +56,8 @@ registerAuditTrail(core);
 import { registerPipeline } from './features/pipeline.js';
 registerPipeline(core);
 
+import { registerDueDiligence } from './features/due-diligence.js';
+registerDueDiligence(core);
+
 /* ---------------- التهيئة ---------------- */
 core.initDb();
