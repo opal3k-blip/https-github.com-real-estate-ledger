@@ -62,32 +62,5 @@ service cloud.firestore {
       allow read: if isAuthorized();
       allow write: if request.auth != null && request.auth.uid == uid && isAuthorized();
     }
-
-    // سجلات المستثمرين والصناديق والحركات المالية — بيانات داخلية للفريق المصرَّح له.
-    match /investors/{docId} {
-      allow read, write: if isAuthorized();
-    }
-    match /funds/{docId} {
-      allow read, write: if isAuthorized();
-    }
-    match /commitments/{docId} {
-      allow read, write: if isAuthorized();
-    }
-    match /capitalCalls/{docId} {
-      allow read, write: if isAuthorized();
-    }
-    match /distributions/{docId} {
-      allow read, write: if isAuthorized();
-    }
-    match /transactions/{docId} {
-      allow read, write: if isAuthorized();
-    }
-
-    // سجل التعديلات يُنشأ مع حفظ الفرصة ويُقرأ من شاشة التفاصيل.
-    // لا يُسمح للمستخدمين بتعديل أو حذف السجل بعد إنشائه.
-    match /oppAuditLog/{auditId} {
-      allow read, create: if isAuthorized();
-      allow update, delete: if isAdminEmail();
-    }
   }
 }

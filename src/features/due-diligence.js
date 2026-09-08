@@ -80,6 +80,8 @@ function ddStats(items){
   return { total, completed, pct: total? completed/total : 0, criticalPending };
 }
 
+export { ddStats, defaultItemsDict, DD_CATEGORIES, DEFAULT_DD_ITEMS };
+
 export function registerDueDiligence(core){
   core.registerOpportunitySchemaExtender(()=>({
     dd: { items: defaultItemsDict() },

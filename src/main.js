@@ -50,6 +50,14 @@ for (const key of Object.keys(core)) {
 }
 
 /* ---------------- تسجيل الوحدات الإضافية (Phase 1+) ---------------- */
+// المذكرة التنفيذية الآلية (automated-ic-memo.js) تُسجَّل أولاً عمداً — قبل كل الوحدات الأخرى —
+// حتى يظهر قسمها ("الملخص التنفيذي الآلي") في أعلى قائمة الأقسام الإضافية داخل مذكرة كل فرصة
+// (مباشرة بعد محتوى core.js الأساسي، قبل بقية الأقسام). لا يعتمد على ترتيب استيراد ai-analyst.js
+// (الذي تستورد منه generateAnalystNarrative) — استيراد ES modules يُحل عند التحميل بصرف النظر
+// عن ترتيب استدعاء دوال register*.
+import { registerAutomatedICMemo } from './features/automated-ic-memo.js';
+registerAutomatedICMemo(core);
+
 import { registerAuditTrail } from './features/audit-trail.js';
 registerAuditTrail(core);
 
@@ -58,6 +66,78 @@ registerPipeline(core);
 
 import { registerDueDiligence } from './features/due-diligence.js';
 registerDueDiligence(core);
+
+import { registerDataQuality } from './features/data-quality.js';
+registerDataQuality(core);
+
+import { registerRiskEngine } from './features/risk-engine.js';
+registerRiskEngine(core);
+
+import { registerInvestmentScore } from './features/investment-score.js';
+registerInvestmentScore(core);
+
+import { registerICWorkflow } from './features/ic-workflow.js';
+registerICWorkflow(core);
+
+import { registerICReadiness } from './features/ic-readiness.js';
+registerICReadiness(core);
+
+/* ---------------- المرحلة ٢ ---------------- */
+import { registerMaxAcquisitionPrice } from './features/max-acquisition-price.js';
+registerMaxAcquisitionPrice(core);
+
+import { registerNegotiation } from './features/negotiation.js';
+registerNegotiation(core);
+
+import { registerScenarioManager } from './features/scenario-manager.js';
+registerScenarioManager(core);
+
+import { registerComparables } from './features/comparables.js';
+registerComparables(core);
+
+import { registerValuationEngine } from './features/valuation-engine.js';
+registerValuationEngine(core);
+
+import { registerEvidenceTracking } from './features/evidence-tracking.js';
+registerEvidenceTracking(core);
+
+/* ---------------- المرحلة ٣ ---------------- */
+import { registerPortfolio } from './features/portfolio.js';
+registerPortfolio(core);
+
+import { registerConcentrationRisk } from './features/concentration-risk.js';
+registerConcentrationRisk(core);
+
+import { registerBenchmarkEngine } from './features/benchmark-engine.js';
+registerBenchmarkEngine(core);
+
+import { registerAlerts } from './features/alerts.js';
+registerAlerts(core);
+
+import { registerCommandCenter } from './features/command-center.js';
+registerCommandCenter(core);
+
+import { registerAIAnalyst } from './features/ai-analyst.js';
+registerAIAnalyst(core);
+
+import { registerDataRoom } from './features/data-room.js';
+registerDataRoom(core);
+
+/* ---------------- إعادة هيكلة التقارير (Print / Excel / PowerPoint) ---------------- */
+// كتاب لجنة الاستثمار الكامل (٢١ قسماً) — طريقة عرض رئيسية جديدة مستقلة عن renderDetail
+// الحالية في core.js (انظر التعليق التفصيلي في رأس ic-book-print.js لسبب هذا القرار).
+import { registerICBookPrint } from './features/ic-book-print.js';
+registerICBookPrint(core);
+
+// دفتر الاكتتاب الاستثماري الكامل (٢١ ورقة Excel) — تصدير مستقل عن exportOpportunityExcel
+// الحالية في core.js (تبقى كما هي، لا تزال متاحة كتصدير سريع من زر "⬇️ Excel" الأصلي).
+import { registerExcelWorkbook } from './features/excel-workbook.js';
+registerExcelWorkbook(core);
+
+// عرض لجنة الاستثمار (١٢ شريحة PowerPoint) — تصدير مستقل عن exportOpportunityPptx
+// الحالية في core.js (تبقى كما هي، لا تزال متاحة كتصدير سريع من زر "⬇️ PowerPoint" الأصلي).
+import { registerICPresentation } from './features/ic-presentation.js';
+registerICPresentation(core);
 
 /* ---------------- التهيئة ---------------- */
 core.initDb();
