@@ -22,7 +22,7 @@ import { matchBenchmarks, aggregateBench } from './benchmark-engine.js';
 import { maxAcquisitionPrice } from './max-acquisition-price.js';
 
 const COMPARABLES_COLLECTION = 'comparables';
-const PAL = { green:'1F5F6B', text:'565A63', ink:'1B1D22', card:'F3F4F0', border:'DCDAD3', gold:'A8823A', good:'1F7A52', warn:'A6741F', bad:'B33A2C' };
+const PAL = { green:'0E6B4C', text:'4C5850', ink:'152019', card:'F3F4F0', border:'D6DACF', good:'1E8A56', warn:'9C6A0A', bad:'AE2E22' };
 
 function median(nums){
   if(!nums.length) return null;
@@ -59,7 +59,6 @@ async function exportICPresentation(core, id){
     const pres = new Ctor();
     pres.defineLayout({ name:'WIDE', width:13.33, height:7.5 });
     pres.layout = 'WIDE';
-    pres.theme = { headFontFace:core.REPORT_FONT_AR, bodyFontFace:core.REPORT_FONT_AR, lang:'ar-SA' };
 
     const narrative = generateAnalystNarrative(core, d, c);
     const decisions = (d.ic && d.ic.decisions) || [];
@@ -68,12 +67,12 @@ async function exportICPresentation(core, id){
     const vlbl = c.verdict==='good'?'قابلة للعرض على لجنة الاستثمار':c.verdict==='warn'?'تحت المراجعة':'دون معايير القبول';
     const vcolor = c.verdict==='good'?PAL.good:c.verdict==='warn'?PAL.warn:PAL.bad;
 
-    const H = (s, txt, y)=> s.addText(txt, { x:0.5, y:y!=null?y:0.35, w:12.3, h:0.6, fontSize:22, bold:true, color:PAL.green, align:'right', fontFace:core.REPORT_FONT_AR });
+    const H = (s, txt, y)=> s.addText(txt, { x:0.5, y:y!=null?y:0.35, w:12.3, h:0.6, fontSize:22, bold:true, color:PAL.green, align:'right' });
     const kpiRow = (s, items, y, w)=>{
       let kx = 0.5; const boxW = w || (12.3/items.length - 0.1);
       items.forEach(([l,v])=>{
-        s.addText([{text:v+'\n',options:{fontSize:18,bold:true,color:PAL.green,fontFace:core.REPORT_FONT_LATIN}},{text:l,options:{fontSize:10,color:PAL.text,fontFace:core.REPORT_FONT_AR}}],
-          { x:kx, y:y, w:boxW, h:1.05, align:'center', valign:'middle', fill:{color:PAL.card}, line:{color:PAL.border,width:1}, fontFace:core.REPORT_FONT_AR });
+        s.addText([{text:v+'\n',options:{fontSize:18,bold:true,color:PAL.green}},{text:l,options:{fontSize:10,color:PAL.text}}],
+          { x:kx, y:y, w:boxW, h:1.05, align:'center', valign:'middle', fill:{color:PAL.card}, line:{color:PAL.border,width:1} });
         kx += boxW + 0.12;
       });
     };
@@ -81,9 +80,9 @@ async function exportICPresentation(core, id){
     /* ===================== 1) Investment Opportunity ===================== */
     {
       const s = pres.addSlide();
-      s.addText(d.meta.name||'فرصة استثمارية', { x:0.5,y:0.5,w:12.3,h:1, fontSize:30, bold:true, color:PAL.green, align:'right', fontFace:core.REPORT_FONT_AR });
-      s.addText(`${d.meta.city} · ${d.meta.neighborhood||'—'} · ${d.meta.tier}  |  ${ti.ic} ${core.T(ti.t,ti.en)}  |  ${rec.id}`, { x:0.5,y:1.5,w:12.3,h:0.5, fontSize:14, color:PAL.text, align:'right', fontFace:core.REPORT_FONT_AR });
-      s.addText('التوصية: ' + vlbl, { x:0.5,y:2.1,w:12.3,h:0.5, fontSize:18, bold:true, color:vcolor, align:'right', fontFace:core.REPORT_FONT_AR });
+      s.addText(d.meta.name||'فرصة استثمارية', { x:0.5,y:0.5,w:12.3,h:1, fontSize:30, bold:true, color:PAL.green, align:'right' });
+      s.addText(`${d.meta.city} · ${d.meta.neighborhood||'—'} · ${d.meta.tier}  |  ${ti.ic} ${core.T(ti.t,ti.en)}  |  ${rec.id}`, { x:0.5,y:1.5,w:12.3,h:0.5, fontSize:14, color:PAL.text, align:'right' });
+      s.addText('التوصية: ' + vlbl, { x:0.5,y:2.1,w:12.3,h:0.5, fontSize:18, bold:true, color:vcolor, align:'right' });
       kpiRow(s, [
         ['حجم الاستثمار (TPC)', fmtSAR(c.TPC)],
         ['حقوق الملكية المطلوبة', fmtSAR(c.equity)],
@@ -166,19 +165,6 @@ async function exportICPresentation(core, id){
         ['MOIC', c.MOIC.toFixed(2)+'×'],
         ['DSCR (أدنى)', c.dscrMin!=null?c.dscrMin.toFixed(2)+'×':'—'],
       ], 2.55);
-      // Capital structure flow: a compact visual bridge from total cost to funding sources.
-      const flow = [
-        ['TPC', fmtSAR(c.TPC), PAL.green],
-        ['الدين / Debt', fmtSAR(c.debt), PAL.gold],
-        ['حقوق الملكية / Equity', fmtSAR(c.equity), PAL.good],
-      ];
-      let fx = 0.7;
-      flow.forEach((item,i)=>{
-        s.addText([{text:item[1]+'\n',options:{fontSize:17,bold:true,fontFace:core.REPORT_FONT_LATIN,color:item[2]}},{text:item[0],options:{fontSize:10,fontFace:core.REPORT_FONT_AR,color:PAL.text}}],
-          { x:fx,y:4.25,w:2.9,h:1.05,align:'center',valign:'middle',fill:{color:PAL.card},line:{color:item[2],width:1.5} });
-        if(i<flow.length-1) s.addText(i===0?'→':'+', { x:fx+2.95,y:4.4,w:0.35,h:0.6,align:'center',valign:'middle',fontSize:22,bold:true,color:PAL.border,fontFace:core.REPORT_FONT_LATIN });
-        fx += 3.95;
-      });
     }
 
     /* ===================== 6) Cash Flow ===================== */
@@ -228,19 +214,7 @@ async function exportICPresentation(core, id){
         {text:'التخفيف', options:{bold:true, fill:{color:PAL.card}}},
       ]];
       ranked.forEach(r=> rows.push([ r.label, `${r.p} × ${r.i}`, {text:core.T(r.band.ar,r.band.en), options:{color:'#'+(r.band.color||'#333').replace('#','')}}, r.mitigation ]));
-      // Five-by-five probability × impact heatmap for quick committee scanning.
-      const heat = ['E8F5EE','E8F5EE','FFF4D6','FDE6D6','F9D7D4'];
-      const heatX = 0.65, heatY = 1.35, cellW = 0.62, cellH = 0.48;
-      for(let p=1;p<=5;p++){
-        for(let i=1;i<=5;i++){
-          const score = p*i;
-          const idx = score>=15 ? 4 : score>=7 ? 3 : score>=4 ? 2 : 1;
-          s.addText(String(score), { x:heatX+(i-1)*cellW, y:heatY+(5-p)*cellH, w:cellW-0.03, h:cellH-0.03, fontSize:9, align:'center', valign:'middle', color:PAL.ink, fill:{color:heat[idx]}, line:{color:PAL.border,width:0.5}, fontFace:core.REPORT_FONT_LATIN });
-        }
-      }
-      s.addText('Impact →', { x:heatX+0.25,y:3.86,w:2.7,h:0.3,fontSize:9,color:PAL.text,align:'center',fontFace:core.REPORT_FONT_LATIN });
-      s.addText('Probability ↑', { x:0.03,y:2.15,w:0.5,h:0.8,fontSize:9,color:PAL.text,rotate:270,align:'center',fontFace:core.REPORT_FONT_LATIN });
-      s.addTable(rows, { x:4.2,y:1.3,w:8.1, fontSize:10.5, border:{type:'solid',color:PAL.border,pt:0.5}, align:'center' });
+      s.addTable(rows, { x:0.5,y:1.3,w:12.3, fontSize:11.5, border:{type:'solid',color:PAL.border,pt:0.5}, align:'center' });
     }
 
     /* ===================== 9) Market Evidence ===================== */
@@ -316,8 +290,8 @@ async function exportICPresentation(core, id){
         {text:'ROI: ', options:{bold:true}}, {text:fmtPct(c.ROI)+'    '},
         {text:'فترة الاسترداد: ', options:{bold:true}}, {text:(c.paybackPeriod!=null?c.paybackPeriod.toFixed(1)+' سنة':'—')+'\n'},
       ], { x:0.5,y:1.4,w:12.3,h:3, fontSize:14, align:'right', color:PAL.ink, lineSpacing:34 });
-      s.addText('هذا العرض أُعِدَّ آلياً من بيانات منصة ذكاء الاستثمار العقاري. الأرقام تقديرية ولا تُغني عن تقييم مستقل معتمد قبل أي قرار استثماري نهائي.',
-        { x:0.5,y:5.0,w:12.3,h:1, fontSize:10, color:PAL.text, align:'right', italic:true, fontFace:core.REPORT_FONT_AR });
+      s.addText('هذا العرض أُعِدَّ آلياً من بيانات دفتر الفرص العقارية. الأرقام تقديرية ولا تُغني عن تقييم مستقل معتمد قبل أي قرار استثماري نهائي.',
+        { x:0.5,y:5.0,w:12.3,h:1, fontSize:10, color:PAL.text, align:'right', italic:true });
     }
 
     pres.writeFile({ fileName: `${rec.id}-IC-Presentation.pptx` });

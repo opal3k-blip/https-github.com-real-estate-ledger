@@ -79,9 +79,6 @@ registerInvestmentScore(core);
 import { registerICWorkflow } from './features/ic-workflow.js';
 registerICWorkflow(core);
 
-import { registerICReadiness } from './features/ic-readiness.js';
-registerICReadiness(core);
-
 /* ---------------- المرحلة ٢ ---------------- */
 import { registerMaxAcquisitionPrice } from './features/max-acquisition-price.js';
 registerMaxAcquisitionPrice(core);

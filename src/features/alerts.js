@@ -40,10 +40,10 @@ function computeAlerts(core){
       }
     }
 
-    // الإجراء التالي في مسار الاستثمار متأخر
+    // الإجراء التالي في خط الأنابيب متأخر
     const p = d.pipeline;
     if(p && p.nextActionDeadline && p.nextActionDeadline < today && p.stage!=='archived' && p.stage!=='exit'){
-      alerts.push({ severity:'medium', oppId:rec.id, name, kind: core.T('مسار الاستثمار','Investment Path'),
+      alerts.push({ severity:'medium', oppId:rec.id, name, kind: core.T('خط الأنابيب','Pipeline'),
         message: core.T(`إجراء متأخر: "${p.nextAction||'—'}" (كان مستحقاً ${p.nextActionDeadline})`, `Overdue action: "${p.nextAction||'—'}" (was due ${p.nextActionDeadline})`) });
     }
 
