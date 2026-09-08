@@ -1,0 +1,44 @@
+/* =========================================================================
+   المذكرة التنفيذية الآلية — Automated IC Memo (Phase 3، النظام السابع)
+   ---------------------------------------------------------------------------
+   ملخص تنفيذي مُولَّد بالكامل آلياً (بلا كتابة يدوية) يظهر دائماً — على
+   الشاشة وفي الطباعة/PDF على حدٍّ سواء (بخلاف قسم "محلل الاستثمار الآلي" في
+   ai-analyst.js القابل للطي على الشاشة فقط) — يجمع: النص التحليلي المُركَّب
+   (generateAnalystNarrative من ai-analyst.js، بلا أي تكرار منطقي)، جدول
+   مقاييس رئيسي مضغوط، وحالة قرار لجنة الاستثمار الأحدث إن وُجد. هذا لا يستبدل
+   إعادة هيكلة الطباعة الكاملة (٢١ قسماً) الموثَّقة في
+   خطة_التقارير_والمهام_القادمة.md — تلك مهمة أوسع مؤجَّلة عمداً لما بعد
+   اكتمال المرحلة ٣؛ هذا ملخص تنفيذي واحد يُضاف للمذكرة الحالية فوراً.
+   يُسجَّل هذا الملف **أولاً** في main.js (قبل كل وحدات المرحلة ١/٢/٣ الأخرى)
+   حتى يظهر الملخص التنفيذي في أعلى قسم الإضافات (بعد محتوى core.js الأساسي
+   مباشرة، قبل بقية الأقسام الإضافية) — لا تعديل على منطق core.js الداخلي،
+   فقط ترتيب التسجيل في main.js.
+   ========================================================================= */
+
+import { generateAnalystNarrative } from './ai-analyst.js';
+
+export function registerAutomatedICMemo(core){
+  core.registerDetailSection((d, c)=>{
+    const { paras } = generateAnalystNarrative(core, d, c);
+    const decisions = (d.ic && d.ic.decisions) || [];
+    const latest = decisions.length? decisions[decisions.length-1] : null;
+    const DEC_LABEL = { approve:['اعتماد','Approve'], approve_conditions:['اعتماد بشروط','Approve with Conditions'], revise:['مراجعة وإعادة عرض','Revise & Resubmit'], hold:['تعليق','Hold'], reject:['رفض','Reject'] };
+
+    return `
+    <div class="section">
+      <h3>📄 ${core.T('الملخص التنفيذي الآلي','Automated Executive Summary')} <span style="color:var(--ink-faint); font-weight:500; font-size:12px;">(Automated IC Memo)</span></h3>
+      <div class="kv" style="margin-bottom:12px;">
+        <div class="k">TPC</div><div class="v">${core.fmtSAR(c.TPC)}</div>
+        <div class="k">Equity IRR</div><div class="v" style="font-weight:700;">${isFinite(c.equityIRR)? core.fmtPct(c.equityIRR): '—'}</div>
+        <div class="k">MOIC</div><div class="v" style="font-weight:700;">${isFinite(c.MOIC)? c.MOIC.toFixed(2)+'×': '—'}</div>
+        <div class="k">DSCR (${core.T('أدنى','min')})</div><div class="v">${c.dscrMin!=null && isFinite(c.dscrMin)? c.dscrMin.toFixed(2)+'×': '—'}</div>
+        <div class="k">NPV</div><div class="v">${isFinite(c.npvProject)? core.fmtSAR(c.npvProject): '—'}</div>
+        <div class="k">${core.T('قرار اللجنة الأحدث','Latest IC Decision')}</div><div class="v">${latest? core.T(DEC_LABEL[latest.decision][0],DEC_LABEL[latest.decision][1]) : core.T('لم يُتخَذ قرار بعد','No decision yet')}</div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        ${paras.map(p=>`<p style="margin:0; font-size:12px; line-height:1.85;">${core.esc(p)}</p>`).join('')}
+      </div>
+      <button type="button" class="btn btn-sm btn-ghost" style="margin-top:12px;" data-action="print-memo">🖨️ ${core.T('طباعة/PDF لكامل المذكرة (تتضمن هذا الملخص)','Print/PDF the full memo (includes this summary)')}</button>
+    </div>`;
+  });
+}
