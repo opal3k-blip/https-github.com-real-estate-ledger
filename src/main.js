@@ -1,5 +1,5 @@
 /* =========================================================================
-   نقطة الدخول — Opal Real Estate Intelligence Platform
+   نقطة الدخول — Opal Real Estate Opportunity Explorer
    ---------------------------------------------------------------------------
    core.js يبقى المحرك الأساسي (الفرص/التمويل/المستثمرين والصناديق) دون أي
    تغيير في منطقه الداخلي. أي نظام جديد (Investment Pipeline، Due Diligence،
@@ -78,6 +78,9 @@ registerInvestmentScore(core);
 
 import { registerICWorkflow } from './features/ic-workflow.js';
 registerICWorkflow(core);
+
+import { registerICReadiness } from './features/ic-readiness.js';
+registerICReadiness(core);
 
 /* ---------------- المرحلة ٢ ---------------- */
 import { registerMaxAcquisitionPrice } from './features/max-acquisition-price.js';

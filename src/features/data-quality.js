@@ -54,7 +54,7 @@ function dataQualityStats(core, d){
 }
 
 export function registerDataQuality(core){
-  // زر شريط علوي إعلامي فقط — يفتح لوحة خط الأنابيب لو رغب المستخدم بمراجعة كل الفرص (لا حاجة لعرض مستقل خاص به هنا).
+  // زر شريط علوي إعلامي فقط — يفتح لوحة مسار الاستثمار لمراجعة كل الفرص (لا حاجة لعرض مستقل خاص به هنا).
 
   core.registerDetailSection((d, c)=>{
     const oppId = core.openDetailId;
@@ -77,7 +77,7 @@ export function registerDataQuality(core){
       <p class="note" style="color:var(--bad); margin:0 0 8px;">🚫 ${core.T('لا تُرفع هذه الفرصة للجنة الاستثمار — يوجد','Do not submit this opportunity to the IC —')} ${stats.criticalMissing.length} ${core.T('مُدخل حرج مفقود:','critical input(s) missing:')}</p>
       <ul style="margin:0; padding-inline-start:20px; display:flex; flex-direction:column; gap:3px;">
         ${stats.criticalMissing.map(f=>`<li style="font-size:12px; color:var(--bad);">${core.T(f.ar,f.en)}</li>`).join('')}
-      </ul>` : `<p class="note" style="color:var(--good);">✅ ${core.T('جميع المدخلات الحرجة مكتملة.','All critical inputs are complete.')}</p>`}
+      </ul>` : `<p class="note" style="color:var(--good);">✅ ${core.T('اكتمل إدخال جميع البيانات الحرجة.','All critical inputs are complete.')}</p>`}
     </div>`;
   });
 }

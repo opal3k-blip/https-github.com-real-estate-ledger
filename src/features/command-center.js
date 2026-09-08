@@ -61,7 +61,7 @@ export function registerCommandCenter(core){
 
     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px,1fr)); gap:14px; margin-bottom:14px;">
       <div class="panel">
-        <div class="panel-head"><h3>🧭 ${core.T('خط الأنابيب','Pipeline')}</h3></div>
+        <div class="panel-head"><h3>🧭 ${core.T('مسار الاستثمار','Investment Path')}</h3></div>
         <p class="note" style="margin:0 0 8px;">${core.T('نشطة (غير مؤرشفة)','Active (non-archived)')}: <b>${activeTotal}</b></p>
         <div style="display:flex; flex-direction:column; gap:5px;">
           ${PIPELINE_STAGES.filter(st=>st.key!=='archived').map(st=>`

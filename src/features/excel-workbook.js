@@ -10,9 +10,8 @@
    الأداة المستخدمة في exportOpportunityExcel نفسها)، بلا أي تكرار أو تعديل
    على منطق core.js الداخلي. الإضافة الوحيدة هنا فوق تلك الأداة: طبقة تلوين
    خلايا رقيقة (colorize()) تُطبِّق تمييز "معيار الاكتتاب المهني" الإلزامي —
-   أزرق=مُدخل يدوي (Hardcoded Input) / أسود=معادلة أو رقم محسوب (Calculated
-   Output) / أخضر=رابط بين الأوراق (Linked Formula) / أصفر=بيانات سوق خارجية
-   (External Market Data) — مع دليل ألوان (Legend) صريح في أول ورقة (00)، حتى
+   أزرق=Input / أسود=Formula أو نتيجة محسوبة / أخضر=Linked / أصفر=Market /
+   رمادي=System — مع دليل ألوان (Legend) صريح في أول ورقة (00)، حتى
    يعرف أي محلل يفتح الملف مصدر كل رقم دون سؤال (بالضبط طلب المستخدم). حيث
    أمكن (مجاميع TPC/Equity، وIRR/NPV على مدى صفوف التدفقات النقدية داخل نفس
    الشيت) نكتب معادلات Excel حقيقية (SUM/IRR/NPV) بدل أرقام جامدة — بقية أرقام
@@ -30,7 +29,21 @@ import { matchBenchmarks, aggregateBench } from './benchmark-engine.js';
 import { maxAcquisitionPrice } from './max-acquisition-price.js';
 
 const COMPARABLES_COLLECTION = 'comparables';
-const SEM = { INPUT:'FF1E40AF', LINK:'FF15803D', EXT_FONT:'FF92650B', EXT_FILL:'FFFEF3C7' };
+const SEM = {
+  INPUT:'FF1E40AF',
+  FORMULA:'FF1F2937',
+  LINK:'FF15803D',
+  MARKET:'FF92650B',
+  SYSTEM:'FF6B7280',
+  MARKET_FILL:'FFFEF3C7',
+};
+// Stable workbook source map. Dynamic cash-flow rows are added per export below.
+const SOURCE_MAP = {
+  assumptions: { landPrice:'B5' },
+  development: { salePrice:'B3' },
+  sourcesUses: { tpc:'B10' },
+  debt: { dscrMin:'B7', dscrAvg:'B8' },
+};
 const DEC_LABEL = {
   approve:['اعتماد','Approve'], approve_conditions:['اعتماد بشروط','Approve with Conditions'],
   revise:['مراجعة وإعادة عرض','Revise & Resubmit'], hold:['تعليق','Hold'], reject:['رفض','Reject'],
@@ -68,18 +81,33 @@ export function registerExcelWorkbook(core){
    colIdx: رقم العمود (1-based) المطلوب تلوينه في كل صف (افتراضياً العمود ٢).
    --------------------------------------------------------------------- */
 function colorize(ws, kinds, sem, colIdx){
-  colIdx = colIdx || 2;
+  const cols = Array.isArray(colIdx) ? colIdx : [colIdx || 2];
   kinds.forEach((k, i)=>{
     const s = sem[i];
     if(!s || k!=='data') return;
-    const cell = ws.getCell(i+1, colIdx);
-    if(s==='input'){ cell.font = Object.assign({}, cell.font, { color:{argb:SEM.INPUT} }); }
-    else if(s==='link'){ cell.font = Object.assign({}, cell.font, { color:{argb:SEM.LINK} }); }
-    else if(s==='ext'){
-      cell.font = Object.assign({}, cell.font, { color:{argb:SEM.EXT_FONT} });
-      cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:SEM.EXT_FILL} };
-    }
+    cols.forEach(col=>{
+      const cell = ws.getCell(i+1, col);
+      if(s==='input') cell.font = Object.assign({}, cell.font, { color:{argb:SEM.INPUT} });
+      else if(s==='link') cell.font = Object.assign({}, cell.font, { color:{argb:SEM.LINK} });
+      else if(s==='market' || s==='ext'){
+        cell.font = Object.assign({}, cell.font, { color:{argb:SEM.MARKET} });
+        cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:SEM.MARKET_FILL} };
+      } else if(s==='system') cell.font = Object.assign({}, cell.font, { color:{argb:SEM.SYSTEM} });
+      else if(s==='formula') cell.font = Object.assign({}, cell.font, { color:{argb:SEM.FORMULA} });
+    });
   });
+}
+
+function setLinkedFormula(core, ws, row, col, formula, numFmt){
+  core.xlSetFormula(ws, row, col, formula, numFmt, 'linked');
+  const cell = ws.getCell(row, col);
+  cell.font = Object.assign({}, cell.font, { color:{argb:SEM.LINK}, name:core.REPORT_FONT_LATIN });
+}
+
+function setFormula(core, ws, row, col, formula, numFmt){
+  core.xlSetFormula(ws, row, col, formula, numFmt);
+  const cell = ws.getCell(row, col);
+  cell.font = Object.assign({}, cell.font, { color:{argb:SEM.FORMULA}, name:core.REPORT_FONT_LATIN });
 }
 /* باني صفوف مساعد: يُرجع {B, SEM} — B لتمرير مباشر لـcore.xlRowsBuilder، SEM موازية لتتبّع النوع الدلالي. */
 function rowsBuilder(){
@@ -96,11 +124,19 @@ async function exportUnderwritingWorkbook(core, id){
   const rec = core.opportunities.find(o=>o.id===id);
   if(!rec) return;
   const d = core.withDefaults(rec.data), c = core.compute(d);
+  const sourceRows = {
+    projectIRR: 2 + c.projectCF.length + 2,
+    projectNPV: 2 + c.projectCF.length + 3,
+    equityIRR: 2 + c.equityCF.length + 2,
+    equityMOIC: 2 + c.equityCF.length + 3,
+    debtDSCRMin: Number(SOURCE_MAP.debt.dscrMin.slice(1)),
+    debtDSCRAvg: Number(SOURCE_MAP.debt.dscrAvg.slice(1)),
+  };
   const { fmtSAR, fmtPct, fmtNum, XL, xlRowsBuilder, xlNewSheet, xlSetFormula, xlColLetter } = core;
 
   try{
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'دفتر الفرص العقارية — أوبال';
+    wb.creator = 'Opal Real Estate Opportunity Explorer';
     wb.calcProperties = { fullCalcOnLoad:true };
 
     /* ===================== 00_IC Dashboard ===================== */
@@ -113,24 +149,33 @@ async function exportUnderwritingWorkbook(core, id){
       push(['تاريخ الإصدار (Generated)', core.fmtDateBilingual(core.todayStr())]);
       push(['', '']);
       push(['دليل الألوان — من أين أتى كل رقم (Color Legend — Where Every Number Comes From)', ''],'section');
-      push(['🔵 أزرق — مُدخل يدوي (Hardcoded Input)', 'يُدخله المحلل مباشرة — عدّله بحذر'], 'header');
-      push(['⚫ أسود — نتيجة محسوبة (Calculated Output)', 'ناتج معادلة أو محرك التطبيق — لا تُعدَّل يدوياً']);
-      push(['🟢 أخضر — رابط بين الأوراق (Linked Formula)', 'يشير لخلية في ورقة أخرى داخل نفس الملف']);
-      push(['🟡 أصفر (تظليل) — بيانات سوق خارجية (External Market Data)', 'مصدرها مقارنات/معيار مرجعي مُدخَل يدوياً في التطبيق']);
+      push(['🔵 أزرق — مُدخل (Input)', 'قيمة أدخلها المحلل مباشرة — عدّلها بحذر'], 'header');
+      push(['⚫ أسود — معادلة/محسوب (Formula)', 'ناتج معادلة Excel أو محرك التطبيق']);
+      push(['🟢 أخضر — مرتبط (Linked)', 'معادلة تشير إلى خلية في ورقة مصدر داخل نفس الملف']);
+      push(['🟡 أصفر — سوق (Market)', 'بيانات مقارنات أو معيار سوقي خارجي/مرجعي']);
+      push(['⚪ رمادي — نظام (System)', 'معرّف أو سجل تدقيق أو حالة نظامية غير مالية']);
       push(['', '']);
       push(['لوحة القرار (Decision Dashboard)', ''],'section');
       push(['المؤشر (Metric)', 'القيمة (Value)'],'header');
-      push(['TPC', Math.round(c.TPC)]);
-      push(['Equity IRR', fmtPct(c.equityIRR,2)]);
-      push(['Project IRR', fmtPct(c.projectIRR,2)]);
-      push(['MOIC', c.MOIC.toFixed(2)+'×']);
-      push(['DSCR (أدنى / متوسط)', `${c.dscrMin!=null?c.dscrMin.toFixed(2):'—'}× / ${c.dscrAvg!=null?c.dscrAvg.toFixed(2):'—'}×`]);
-      push(['NPV (Project)', Math.round(c.npvProject)]);
+      push(['TPC', Math.round(c.TPC)], 'data', 'link');
+      push(['Equity IRR', fmtPct(c.equityIRR,2)], 'data', 'link');
+      push(['Project IRR', fmtPct(c.projectIRR,2)], 'data', 'link');
+      push(['MOIC', c.MOIC.toFixed(2)+'×'], 'data', 'link');
+      push(['DSCR (أدنى)', c.dscrMin!=null?c.dscrMin.toFixed(2)+'×':'—',], 'data', 'link');
+      push(['NPV (Project)', Math.round(c.npvProject)], 'data', 'link');
       push(['التوصية (Verdict)', c.verdict==='good'?'🟢 قابلة للعرض':c.verdict==='warn'?'🟡 تحت المراجعة':'🔴 دون المعايير']);
       const decisions = (d.ic && d.ic.decisions) || [];
       const latest = decisions.length? decisions[decisions.length-1] : null;
       push(['قرار اللجنة الأحدث (Latest IC Decision)', latest? core.T(DEC_LABEL[latest.decision][0],DEC_LABEL[latest.decision][1]) : 'لم يُتخَذ بعد']);
       const ws = xlNewSheet(wb, '00_IC Dashboard', B.rows, B.kinds, { colWidths:[52,30] });
+      colorize(ws, B.kinds, S);
+      // These addresses are the stable source map for the workbook's summary sheet.
+      setLinkedFormula(core, ws, 14, 2, `'03_Sources & Uses'!${SOURCE_MAP.sourcesUses.tpc}`, '#,##0;(#,##0);"-"');
+      setLinkedFormula(core, ws, 15, 2, `'09_Equity CF'!B${sourceRows.equityIRR}`, '0.0%');
+      setLinkedFormula(core, ws, 16, 2, `'08_Project CF'!B${sourceRows.projectIRR}`, '0.0%');
+      setLinkedFormula(core, ws, 17, 2, `'09_Equity CF'!B${sourceRows.equityMOIC}`, '0.00"×"');
+      setLinkedFormula(core, ws, 18, 2, `'07_Debt'!B${sourceRows.debtDSCRMin}`, '0.00"×"');
+      setLinkedFormula(core, ws, 19, 2, `'08_Project CF'!B${sourceRows.projectNPV}`, '#,##0;(#,##0);"-"');
     }
 
     /* ===================== 01_Opportunity ===================== */
@@ -243,7 +288,7 @@ async function exportUnderwritingWorkbook(core, id){
     build0809CashFlows(core, wb, d, c);
 
     /* ===================== 10_Returns ===================== */
-    build10Returns(core, wb, d, c);
+    build10Returns(core, wb, d, c, sourceRows);
 
     /* ===================== 11_Sensitivity ===================== */
     build11Sensitivity(core, wb, d, c);
@@ -297,7 +342,7 @@ function build04Development(core, wb, d, c){
   push(['برنامج التطوير — Development Program',''],'title');
   push(['البند','القيمة'],'header');
   if(d.meta.oppType==='development'){
-    push(['سعر البيع المتوقع/م²', fmtSAR(d.development.salePrice)], 'data', 'input');
+    push(['سعر البيع المتوقع/م²', d.development.salePrice], 'data', 'input');
     push(['تكلفة البناء/م²', fmtSAR(d.development.buildCost)], 'data', 'input');
     push(['مدة الإنشاء (سنوات)', d.development.constructionYears], 'data', 'input');
     push(['مدة التشغيل بعد الإنشاء (سنوات)', d.development.operationYears||0], 'data', 'input');
@@ -320,6 +365,7 @@ function build05Revenue(core, wb, d, c){
   const push = (vals,kind,sem)=>{ const n=B.push(vals,kind); S[n-1]=sem||null; return n; };
   push(['الإيرادات — Revenue',''],'title');
   push(['البند','القيمة'],'header');
+  let rSalePrice = null;
   if(d.meta.oppType==='income'){
     push(['الإيجار السنوي/م²', fmtSAR(d.income.rent)], 'data', 'input');
     push(['نسبة الإشغال (Occupancy)', fmtPct(d.income.occupancy)], 'data', 'input');
@@ -328,7 +374,7 @@ function build05Revenue(core, wb, d, c){
     push(['🔒 صافي الدخل التشغيلي (سنة ١ مستقر)', Math.round(c.stabilizedNOIyr1||0)]);
     push(['🔒 عائد التكلفة (Yield on Cost)', fmtPct(c.yieldOnCost)]);
   } else if(d.meta.oppType==='development'){
-    push(['سعر البيع المتوقع/م² (من ورقة 04)', fmtSAR(d.development.salePrice)], 'data', 'link');
+    rSalePrice = push(['سعر البيع المتوقع/م² (من ورقة 04)', null], 'data', 'link');
     push(['نسبة البيع من الاستراتيجية', d.strategy&&d.strategy.salePct!=null? fmtPct(d.strategy.salePct):'—'], 'data', 'input');
   } else {
     push(['معدل نمو قيمة الأرض السنوي', d.landbank? fmtPct(d.landbank.appreciation):'—'], 'data', 'input');
@@ -336,6 +382,7 @@ function build05Revenue(core, wb, d, c){
   }
   const ws = xlNewSheet(wb, '05_Revenue', B.rows, B.kinds, { colWidths:[42,26] });
   colorize(ws, B.kinds, S);
+  if(rSalePrice) setLinkedFormula(core, ws, rSalePrice, 2, `'04_Development'!${SOURCE_MAP.development.salePrice}`, '#,##0;(#,##0);"-"');
 }
 
 function build06Opex(core, wb, d, c){
@@ -366,20 +413,21 @@ function build07Debt(core, wb, d, c){
   push(['SAIBOR', fmtPct(d.financing.saibor)], 'data', 'input');
   push(['هامش البنك (Margin)', fmtPct(d.financing.margin)], 'data', 'input');
   push(['نسبة التمويل (LTC)', fmtPct(d.financing.ltc)], 'data', 'input');
-  push(['🔒 إجمالي الدين (Total Debt)', Math.round(c.debt||0)]);
-  push(['🔒 DSCR (أدنى)', c.dscrMin!=null?c.dscrMin.toFixed(2)+'×':'—']);
-  push(['🔒 DSCR (متوسط)', c.dscrAvg!=null?c.dscrAvg.toFixed(2)+'×':'—']);
+  push(['🔒 إجمالي الدين (Total Debt)', Math.round(c.debt||0)], 'data', 'system');
+  push(['🔒 DSCR (أدنى)', c.dscrMin!=null?c.dscrMin.toFixed(2)+'×':'—'], 'data', 'system');
+  push(['🔒 DSCR (متوسط)', c.dscrAvg!=null?c.dscrAvg.toFixed(2)+'×':'—'], 'data', 'system');
   const rows = (c.pnlRows||[]).filter(r=>r.debtService>0);
   if(rows.length){
     push(['','']);
     push(['جدول خدمة الدين السنوي (Annual Debt Service)',''],'section');
     push(['السنة','الفائدة','سداد الأصل','خدمة الدين','DSCR'],'header');
     rows.forEach(r=>{
-      push([r.yr, Math.round(r.interestExpense), Math.round(r.principalPayment), Math.round(r.debtService), r.debtService>0?(r.noi/r.debtService).toFixed(2)+'×':'—']);
+      push([r.yr, Math.round(r.interestExpense), Math.round(r.principalPayment), Math.round(r.debtService), r.debtService>0?(r.noi/r.debtService).toFixed(2)+'×':'—'], 'data', 'system');
     });
   }
   const ws = xlNewSheet(wb, '07_Debt', B.rows, B.kinds, { colWidths:[42,18,18,18,14] });
   colorize(ws, B.kinds, S);
+  return { dscrMinRow:7, dscrAvgRow:8 };
 }
 
 function build0809CashFlows(core, wb, d, c){
@@ -390,7 +438,7 @@ function build0809CashFlows(core, wb, d, c){
     B.push(['التدفقات النقدية للمشروع — Project Cash Flow',''],'title');
     B.push(['السنة','تدفق المشروع (ر.س)'],'header');
     const firstRow = B.rows.length+1;
-    c.projectCF.forEach((v,i)=> B.push([i, Math.round(v)]));
+    c.projectCF.forEach((v,i)=> B.push([i, Math.round(v)], 'data', 'system'));
     const lastRow = B.rows.length;
     B.push(['','']);
     const rIRR = B.push(['🔒 Project IRR (معادلة IRR على الصفوف أعلاه)', null], 'note');
@@ -398,6 +446,9 @@ function build0809CashFlows(core, wb, d, c){
     const ws = xlNewSheet(wb, '08_Project CF', B.rows, B.kinds, { colWidths:[46,26] });
     xlSetFormula(ws, rIRR, 2, `IRR(B${firstRow}:B${lastRow})`, '0.0%');
     xlSetFormula(ws, rNPV, 2, `B${firstRow}+NPV(${c.WACC},B${firstRow+1}:B${lastRow})`, '#,##0;(#,##0);"-"');
+    ws.getCell(rIRR,2).font = Object.assign({}, ws.getCell(rIRR,2).font, { color:{argb:SEM.FORMULA} });
+    ws.getCell(rNPV,2).font = Object.assign({}, ws.getCell(rNPV,2).font, { color:{argb:SEM.FORMULA} });
+    var projectRows = { irrRow:rIRR, npvRow:rNPV };
   }
   // 09_Equity CF
   {
@@ -405,7 +456,7 @@ function build0809CashFlows(core, wb, d, c){
     B.push(['التدفقات النقدية لحقوق الملكية — Equity Cash Flow',''],'title');
     B.push(['السنة','تدفق حقوق الملكية (ر.س)'],'header');
     const firstRow = B.rows.length+1;
-    c.equityCF.forEach((v,i)=> B.push([i, Math.round(v)]));
+    c.equityCF.forEach((v,i)=> B.push([i, Math.round(v)], 'data', 'system'));
     const lastRow = B.rows.length;
     B.push(['','']);
     const rIRR = B.push(['🔒 Equity IRR (معادلة IRR على الصفوف أعلاه)', null], 'note');
@@ -413,58 +464,72 @@ function build0809CashFlows(core, wb, d, c){
     const ws = xlNewSheet(wb, '09_Equity CF', B.rows, B.kinds, { colWidths:[46,26] });
     xlSetFormula(ws, rIRR, 2, `IRR(B${firstRow}:B${lastRow})`, '0.0%');
     xlSetFormula(ws, rMOIC, 2, `SUMIF(B${firstRow}:B${lastRow},">0")/ABS(B${firstRow})`, '0.00"×"');
+    ws.getCell(rIRR,2).font = Object.assign({}, ws.getCell(rIRR,2).font, { color:{argb:SEM.FORMULA} });
+    ws.getCell(rMOIC,2).font = Object.assign({}, ws.getCell(rMOIC,2).font, { color:{argb:SEM.FORMULA} });
+    var equityRows = { irrRow:rIRR, moicRow:rMOIC };
   }
+  return { project:projectRows, equity:equityRows };
 }
 
-function build10Returns(core, wb, d, c){
+function build10Returns(core, wb, d, c, sourceRows){
   const { fmtSAR, fmtPct, xlRowsBuilder, xlNewSheet } = core;
   const B = xlRowsBuilder(); const S = [];
   const push = (vals,kind,sem)=>{ const n=B.push(vals,kind); S[n-1]=sem||null; return n; };
   push(['العوائد — Returns',''],'title');
   push(['المؤشر','القيمة'],'header');
-  push(['🟢 Equity IRR (من 09_Equity CF)', fmtPct(c.equityIRR)], 'data', 'link');
-  push(['🟢 Project IRR (من 08_Project CF)', fmtPct(c.projectIRR)], 'data', 'link');
-  push(['🟢 MOIC (من 09_Equity CF)', c.MOIC.toFixed(2)+'×'], 'data', 'link');
-  push(['DPI', isFinite(c.DPI)?c.DPI.toFixed(2)+'×':'—']);
-  push(['RVPI', isFinite(c.RVPI)?c.RVPI.toFixed(2)+'×':'—']);
-  push(['TVPI', isFinite(c.TVPI)?c.TVPI.toFixed(2)+'×':'—']);
-  push(['NPV (Project @ WACC)', fmtSAR(c.npvProject)]);
-  push(['NPV (Equity @ Ke)', fmtSAR(c.npvEquity)]);
-  push(['ROI (عائد نقدي على مدى العمر)', fmtPct(c.ROI)]);
-  push(['فترة استرداد رأس المال', c.paybackPeriod!=null? c.paybackPeriod.toFixed(1)+' سنة':'لم يُسترد بالكامل']);
-  push(['القيمة الصافية التقديرية (NAV)', fmtSAR(c.NAV)]);
+  const rEquityIRR = push(['🟢 Equity IRR (من 09_Equity CF)', null], 'data', 'link');
+  const rProjectIRR = push(['🟢 Project IRR (من 08_Project CF)', null], 'data', 'link');
+  const rMOIC = push(['🟢 MOIC (من 09_Equity CF)', null], 'data', 'link');
+  push(['DPI', isFinite(c.DPI)?c.DPI.toFixed(2)+'×':'—'], 'data', 'system');
+  push(['RVPI', isFinite(c.RVPI)?c.RVPI.toFixed(2)+'×':'—'], 'data', 'system');
+  push(['TVPI', isFinite(c.TVPI)?c.TVPI.toFixed(2)+'×':'—'], 'data', 'system');
+  const rProjectNPV = push(['🟢 NPV (Project @ WACC)', null], 'data', 'link');
+  push(['NPV (Equity @ Ke)', fmtSAR(c.npvEquity)], 'data', 'system');
+  push(['ROI (عائد نقدي على مدى العمر)', fmtPct(c.ROI)], 'data', 'system');
+  push(['فترة استرداد رأس المال', c.paybackPeriod!=null? c.paybackPeriod.toFixed(1)+' سنة':'لم يُسترد بالكامل'], 'data', 'system');
+  push(['القيمة الصافية التقديرية (NAV)', fmtSAR(c.NAV)], 'data', 'system');
+  const rDSCR = push(['🟢 DSCR (أدنى، من 07_Debt)', null], 'data', 'link');
   const ws = xlNewSheet(wb, '10_Returns', B.rows, B.kinds, { colWidths:[42,26] });
   colorize(ws, B.kinds, S);
+  setLinkedFormula(core, ws, rEquityIRR, 2, `'09_Equity CF'!B${sourceRows.equityIRR}`, '0.0%');
+  setLinkedFormula(core, ws, rProjectIRR, 2, `'08_Project CF'!B${sourceRows.projectIRR}`, '0.0%');
+  setLinkedFormula(core, ws, rMOIC, 2, `'09_Equity CF'!B${sourceRows.equityMOIC}`, '0.00"×"');
+  setLinkedFormula(core, ws, rProjectNPV, 2, `'08_Project CF'!B${sourceRows.projectNPV}`, '#,##0;(#,##0);"-"');
+  setLinkedFormula(core, ws, rDSCR, 2, `'07_Debt'!B${sourceRows.debtDSCRMin}`, '0.00"×"');
 }
 
 function build11Sensitivity(core, wb, d, c){
   const { fmtPct, xlRowsBuilder, xlNewSheet } = core;
-  const B = xlRowsBuilder();
-  B.push(['تحليل الحساسية — Sensitivity (Equity IRR)',''],'title');
-  B.push(['المتغيّر','سيناريو منخفض','الأساسي','سيناريو مرتفع'],'header');
+  const B = xlRowsBuilder(); const S = [];
+  const push = (vals,kind,sem)=>{ const n=B.push(vals,kind); S[n-1]=sem||null; return n; };
+  push(['تحليل الحساسية — Sensitivity (Equity IRR)',''],'title');
+  push(['المتغيّر','سيناريو منخفض','الأساسي','سيناريو مرتفع'],'header');
   core.sensitivityRows(d).forEach(r=>{
-    B.push([r.label, fmtPct(r.down,2), fmtPct(r.base,2), fmtPct(r.up,2)]);
+    push([r.label, fmtPct(r.down,2), fmtPct(r.base,2), fmtPct(r.up,2)], 'data', 'system');
   });
-  xlNewSheet(wb, '11_Sensitivity', B.rows, B.kinds, { colWidths:[46,18,18,18], landscape:true });
+  const ws = xlNewSheet(wb, '11_Sensitivity', B.rows, B.kinds, { colWidths:[46,18,18,18], landscape:true });
+  colorize(ws, B.kinds, S, [2,3,4]);
 }
 
 function build12Scenarios(core, wb, d, c){
   const { fmtSAR, fmtPct, xlRowsBuilder, xlNewSheet } = core;
-  const B = xlRowsBuilder();
-  B.push(['تحليل السيناريوهات — Scenario Analysis',''],'title');
-  B.push(['السيناريو','Equity IRR','MOIC','NPV','الحكم'],'header');
+  const B = xlRowsBuilder(); const S = [];
+  const push = (vals,kind,sem)=>{ const n=B.push(vals,kind); S[n-1]=sem||null; return n; };
+  push(['تحليل السيناريوهات — Scenario Analysis',''],'title');
+  push(['السيناريو','Equity IRR','MOIC','NPV','الحكم'],'header');
   core.scenarioCompareRows(d).forEach(s=>{
-    B.push([s.label.replace(/[🔴🔵🟢]\s*/g,''), fmtPct(s.irr,2), s.moic.toFixed(2)+'×', Math.round(s.npv||0), s.verdict==='good'?'🟢 جيد':s.verdict==='warn'?'🟡 مراجعة':'🔴 دون المعايير']);
+    push([s.label.replace(/[🔴🔵🟢]\s*/g,''), fmtPct(s.irr,2), s.moic.toFixed(2)+'×', Math.round(s.npv||0), s.verdict==='good'?'🟢 جيد':s.verdict==='warn'?'🟡 مراجعة':'🔴 دون المعايير'], 'data', 'system');
   });
-  B.push(['','','','','']);
+  push(['','','','','']);
   const rb = core.returnBridgeRows(d);
-  B.push(['جسر العائد — Return Bridge (أثر الرافعة والرسوم)','','','',''],'section');
-  B.push(['Project IRR (Unlevered)', fmtPct(rb.projectIRR,2)]);
-  B.push(['+ أثر الرافعة المالية', fmtPct(rb.leverageEffect,2)]);
-  B.push(['= Equity IRR (قبل الرسوم)', fmtPct(rb.equityIRRGrossOfFees,2)]);
-  B.push(['− أثر الرسوم', fmtPct(rb.feeDrag,2)]);
-  B.push(['= Equity IRR (الصافي)', fmtPct(rb.equityIRRNet,2)]);
-  xlNewSheet(wb, '12_Scenarios', B.rows, B.kinds, { colWidths:[40,16,16,18,16], landscape:true });
+  push(['جسر العائد — Return Bridge (أثر الرافعة والرسوم)','','','',''],'section');
+  push(['Project IRR (Unlevered)', fmtPct(rb.projectIRR,2)], 'data', 'system');
+  push(['+ أثر الرافعة المالية', fmtPct(rb.leverageEffect,2)], 'data', 'system');
+  push(['= Equity IRR (قبل الرسوم)', fmtPct(rb.equityIRRGrossOfFees,2)], 'data', 'system');
+  push(['− أثر الرسوم', fmtPct(rb.feeDrag,2)], 'data', 'system');
+  push(['= Equity IRR (الصافي)', fmtPct(rb.equityIRRNet,2)], 'data', 'system');
+  const ws = xlNewSheet(wb, '12_Scenarios', B.rows, B.kinds, { colWidths:[40,16,16,18,16], landscape:true });
+  colorize(ws, B.kinds, S, [2,3,4]);
 }
 
 function build13Comparables(core, wb, d, c){
@@ -482,7 +547,7 @@ function build13Comparables(core, wb, d, c){
   const perM2s = comps.filter(cm=>cm.landSize>0).map(cm=>cm.price/cm.landSize);
   const med = median(perM2s);
   push(['الوسيط (سعر/م² أرض)', med!=null?Math.round(med):'—']);
-  push(['سعر الفرصة الحالي', Math.round(d.land.price)], 'data', 'link');
+  const rCurrentPrice = push(['سعر الفرصة الحالي', null], 'data', 'link');
   const { rows: benchRows, scope: benchScope } = matchBenchmarks(core, d.meta.city, d.meta.oppType);
   const bench = benchRows.length? aggregateBench(benchRows) : null;
   if(bench){
@@ -493,51 +558,63 @@ function build13Comparables(core, wb, d, c){
   }
   const ws = xlNewSheet(wb, '13_Comparables', B.rows, B.kinds, { colWidths:[26,18,16,16,14,20], landscape:true });
   colorize(ws, B.kinds, S);
+  setLinkedFormula(core, ws, rCurrentPrice, 2, `'02_Assumptions'!${SOURCE_MAP.assumptions.landPrice}`, '#,##0;(#,##0);"-"');
 }
 
 function build14RiskRegister(core, wb, d, c){
   const { xlRowsBuilder, xlNewSheet } = core;
-  const B = xlRowsBuilder();
-  B.push(['سجل المخاطر — Risk Register',''],'title');
-  B.push(['الفئة','الاحتمالية','الأثر','الدرجة','التصنيف','إجراء التخفيف','المسؤول'],'header');
+  const B = xlRowsBuilder(); const S = [];
+  const push = (vals,kind,sem)=>{ const n=B.push(vals,kind); S[n-1]=sem||null; return n; };
+  push(['سجل المخاطر — Risk Register',''],'title');
+  push(['الفئة','الاحتمالية','الأثر','الدرجة','التصنيف','إجراء التخفيف','المسؤول'],'header');
   const riskItems = (d.risk && d.risk.items) || defaultRiskItems();
   RISK_CATEGORIES.forEach(cat=>{
     const it = riskItems[cat.key] || {probability:1,impact:1,mitigation:'',owner:''};
     const score = riskScoreOf(it), bnd = riskBandOf(score);
-    B.push([core.T(cat.ar,cat.en), it.probability||1, it.impact||1, score, core.T(bnd.ar,bnd.en), it.mitigation||'—', it.owner||'—']);
+    push([core.T(cat.ar,cat.en), it.probability||1, it.impact||1, score, core.T(bnd.ar,bnd.en), it.mitigation||'—', it.owner||'—'], 'data', 'input');
   });
-  xlNewSheet(wb, '14_Risk Register', B.rows, B.kinds, { colWidths:[22,12,10,10,14,40,18], landscape:true });
+  const ws = xlNewSheet(wb, '14_Risk Register', B.rows, B.kinds, { colWidths:[22,12,10,10,14,40,18], landscape:true });
+  colorize(ws, B.kinds, S, [2,3]);
+  B.kinds.forEach((kind,i)=>{
+    if(kind!=='data') return;
+    ws.getCell(i+1,4).font = Object.assign({}, ws.getCell(i+1,4).font, { color:{argb:SEM.SYSTEM} });
+    [5,6,7].forEach(col=> ws.getCell(i+1,col).font = Object.assign({}, ws.getCell(i+1,col).font, { color:{argb:SEM.SYSTEM} }));
+  });
 }
 
 function build15DD(core, wb, d, c){
   const { fmtPct, xlRowsBuilder, xlNewSheet } = core;
-  const B = xlRowsBuilder();
-  B.push(['العناية الواجبة — Due Diligence',''],'title');
+  const B = xlRowsBuilder(); const S = [];
+  const push = (vals,kind,sem)=>{ const n=B.push(vals,kind); S[n-1]=sem||null; return n; };
+  push(['العناية الواجبة — Due Diligence',''],'title');
   const ddItems = (d.dd && d.dd.items) || defaultItemsDict();
   const dd = ddStats(ddItems);
-  B.push(['نسبة الإنجاز الإجمالية', fmtPct(dd.pct)]);
-  B.push(['بنود حرجة معلّقة', dd.criticalPending]);
-  B.push(['', '']);
-  B.push(['البند','الفئة','الحالة','المستند','المراجع','الخطورة'],'header');
+  push(['نسبة الإنجاز الإجمالية', fmtPct(dd.pct)], 'data', 'system');
+  push(['بنود حرجة معلّقة', dd.criticalPending], 'data', 'system');
+  push(['', '']);
+  push(['البند','الفئة','الحالة','المستند','المراجع','الخطورة'],'header');
   Object.entries(ddItems).forEach(([key, it])=>{
     const cat = DD_CATEGORIES.find(c2=>key.startsWith(c2.key));
-    B.push([key, cat?core.T(cat.ar,cat.en):'—', it.status||'pending', it.document||'—', it.reviewer||'—', it.severity||'—']);
+    push([key, cat?core.T(cat.ar,cat.en):'—', it.status||'pending', it.document||'—', it.reviewer||'—', it.severity||'—'], 'data', 'system');
   });
-  xlNewSheet(wb, '15_DD', B.rows, B.kinds, { colWidths:[26,16,14,20,16,12], landscape:true });
+  const ws = xlNewSheet(wb, '15_DD', B.rows, B.kinds, { colWidths:[26,16,14,20,16,12], landscape:true });
+  colorize(ws, B.kinds, S, [2,3,4,5,6]);
 }
 
 function build16ICChecklist(core, wb, d, c){
   const { xlRowsBuilder, xlNewSheet } = core;
-  const B = xlRowsBuilder();
-  B.push(['قائمة تحقق لجنة الاستثمار — IC Checklist',''],'title');
-  B.push(['المعيار','القيمة الحالية','الحد الأدنى','الفجوة','الإجراء المقترح'],'header');
+  const B = xlRowsBuilder(); const S = [];
+  const push = (vals,kind,sem)=>{ const n=B.push(vals,kind); S[n-1]=sem||null; return n; };
+  push(['قائمة تحقق لجنة الاستثمار — IC Checklist',''],'title');
+  push(['المعيار','القيمة الحالية','الحد الأدنى','الفجوة','الإجراء المقترح'],'header');
   const icRecs = core.icRecommendations(d, c);
   if(icRecs.length){
-    icRecs.forEach(r=> B.push([r.k, r.valStr, r.minStr, r.gapStr, r.action]));
+    icRecs.forEach(r=> push([r.k, r.valStr, r.minStr, r.gapStr, r.action], 'data', 'system'));
   } else {
-    B.push(['جميع المعايير مستوفاة','—','—','—','—']);
+    push(['جميع المعايير مستوفاة','—','—','—','—'], 'data', 'system');
   }
-  xlNewSheet(wb, '16_IC Checklist', B.rows, B.kinds, { colWidths:[24,16,16,16,50], landscape:true });
+  const ws = xlNewSheet(wb, '16_IC Checklist', B.rows, B.kinds, { colWidths:[24,16,16,16,50], landscape:true });
+  colorize(ws, B.kinds, S, [2,3,4,5]);
 }
 
 function build17Negotiation(core, wb, d, c){
@@ -550,7 +627,7 @@ function build17Negotiation(core, wb, d, c){
   const mapRes = maxAcquisitionPrice(core, d, targetIRR);
   push(['البند','القيمة'],'header');
   push(['سعر طلب البائع', neg.askingPrice!=null?Math.round(neg.askingPrice):'—'], 'data', 'input');
-  push(['السعر المُدخَل حالياً', Math.round(d.land.price)], 'data', 'link');
+  const rUnderwrittenPrice = push(['السعر المُدخَل حالياً', null], 'data', 'link');
   push(['السعر المستهدف', neg.targetPrice!=null?Math.round(neg.targetPrice):'—'], 'data', 'input');
   push(['🔒 الحد الأقصى للاستحواذ', mapRes.infeasible?'—':Math.round(mapRes.maxPrice)]);
   push(['سعر الانسحاب', neg.walkAwayPrice!=null?Math.round(neg.walkAwayPrice):(mapRes.infeasible?'—':Math.round(mapRes.maxPrice))], 'data', 'input');
@@ -562,64 +639,71 @@ function build17Negotiation(core, wb, d, c){
   }
   const ws = xlNewSheet(wb, '17_Negotiation', B.rows, B.kinds, { colWidths:[32,18,18,18] });
   colorize(ws, B.kinds, S);
+  setLinkedFormula(core, ws, rUnderwrittenPrice, 2, `'02_Assumptions'!${SOURCE_MAP.assumptions.landPrice}`, '#,##0;(#,##0);"-"');
 }
 
 function build18Waterfall(core, wb, d, c){
   const { fmtSAR, fmtPct, xlRowsBuilder, xlNewSheet } = core;
-  const B = xlRowsBuilder();
-  B.push(['توزيع العوائد — Distribution Waterfall',''],'title');
-  B.push(['البند','القيمة'],'header');
-  B.push(['رأس المال المدفوع (PIC)', Math.round(c.PIC||0)]);
-  B.push(['العائد المفضّل (Preferred Return)', fmtPct(c.pref||0)]);
-  B.push(['Catch-up', fmtPct(c.catchup||0)]);
-  B.push(['حصة الشريك المحدود القياسية (LP Standard)', Math.round(c.lpStandard||0)]);
-  B.push(['مجمع الفائدة المرحّلة (Carry Pool)', Math.round(c.carryPool||0)]);
-  B.push(['علاوة الشريك المحدود (LP Bonus)', Math.round(c.lpBonus||0)]);
-  B.push(['🎯 إجمالي حصة الشريك المحدود (LP Total)', Math.round(c.lpTotal||0)]);
-  B.push(['🎯 إجمالي حصة الشريك العام (GP Total)', Math.round(c.gpTotal||0)]);
-  B.push(['إجمالي حصة المطوّر (Dev Total)', Math.round(c.devTotal||0)]);
-  xlNewSheet(wb, '18_Waterfall', B.rows, B.kinds, { colWidths:[42,26] });
+  const B = xlRowsBuilder(); const S = [];
+  const push = (vals,kind,sem)=>{ const n=B.push(vals,kind); S[n-1]=sem||null; return n; };
+  push(['نموذج توزيع العوائد — Distribution Model',''],'title');
+  push(['البند','القيمة'],'header');
+  push(['رأس المال المدفوع (PIC)', Math.round(c.PIC||0)], 'data', 'system');
+  push(['العائد المفضّل (Preferred Return)', fmtPct(c.pref||0)], 'data', 'input');
+  push(['Catch-up', fmtPct(c.catchup||0)], 'data', 'input');
+  push(['حصة الشريك المحدود القياسية (LP Standard)', Math.round(c.lpStandard||0)], 'data', 'system');
+  push(['مجمع الفائدة المرحّلة (Carry Pool)', Math.round(c.carryPool||0)], 'data', 'system');
+  push(['علاوة الشريك المحدود (LP Bonus)', Math.round(c.lpBonus||0)], 'data', 'system');
+  push(['🎯 إجمالي حصة الشريك المحدود (LP Total)', Math.round(c.lpTotal||0)], 'data', 'system');
+  push(['🎯 إجمالي حصة الشريك العام (GP Total)', Math.round(c.gpTotal||0)], 'data', 'system');
+  push(['إجمالي حصة المطوّر (Dev Total)', Math.round(c.devTotal||0)], 'data', 'system');
+  const ws = xlNewSheet(wb, '18_Distribution Model', B.rows, B.kinds, { colWidths:[42,26] });
+  colorize(ws, B.kinds, S);
 }
 
 function build19FundLedger(core, wb, rec, d, c){
   const { fmtSAR, xlRowsBuilder, xlNewSheet } = core;
-  const B = xlRowsBuilder();
-  B.push(['دفتر الصندوق — Fund Ledger',''],'title');
+  const B = xlRowsBuilder(); const S = [];
+  const push = (vals,kind,sem)=>{ const n=B.push(vals,kind); S[n-1]=sem||null; return n; };
+  push(['دفتر الصندوق — Fund Ledger',''],'title');
   const funds = (core.STORE['funds']||[]).filter(f=> (f.data.assetIds||[]).includes(rec.id));
   if(!funds.length){
-    B.push(['لا يوجد صندوق مرتبط بهذه الفرصة حالياً','']);
+    push(['لا يوجد صندوق مرتبط بهذه الفرصة حالياً',''], 'data', 'system');
   } else {
     funds.forEach(f=>{
-      B.push([f.data.name||f.id, ''],'section');
+      push([f.data.name||f.id, ''],'section');
       const s = core.fundLedgerSummary(f.id);
-      B.push(['رأس المال المستهدف (Target Size)', Math.round(f.data.targetSize||0)]);
-      B.push(['إجمالي الالتزامات (Committed)', Math.round(s.committed||0)]);
-      B.push(['إجمالي النداءات الرأسمالية (Called)', Math.round(s.called||0)]);
-      B.push(['إجمالي المدفوع (Paid-in)', Math.round(s.paidIn||0)]);
-      B.push(['إجمالي التوزيعات المسدَّدة (Distributed)', Math.round(s.distPaid||0)]);
-      B.push(['DPI', s.dpi!=null? s.dpi.toFixed(2)+'×' : '—']);
-      B.push(['إجمالي حقوق ملكية الصندوق في الأصول (Total Equity)', Math.round(s.totalEquity||0)]);
-      B.push(['إجمالي القيمة الحالية للأصول (Total Value)', Math.round(s.totalValue||0)]);
+      push(['رأس المال المستهدف (Target Size)', Math.round(f.data.targetSize||0)], 'data', 'input');
+      push(['إجمالي الالتزامات (Committed)', Math.round(s.committed||0)], 'data', 'system');
+      push(['إجمالي النداءات الرأسمالية (Called)', Math.round(s.called||0)], 'data', 'system');
+      push(['إجمالي المدفوع (Paid-in)', Math.round(s.paidIn||0)], 'data', 'system');
+      push(['إجمالي التوزيعات المسدَّدة (Distributed)', Math.round(s.distPaid||0)], 'data', 'system');
+      push(['DPI', s.dpi!=null? s.dpi.toFixed(2)+'×' : '—'], 'data', 'system');
+      push(['إجمالي حقوق ملكية الصندوق في الأصول (Total Equity)', Math.round(s.totalEquity||0)], 'data', 'system');
+      push(['إجمالي القيمة الحالية للأصول (Total Value)', Math.round(s.totalValue||0)], 'data', 'system');
     });
   }
-  xlNewSheet(wb, '19_Fund Ledger', B.rows, B.kinds, { colWidths:[42,26] });
+  const ws = xlNewSheet(wb, '19_Fund Ledger', B.rows, B.kinds, { colWidths:[42,26] });
+  colorize(ws, B.kinds, S);
 }
 
 function build20AuditTrail(core, wb, rec){
   const { xlRowsBuilder, xlNewSheet } = core;
-  const B = xlRowsBuilder();
-  B.push(['سجل التغييرات — Audit Trail',''],'title');
-  B.push(['التاريخ','الإجراء','بواسطة','الحقل','القيمة السابقة','القيمة الجديدة'],'header');
+  const B = xlRowsBuilder(); const S = [];
+  const push = (vals,kind,sem)=>{ const n=B.push(vals,kind); S[n-1]=sem||null; return n; };
+  push(['سجل التغييرات — Audit Trail',''],'title');
+  push(['التاريخ','الإجراء','بواسطة','الحقل','القيمة السابقة','القيمة الجديدة'],'header');
   const entries = (core.STORE['oppAuditLog']||[]).filter(a=>a.data.oppId===rec.id).sort((a,b)=>(b.data.changedAt||'').localeCompare(a.data.changedAt||''));
   if(!entries.length){
-    B.push(['لا توجد تغييرات مسجَّلة بعد','','','','','']);
+    push(['لا توجد تغييرات مسجَّلة بعد','','','','',''], 'data', 'system');
   } else {
     entries.forEach(a=>{
       const changes = (a.data.changes && a.data.changes.length) ? a.data.changes : [{label:'—',before:'—',after:'—'}];
       changes.slice(0,20).forEach((ch,i)=>{
-        B.push([i===0?(a.data.changedAt||''):'', i===0?(a.data.action||''):'', i===0?(a.data.changedBy||''):'', ch.label||ch.field||'', String(ch.before==null?'—':ch.before), String(ch.after==null?'—':ch.after)]);
+        push([i===0?(a.data.changedAt||''):'', i===0?(a.data.action||''):'', i===0?(a.data.changedBy||''):'', ch.label||ch.field||'', String(ch.before==null?'—':ch.before), String(ch.after==null?'—':ch.after)], 'data', 'system');
       });
     });
   }
-  xlNewSheet(wb, '20_Audit Trail', B.rows, B.kinds, { colWidths:[18,12,20,26,20,20], landscape:true });
+  const ws = xlNewSheet(wb, '20_Audit Trail', B.rows, B.kinds, { colWidths:[18,12,20,26,20,20], landscape:true });
+  colorize(ws, B.kinds, S, [2,3,4,5,6]);
 }

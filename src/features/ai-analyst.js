@@ -51,7 +51,7 @@ function generateAnalystNarrative(core, d, c){
       `⚠️ Not yet IC-ready: ${dq.criticalMissing.length? dq.criticalMissing.length+' critical data-quality input(s) missing' : ''}${dq.criticalMissing.length&&dd.criticalPending? ', and ':''}${dd.criticalPending? dd.criticalPending+' critical DD item(s) pending' : ''}.`
     ));
   } else {
-    paras.push(core.T('✅ جودة البيانات والعناية الواجبة الحرجة مكتملتان — الفرصة جاهزة من ناحية التوثيق للعرض على اللجنة.','✅ Critical data quality and due diligence are complete — the opportunity is documentation-ready for IC presentation.'));
+    paras.push(core.T('✅ اكتمل تقييم جودة البيانات والعناية الواجبة الحرجة — الملف جاهز من ناحية التوثيق للعرض على اللجنة.','✅ Critical data quality and due diligence are complete — the opportunity is documentation-ready for IC presentation.'));
   }
   if(topRisks.length){
     paras.push(core.T(
