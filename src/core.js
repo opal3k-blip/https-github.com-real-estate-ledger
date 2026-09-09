@@ -383,12 +383,45 @@ const USE_TYPES = {
 };
 const ASSET_CLASSES = {
   "عام":            { t:'عام (دخل قياسي)', en:'Standard income' },
+  "apartment":      { t:'شقق سكنية', en:'Residential apartments' },
+  "villa":          { t:'فلل مستقلة', en:'Standalone villas' },
+  "townhouse":      { t:'تاون هاوس / توين هاوس', en:'Townhouse / Twin house' },
+  "duplex":         { t:'دوبلكس', en:'Duplex' },
+  "serviced_apartment": { t:'شقق مخدومة', en:'Serviced apartments' },
+  "mixed_building": { t:'مبنى متعدد الاستخدامات', en:'Mixed-use building' },
+  "retail_center":  { t:'مركز تجاري / تجزئة', en:'Retail center' },
+  "office_building": { t:'مبنى مكاتب', en:'Office building' },
   "gas_station":     { t:'محطة وقود (NNN)', en:'Gas station — NNN' },
   "qsr_pharmacy":    { t:'مطعم / صيدلية (NNN)', en:'QSR / Pharmacy — NNN' },
   "hospitality":     { t:'فندقي', en:'Hospitality' },
   "logistics":       { t:'لوجستي / مستودعات', en:'Logistics / Warehouse' },
   "data_center":     { t:'مركز بيانات', en:'Data center' },
 };
+// تصنيف الفئة الفرعية تابع للاستخدام الرئيسي؛ لا نعرض خيارات لا تنتمي إلى
+// الاستخدام المختار، مع إبقاء الفئات التشغيلية المتخصصة متاحة عند الحاجة.
+const ASSET_CLASS_GROUPS = {
+  residential: ['عام','apartment','villa','townhouse','duplex','serviced_apartment'],
+  mixed: ['عام','mixed_building','apartment','villa','townhouse','duplex','retail_center','office_building','serviced_apartment'],
+  compound: ['عام','villa','townhouse','apartment','duplex','serviced_apartment'],
+  retail: ['عام','retail_center','gas_station','qsr_pharmacy'],
+  office: ['عام','office_building'],
+  hospitality: ['عام','hospitality','serviced_apartment'],
+  logistics: ['عام','logistics'],
+  data_center: ['عام','data_center'],
+  all: Object.keys(ASSET_CLASSES),
+};
+function assetClassOptionsForUseType(useType){
+  const group = useType==='سكني (Residential)' ? 'residential'
+    : useType==='مختلط سكني+تجاري (Mixed Use)' ? 'mixed'
+    : useType==='سكني - كمبوند مغلق ومسوّر (Gated Compound)' ? 'compound'
+    : useType==='تجاري - تجزئة (Retail)' ? 'retail'
+    : useType==='مكاتب (Office)' ? 'office'
+    : useType==='فندقي (Hospitality)' ? 'hospitality'
+    : useType==='مستودعات ولوجستيات (Logistics)' ? 'logistics'
+    : useType==='مركز بيانات (Data Center)' ? 'data_center'
+    : 'all';
+  return ASSET_CLASS_GROUPS[group].map(k=>[`${ASSET_CLASSES[k].t} — ${ASSET_CLASSES[k].en}`, k]);
+}
 const CREDIT_TIERS = {
   "استثماري (Investment Grade)": '6.0%–7.0%',
   "وطني (National)":            '7.0%–8.5%',
@@ -2020,7 +2053,7 @@ function renderStepFieldsCore(idx, d){
       ${d.meta.oppType==='income'? `
       <p class="step-sub" style="margin-top:16px;">${T('الفئة الفرعية للأصل (اختياري) — تُظهر مدخلات متخصصة حسب طبيعة النشاط','Asset sub-class (optional) — shows specialized inputs based on the activity type')}</p>
       <div class="grid2">
-        ${F.select('income.assetClass','الفئة الفرعية للأصل','Asset sub-class', d.income.assetClass, Object.entries(ASSET_CLASSES).map(([k,v])=>[`${v.t} — ${v.en}`,k]), {rerender:true, span2:true})}
+        ${F.select('income.assetClass','الفئة الفرعية للأصل','Asset sub-class', assetClassOptionsForUseType(d.meta.useType).some(([,k])=>k===d.income.assetClass)?d.income.assetClass:'عام', assetClassOptionsForUseType(d.meta.useType), {rerender:true, span2:true})}
       </div>`:''}`;
     case 4: {
       const cb = d.development.costBreakdown;
@@ -5064,6 +5097,10 @@ document.addEventListener('change', (e)=>{
     else if(t.dataset.bool) val = t.value==='true';
     else val = t.value;
     setPath(wizard.draft, t.name, val);
+    if(t.name==='meta.useType'){
+      const allowed = assetClassOptionsForUseType(val).map(([,k])=>k);
+      if(!allowed.includes(wizard.draft.income.assetClass)) wizard.draft.income.assetClass = 'عام';
+    }
     if(t.dataset.rerender) render(); else updateLivePreview();
   }
 });
