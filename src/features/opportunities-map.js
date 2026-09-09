@@ -48,8 +48,9 @@ import { MEGAPROJECTS } from './macro-context.js';
 let _mapInstance = null;
 let _markersLayer = null;
 let _megaLayer = null;
+let _approximateLayer = null;
 let _showMega = false; // مطفأة افتراضياً — طبقة إضافية اختيارية لا تُثقل الخريطة الأساسية
-let _lastView = { center: KSA_CENTER, zoom: KSA_DEFAULT_ZOOM };
+let _lastView = { center: KSA_CENTER, zoom: KSA_DEFAULT_ZOOM, userAdjusted:false };
 let _pendingCheck = false;
 
 function scheduleMapCheck(core){
@@ -61,7 +62,7 @@ function scheduleMapCheck(core){
 
 function destroyMap(){
   if(_mapInstance){ try{ _mapInstance.remove(); }catch(e){ /* عنصر مُزال أصلاً من الـDOM أحياناً — لا خطر */ } }
-  _mapInstance = null; _markersLayer = null; _megaLayer = null;
+  _mapInstance = null; _markersLayer = null; _megaLayer = null; _approximateLayer = null;
 }
 
 /* طبقة مشاريع رؤية ٢٠٣٠ الكبرى (اختيارية، مطفأة افتراضياً) — بيانات
@@ -90,6 +91,8 @@ function plotMegaprojects(core){
 function plotMarkers(core){
   if(!_mapInstance || !_markersLayer || typeof window==='undefined' || !window.L) return;
   _markersLayer.clearLayers();
+  if(_approximateLayer){ _mapInstance.removeLayer(_approximateLayer); }
+  _approximateLayer = window.L.layerGroup().addTo(_mapInstance);
   const opps = core.opportunities || [];
   opps.forEach(rec=>{
     const d = rec.data;
@@ -111,7 +114,7 @@ function plotMarkers(core){
         <span style="font-size:10.5px; color:#888;">${precisionNote}</span><br>
         <button class="btn btn-sm btn-primary" style="margin-top:6px;" data-action="oppmap-view-detail" data-id="${core.esc(rec.id)}">📂 ${core.esc(core.T('عرض التفاصيل الكاملة','Open full details'))}</button>
       </div>`);
-    marker.addTo(_markersLayer);
+    marker.addTo(loc.precise ? _markersLayer : _approximateLayer);
   });
 }
 
@@ -126,16 +129,44 @@ function ensureMap(core){
   // canvas دائماً عنصر DOM جديد كلياً بعد أي render() (innerHTML كامل لـ#app) —
   // لا يمكن إعادة استخدام خريطة Leaflet سابقة مربوطة بعقدة قديمة معلَّقة.
   destroyMap();
-  _mapInstance = window.L.map(canvas, { scrollWheelZoom:true }).setView(_lastView.center, _lastView.zoom);
-  window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors', maxZoom: 18,
-  }).addTo(_mapInstance);
+  _mapInstance = window.L.map(canvas, { scrollWheelZoom:true, preferCanvas:true }).setView(_lastView.center, _lastView.zoom);
+  const streetLayer = window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
+    maxZoom: 19,
+  });
+  const humanitarianLayer = window.L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors, Tiles style by HOT',
+    maxZoom: 19,
+  });
+  const satelliteLayer = window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles &copy; Esri',
+    maxZoom: 19,
+  });
+  streetLayer.addTo(_mapInstance);
   _markersLayer = window.L.layerGroup().addTo(_mapInstance);
   _mapInstance.on('moveend zoomend', ()=>{
-    _lastView = { center: [_mapInstance.getCenter().lat, _mapInstance.getCenter().lng], zoom: _mapInstance.getZoom() };
+    _lastView = {
+      center: [_mapInstance.getCenter().lat, _mapInstance.getCenter().lng],
+      zoom: _mapInstance.getZoom(),
+      userAdjusted:true,
+    };
   });
   plotMarkers(core);
   plotMegaprojects(core);
+  const overlays = {
+    [core.T('المواقع الدقيقة','Precise locations')]: _markersLayer,
+    [core.T('المواقع التقريبية','Approximate locations')]: _approximateLayer,
+  };
+  if(_showMega) overlays[core.T('مشاريع رؤية ٢٠٣٠','Vision 2030 projects')] = _megaLayer;
+  window.L.control.layers({
+    [core.T('خريطة الشوارع','Street map')]: streetLayer,
+    [core.T('خريطة التضاريس الحضرية','Humanitarian street map')]: humanitarianLayer,
+    [core.T('صور الأقمار الصناعية','Satellite imagery')]: satelliteLayer,
+  }, overlays, { collapsed:false, position:'topright' }).addTo(_mapInstance);
+  const mapped = (core.opportunities || []).map(rec=>resolveOpportunityLatLng(rec.data)).filter(loc=>!loc.unmapped);
+  if(mapped.length > 1 && !_lastView.userAdjusted){
+    _mapInstance.fitBounds(window.L.latLngBounds(mapped.map(loc=>[loc.lat, loc.lng])), { padding:[28,28], maxZoom:12 });
+  }
   setTimeout(()=>{ if(_mapInstance) _mapInstance.invalidateSize(); }, 80);
 }
 

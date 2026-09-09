@@ -27,6 +27,7 @@ import { maxAcquisitionPrice } from './max-acquisition-price.js';
 
 const GOV_DATA_QUALITY_MIN = 0.85;   // Governance Gate: جودة البيانات ≥ 85%
 const GOV_EVIDENCE_MIN     = 0.80;   // Governance Gate: تغطية المصادر ≥ 80%
+const ABSOLUTE_DD_KEYS = new Set(['legal_title','legal_liens']);
 
 /* icReadiness(core, d, c) — c اختيارية (core.compute(d) لو لم تُمرَّر، لتفادي
    إعادة الحساب لو استُدعيت من مكان يملكه أصلاً). لا تُعدِّل أي شيء، تقرأ فقط.
@@ -51,6 +52,13 @@ export function icReadiness(core, d, c){
   // --- بوابة العناية الواجبة ---
   const dd = ddStats((d.dd && d.dd.items) || defaultItemsDict());
   const ddOk = dd.criticalPending === 0;
+  const ddItems = (d.dd && d.dd.items) || defaultItemsDict();
+  const absoluteBlockers = [...ABSOLUTE_DD_KEYS].filter(key=>ddItems[key] && ddItems[key].status!=='completed');
+  if(absoluteBlockers.length) reasons.push({
+    gate:'absolute',
+    ar:`${absoluteBlockers.length} مانع مطلق: التحقق من الملكية/القيود القانونية غير مكتمل`,
+    en:`${absoluteBlockers.length} absolute blocker(s): title or legal encumbrance verification is incomplete`,
+  });
   if(!ddOk) reasons.push({ gate:'dd', ar:`${dd.criticalPending} بند حرج معلّق في العناية الواجبة`, en:`${dd.criticalPending} critical DD item(s) still pending` });
 
   // --- بوابة الحوكمة (جودة البيانات + تغطية المصادر) ---
@@ -76,8 +84,8 @@ export function icReadiness(core, d, c){
     governance: { ok: governanceOk, dataQualityPct: dq.pct, evidencePct: ev.pct/100, criticalMissing: dq.criticalMissing.length, unsourcedCritical: ev.unsourcedCritical.length },
     pricing:    { ok: pricingOk, maxPrice: map.maxPrice, currentPrice: map.currentPrice, infeasible: map.infeasible },
   };
-  const ready = financialOk && ddOk && governanceOk && pricingOk;
-  return { ready, gates, reasons };
+  const ready = financialOk && ddOk && governanceOk && pricingOk && absoluteBlockers.length===0;
+  return { ready, gates, reasons, absoluteBlockers };
 }
 
 function gateRow(core, label, g){
@@ -104,7 +112,9 @@ export function registerICDecisionGate(core){
       <div style="margin:6px 0 14px;">
         ${res.ready
           ? `<span class="tag" style="background:#34d39922; color:#34d399; font-weight:700; font-size:13px; padding:6px 12px;">✅ IC READY</span>`
-          : `<span class="tag" style="background:#ef444422; color:#ef4444; font-weight:700; font-size:13px; padding:6px 12px;">🔴 NOT READY</span>`}
+          : res.absoluteBlockers.length
+            ? `<span class="tag" style="background:#7f1d1d33; color:#dc2626; font-weight:700; font-size:13px; padding:6px 12px;">⛔ ${core.T('مانع مطلق — لا يمكن التجاوز','ABSOLUTE BLOCKER — cannot be overridden')}</span>`
+            : `<span class="tag" style="background:#f59e0b22; color:#b45309; font-weight:700; font-size:13px; padding:6px 12px;">🟡 ${core.T('جاهزة باستثناءات محتملة','READY WITH EXCEPTIONS')}</span>`}
       </div>
       <div class="tablewrap"><table class="db" style="font-size:12px;">
         <thead><tr><th>${core.T('البوابة','Gate')}</th><th>${core.T('الحالة','Status')}</th></tr></thead>

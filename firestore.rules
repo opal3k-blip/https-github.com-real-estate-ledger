@@ -77,7 +77,20 @@ service cloud.firestore {
     // المتغيّرة فيه هي فقط updatedAt/updatedBy (لا name/city/analyst/... التي تبقى بلا تغيير).
     function icOnlyChange(before, after) {
       return after.diff(before).affectedKeys().hasOnly(['ic', 'meta'])
-        && after.meta.diff(before.meta).affectedKeys().hasOnly(['updatedAt', 'updatedBy']);
+        && after.meta.diff(before.meta).affectedKeys().hasOnly(['updatedAt', 'updatedBy'])
+        && icDecisionAppendOnly(before, after);
+    }
+
+    // سجل قرارات اللجنة append-only: قرار واحد جديد في نهاية القائمة، مع هوية
+    // العضو المصادق عليه وطابع زمني غير فارغ. لا يسمح هذا بتبديل قرار سابق أو حذفه.
+    function icDecisionAppendOnly(before, after) {
+      return before.ic.decisions is list
+        && after.ic.decisions is list
+        && after.ic.decisions.size() == before.ic.decisions.size() + 1
+        && after.ic.decisions[after.ic.decisions.size() - 1].decidedBy.lower()
+             == request.auth.token.email.lower()
+        && after.ic.decisions[after.ic.decisions.size() - 1].decidedAt is string
+        && after.ic.decisions[after.ic.decisions.size() - 1].decidedAt.size() > 0;
     }
     // ============================================================================
 
@@ -229,10 +242,11 @@ service cloud.firestore {
     // لقطة (Snapshot) كاملة لبيانات وحسابات الفرصة عند لحظة مهمة (إنشاء، قرار لجنة استثمار،
     // حفظ يدوي). سجل إضافة فقط بنفس فلسفة oppAuditLog (لا داعي هنا لـCloud Function لأن الخطر
     // أقل جوهرياً — هذه لقطات تحليلية داعمة للقرار، لا سجل تدقيق رسمي مُلزِم قانونياً)، فتبقى
-    // القراءة/الإنشاء لأي عضو مصرَّح له (لأي فرصة يقدر يقرأها فعلاً)، والتعديل/الحذف للأدمن فقط.
+    // القراءة/الإنشاء لأي عضو مصرَّح له (لأي فرصة يقدر يقرأها فعلاً). اللقطة
+    // التاريخية immutable بالكامل؛ التصحيح ينشئ نسخة جديدة مع سبب تصحيح بدلاً من تعديلها.
     match /underwritingVersions/{id} {
       allow read, create: if isAuthorized();
-      allow update, delete: if isAdminEmail();
+      allow update, delete: if false;
     }
   }
 }

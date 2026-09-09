@@ -178,7 +178,7 @@ for(const coll of LEDGER_COLLECTIONS){
   assert(true, '✅ القراءة في comparables تبقى متاحة لأي عضو مصرَّح له (يستخدمها في المقارنة فقط)');
 }
 
-// ==================== ٧) التسعير الموثَّق بالإصدارات (underwritingVersions) — إضافة لأي عضو، لا تعديل/حذف إلا للأدمن ====================
+// ==================== ٧) التسعير الموثَّق بالإصدارات (underwritingVersions) — immutable بالكامل ====================
 {
   const db = ctxFor(ANALYST_OWNER).firestore();
   await assertSucceeds(setDoc(doc(db,'underwritingVersions','UWV1'), { oppId:'OPP-1', stage:'manual', metrics:{ price:2000 } }));
@@ -191,8 +191,12 @@ for(const coll of LEDGER_COLLECTIONS){
 }
 {
   const db = ctxFor(ADMIN).firestore();
-  await assertSucceeds(updateDoc(doc(db,'underwritingVersions','UWV1'), { 'metrics.price': 9999 }));
-  assert(true, '✅ الأدمن فقط يقدر يعدّل/يحذف نسخة تسعير محفوظة (لتصحيح خطأ نادر) — استثناء ضيّق ومقصود');
+  try {
+    await updateDoc(doc(db,'underwritingVersions','UWV1'), { 'metrics.price': 9999 });
+    assert(false, '🔒 الأدمن أيضاً لا يقدر يعدّل نسخة تسعير محفوظة');
+  } catch (e) {
+    assert(e && e.code === 'permission-denied', '🔒 الأدمن أيضاً لا يقدر يعدّل نسخة تسعير محفوظة — التصحيح ينشئ نسخة جديدة بسبب تصحيح موثَّق');
+  }
 }
 
 console.log(failures? `\n${failures} FAILURE(S)` : '\nALL PASSED (against a real Firestore emulator, not a mock)');
