@@ -32,17 +32,9 @@ function median(nums){
 }
 
 export function registerICPresentation(core){
-  core.registerDetailSection((d,c)=>{
-    const oppId = core.openDetailId;
-    const rec = core.opportunities.find(o=>o.id===oppId);
-    if(!rec) return '';
-    return `
-    <div class="section" style="text-align:center; background:var(--surface-2); border:1px dashed var(--border);">
-      <button type="button" class="btn btn-sm btn-primary" data-action="icppt-export" data-id="${rec.id}">🖥️ ${core.T('تنزيل عرض لجنة الاستثمار (PowerPoint، ١٢ شريحة)','Download IC Presentation (PowerPoint, 12 slides)')}</button>
-      <p class="note" style="margin:8px 0 0;">${core.T('عرض مختصر بمستوى لجنة استثمار — ١٢ شريحة فقط، لا عشرات شرائح البيانات.','A concise IC-level deck — just 12 slides, not dozens of data slides.')}</p>
-    </div>`;
-  });
-
+  /* ملاحظة: زر التشغيل الأساسي أصبح زر "PowerPoint — عرض اللجنة" في رأس مذكرة كل
+     فرصة نفسه (renderDetail في core.js، data-action="icppt-export") — لم يعد هناك
+     زر ترويجي منفصل هنا لتفادي ازدواجية الأزرار لنفس الوظيفة. */
   core.registerActionHandler(async (action, el)=>{
     if(action==='icppt-export'){ await exportICPresentation(core, el.dataset.id); return true; }
     return false;

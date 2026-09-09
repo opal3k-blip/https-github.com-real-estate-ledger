@@ -2845,9 +2845,9 @@ function renderDetail(id){
           </div>
         </div>
         <div class="small-btns">
-          <button class="btn btn-sm" data-action="print-memo">🖨️ ${T('طباعة / PDF','Print / PDF')}</button>
-          <button class="btn btn-sm" data-action="export-excel" data-id="${rec.id}">⬇️ Excel</button>
-          <button class="btn btn-sm" data-action="export-pptx" data-id="${rec.id}">⬇️ PowerPoint</button>
+          <button class="btn btn-sm btn-primary" data-action="icbook-open" data-id="${rec.id}" data-autoprint="1">📘 ${T('طباعة / PDF — الكتاب الكامل','Print / PDF — Full Book')}</button>
+          <button class="btn btn-sm btn-primary" data-action="xlbook-export" data-id="${rec.id}">📊 ${T('تنزيل Excel — دفتر الاكتتاب الكامل','Download Excel — Full Underwriting Workbook')}</button>
+          <button class="btn btn-sm btn-primary" data-action="icppt-export" data-id="${rec.id}">🖥️ ${T('تنزيل PowerPoint — عرض اللجنة','Download PowerPoint — IC Deck')}</button>
           ${canEditOpp(rec)? `
           <button class="btn btn-sm" data-action="edit-opp" data-id="${rec.id}">✎ ${T('تعديل','Edit')}</button>
           <button class="btn btn-sm btn-danger" data-action="delete-opp" data-id="${rec.id}">🗑️ ${T('حذف','Delete')}</button>` : `

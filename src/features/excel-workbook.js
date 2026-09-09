@@ -44,17 +44,9 @@ function median(nums){
 }
 
 export function registerExcelWorkbook(core){
-  core.registerDetailSection((d,c)=>{
-    const oppId = core.openDetailId;
-    const rec = core.opportunities.find(o=>o.id===oppId);
-    if(!rec) return '';
-    return `
-    <div class="section" style="text-align:center; background:var(--surface-2); border:1px dashed var(--border);">
-      <button type="button" class="btn btn-sm btn-primary" data-action="xlbook-export" data-id="${rec.id}">📊 ${core.T('تنزيل دفتر الاكتتاب الكامل (Excel، ٢١ ورقة)','Download Full Underwriting Workbook (Excel, 21 sheets)')}</button>
-      <p class="note" style="margin:8px 0 0;">${core.T('نسخة تحليلية كاملة قابلة للتدقيق — تمييز لوني إلزامي بين المُدخلات اليدوية والنتائج المحسوبة والروابط بين الأوراق وبيانات السوق الخارجية.','A full auditable analytical workbook — mandatory color-coding between hardcoded inputs, calculated outputs, cross-sheet links, and external market data.')}</p>
-    </div>`;
-  });
-
+  /* ملاحظة: زر التشغيل الأساسي أصبح زر "Excel — دفتر الاكتتاب الكامل" في رأس مذكرة
+     كل فرصة نفسه (renderDetail في core.js، data-action="xlbook-export") — لم يعد
+     هناك زر ترويجي منفصل هنا لتفادي ازدواجية الأزرار لنفس الوظيفة. */
   core.registerActionHandler(async (action, el)=>{
     if(action==='xlbook-export'){ await exportUnderwritingWorkbook(core, el.dataset.id); return true; }
     return false;

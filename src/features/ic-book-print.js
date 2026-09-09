@@ -54,18 +54,9 @@ function median(nums){
 export function registerICBookPrint(core){
   const { T, esc, fmtSAR, fmtPct, fmtNum } = core;
 
-  /* زر التشغيل — يظهر داخل تفاصيل كل فرصة (مثل زر الطباعة العادي)، لا يستبدله. */
-  core.registerDetailSection((d, c)=>{
-    const oppId = core.openDetailId;
-    const rec = core.opportunities.find(o=>o.id===oppId);
-    if(!rec) return '';
-    return `
-    <div class="section" style="text-align:center; background:var(--surface-2); border:1px dashed var(--border);">
-      <button type="button" class="btn btn-sm btn-primary" data-action="icbook-open" data-id="${rec.id}">📘 ${core.T('طباعة كتاب اللجنة الكامل (٢١ قسماً)','Print Full IC Book (21 Sections)')}</button>
-      <p class="note" style="margin:8px 0 0;">${core.T('نسخة كاملة بمستوى لجنة استثمار — من صفحة الغلاف حتى المصادر والإخلاء، بالترتيب المؤسسي القياسي، قابلة للطباعة/PDF مباشرة.','A full IC-level book — from the cover page through sources & disclaimer, in standard institutional order, printable/exportable to PDF directly.')}</p>
-    </div>`;
-  });
-
+  /* ملاحظة: زر التشغيل الأساسي أصبح زر "طباعة / PDF" في رأس مذكرة كل فرصة نفسه
+     (renderDetail في core.js، data-action="icbook-open" مع data-autoprint="1") —
+     لم يعد هناك زر ترويجي منفصل هنا لتفادي ازدواجية الأزرار لنفس الوظيفة. */
   core.registerMainView('icBook', ()=>{
     const oppId = core.openDetailId;
     const rec = core.opportunities.find(o=>o.id===oppId);
@@ -81,7 +72,14 @@ export function registerICBookPrint(core){
   });
 
   core.registerActionHandler(async (action, el)=>{
-    if(action==='icbook-open'){ core.setCoreState({ openDetailId: el.dataset.id, mainView:'icBook', render:true }); return true; }
+    if(action==='icbook-open'){
+      core.setCoreState({ openDetailId: el.dataset.id, mainView:'icBook', render:true });
+      // طباعة تلقائية عند الفتح من زر "طباعة / PDF" في رأس المذكرة (data-autoprint="1") —
+      // نمهل رسم الكتاب الكامل الجديد (شرائح canvas/الرسوم داخله إن وُجدت) قبل نداء الطباعة
+      // حتى تُطبع نسخة الكتاب المؤسسي فعلياً لا لقطة فارغة/غير مكتملة.
+      if(el.dataset.autoprint){ setTimeout(()=> window.print(), 80); }
+      return true;
+    }
     if(action==='icbook-close'){ core.setCoreState({ mainView:null, render:true }); return true; }
     return false;
   });
