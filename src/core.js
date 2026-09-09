@@ -3352,7 +3352,7 @@ function mkChart(id, config){
   destroyChart(id);
   try{ chartInstances[id] = new Chart(canvas, config); }catch(e){ console.error('chart render failed:', id, e); }
 }
-const CHART_BASE_OPTS = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:CHART_COLORS.inkFaint, font:{ family:'IBM Plex Sans Arabic, sans-serif', size:11 } } } },
+const CHART_BASE_OPTS = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:CHART_COLORS.inkFaint, font:{ family:'Sakkal Majalla, Amiri, sans-serif', size:11 } } } },
   scales:{ x:{ ticks:{ color:CHART_COLORS.inkFaint, font:{ size:10 } }, grid:{ color:CHART_COLORS.grid } }, y:{ ticks:{ color:CHART_COLORS.inkFaint, font:{ size:10 } }, grid:{ color:CHART_COLORS.grid } } } };
 
 function initPortfolioCharts(){
@@ -3361,7 +3361,7 @@ function initPortfolioCharts(){
   const typeLabels = Object.keys(k.byType);
   mkChart('chart-portfolio-type', { type:'doughnut',
     data:{ labels:typeLabels, datasets:[{ data:typeLabels.map(t=>k.byType[t]), backgroundColor:[CHART_COLORS.accent, CHART_COLORS.gold, CHART_COLORS.inkFaint, CHART_COLORS.good, CHART_COLORS.warn], borderColor:'var(--surface)', borderWidth:2 }] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:CHART_COLORS.inkFaint, font:{ family:'IBM Plex Sans Arabic, sans-serif', size:10 }, boxWidth:10, padding:8 } } } } });
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:CHART_COLORS.inkFaint, font:{ family:'Sakkal Majalla, Amiri, sans-serif', size:10 }, boxWidth:10, padding:8 } } } } });
   mkChart('chart-portfolio-verdict', { type:'bar',
     data:{ labels:['🟢 '+T('قوي','Strong'),'🟡 '+T('مراجعة','Review'),'🔴 '+T('دون المعايير','Below Standards')], datasets:[{ data:[k.good,k.warn,k.bad], backgroundColor:[CHART_COLORS.good, CHART_COLORS.warn, CHART_COLORS.bad], borderRadius:6, maxBarThickness:40 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
