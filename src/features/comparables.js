@@ -9,7 +9,20 @@
    لإدارة القاعدة + قسم تفصيلي في كل فرصة يُصفّي المقارنات حسب مدينة الفرصة
    ويحسب "X% أعلى/أقل من الوسيط" تلقائياً مقابل سعر متر الأرض المُدخَل.
    لا تعديل على منطق core.js الداخلي — فقط عبر نقاط التوسّع المُصدَّرة.
+
+   إصلاح حوكمي (المرحلة السابعة، P0 #5): "Comparables فيها فجوة بين UI
+   وSecurity" — firestore.rules كانت (ولا تزال) تُقيِّد الإضافة/التعديل/الحذف
+   على هذه المجموعة بـ isFundManagerOrAbove() بشكل صحيح تماماً، لكن هذا
+   الملف نفسه لم يكن يستدعي canManageLibraries() في أي مكان — فنموذج
+   الإضافة وزر الحذف كانا ظاهرين وقابلين للتنفيذ لأي مستخدم في وضع الديمو/
+   المحلي (حيث لا Firestore حقيقي يردّ "صلاحية مرفوضة")، بخلاف كل مكتبة
+   مرجعية أخرى مبنية بعد المرحلة ٤ (benchmark-engine.js، saudi-regulatory-
+   library.js، ...) التي تستدعي canManageLibraries() في الواجهة *و* في
+   معالِج الإجراء نفسه. الإصلاح هنا يطابق هذا النمط الموحَّد تماماً: نفس
+   دالة الفحص، في المكانين معاً (لا فقط الواجهة، ولا فقط المعالِج) — "نموذج
+   صلاحيات واحد" بدل منطقَين منفصلَين قد يتباعدان.
    ========================================================================= */
+import { canManageLibraries } from './roles-permissions.js';
 
 const COMPARABLES_COLLECTION = 'comparables';
 const PROPERTY_TYPES = ['سكني','تجاري','مكاتب','بنك أراضٍ','متعدد الاستخدام'];
@@ -30,6 +43,7 @@ export function registerComparables(core){
 
   core.registerMainView('comparables', ()=>{
     const comps = core.STORE[COMPARABLES_COLLECTION] || [];
+    const canManage = canManageLibraries(core);
     return `
     <div class="section" style="margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
       <div>
@@ -39,6 +53,7 @@ export function registerComparables(core){
       <button class="btn btn-sm btn-ghost" data-action="comps-close">✖ ${core.T('إغلاق ورجوع للوحة الفرص','Close & return to dashboard')}</button>
     </div>
 
+    ${canManage? `
     <div class="section" style="margin-bottom:14px; background:var(--surface-2); border:1px dashed var(--border);">
       <p class="step-sub" style="margin:0 0 10px;">${core.T('إضافة مقارنة جديدة','Add a new comparable')}</p>
       <form id="comp-add-form" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px,1fr)); gap:8px;">
@@ -55,7 +70,7 @@ export function registerComparables(core){
         <input type="number" name="distanceKm" placeholder="${core.T('المسافة (كم)','Distance (km)')}" step="0.1" style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-family:inherit; font-size:12.5px;">
       </form>
       <button type="button" class="btn btn-sm btn-primary" style="margin-top:8px;" data-action="comps-add">➕ ${core.T('إضافة','Add')}</button>
-    </div>
+    </div>` : `<p class="note" style="margin-bottom:14px;">${core.T('إضافة/تعديل/حذف المقارنات يتطلب دور "مدير صندوق" فأعلى — يمكنك استخدامها في المقارنة والقراءة فقط.','Adding/editing/deleting comparables requires a Fund Manager role or above — you can read and use them for comparison only.')}</p>`}
 
     <div class="tablewrap"><table class="db" style="font-size:12px;">
       <thead><tr>
@@ -75,7 +90,7 @@ export function registerComparables(core){
             <td class="num">${core.fmtSAR(c.price)}</td><td class="num" style="font-weight:700;">${core.fmtSAR(perM2)}</td>
             <td class="mono">${core.esc(c.date||'')}</td><td style="font-size:11px;">${core.esc(c.source||'—')}</td>
             <td class="num">${distStr}</td>
-            <td><button class="btn btn-sm btn-ghost" data-action="comps-delete" data-id="${rec.id}">🗑️</button></td>
+            <td>${canManage? `<button class="btn btn-sm btn-ghost" data-action="comps-delete" data-id="${rec.id}">🗑️</button>` : ''}</td>
           </tr>`;
         }).join('') || `<tr><td colspan="11" style="text-align:center; padding:16px;">${core.T('لا توجد مقارنات مسجَّلة بعد','No comparables recorded yet')}</td></tr>`}
       </tbody>
@@ -114,6 +129,7 @@ export function registerComparables(core){
     if(action==='comps-open'){ core.setCoreState({ mainView:'comparables', openDetailId:null, render:true }); return true; }
     if(action==='comps-close'){ core.setCoreState({ mainView:null, render:true }); return true; }
     if(action==='comps-add'){
+      if(!canManageLibraries(core)) return true;
       const form = document.getElementById('comp-add-form');
       if(!form) return true;
       const price = Number(form.querySelector('[name="price"]').value)||0;
@@ -134,6 +150,7 @@ export function registerComparables(core){
       return true;
     }
     if(action==='comps-delete'){
+      if(!canManageLibraries(core)) return true;
       await core.deleteIfRecord(COMPARABLES_COLLECTION, el.dataset.id);
       core.render();
       return true;

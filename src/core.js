@@ -3,16 +3,6 @@
    Single-file interactive intake + underwriting engine + database.
    ========================================================================= */
 
-const APP_BRAND = Object.freeze({
-  ar: 'منصة استكشاف الفرص العقارية',
-  en: 'Opal Real Estate Opportunity Explorer',
-  shortAr: 'منصة استكشاف الفرص العقارية',
-  shortEn: 'Opal Real Estate Opportunity Explorer',
-});
-const REPORT_FONT_AR = 'Sakkal Majalla';
-const REPORT_FONT_LATIN = 'Aptos';
-const REPORT_FONT_FALLBACK = 'Segoe UI, Arial, sans-serif';
-
 let DB = null;
 let claudeReady = false;
 let currentUser = null;      // كائن المستخدم المسجّل دخوله عبر Firebase Auth (null = لا أحد مسجّل)
@@ -123,10 +113,10 @@ try{ document.documentElement.lang = LANG; }catch(e){}
 function T(ar, en){ return LANG==='en' ? (en!=null? en : ar) : ar; }
 function updateDocMeta(){
   try{
-    document.title = LANG==='en' ? `${APP_BRAND.en} — Opal` : `${APP_BRAND.ar} — Opal`;
+    document.title = LANG==='en' ? 'Opal Real Estate Opportunity Explorer' : 'منصة استكشاف الفرص العقارية — أوبال';
     const metaDesc = document.querySelector('meta[name="description"]');
     if(metaDesc) metaDesc.setAttribute('content', LANG==='en'
-      ? 'Opal Real Estate Opportunity Explorer — a real-estate opportunity underwriting and feasibility tool by Opal'
+      ? 'Real Estate Opportunity Ledger — a real-estate investment underwriting and feasibility tool by Opal'
       : 'منصة استكشاف الفرص العقارية — أداة تقييم وتحليل جدوى الفرص العقارية من شركة أوبال القابضة (Opal Holding)');
   }catch(e){}
 }
@@ -2556,7 +2546,7 @@ function renderPortfolioWaterfallPanel(k){
   return `
   <div class="panel" style="margin-top:14px; padding:18px 20px;">
     <div class="panel-head" style="border:none; padding:0 0 4px;">
-      <h2>💧 ${T('نموذج التوزيع على مستوى المحفظة الكاملة','Portfolio-Level Distribution Model')} <span style="color:var(--ink-faint); font-weight:500;">— European vs. American Model</span></h2>
+      <h2>💧 ${T('توزيع الأرباح على مستوى المحفظة الكاملة','Portfolio-Level Distribution Waterfall')} <span style="color:var(--ink-faint); font-weight:500;">— European vs. American Waterfall</span></h2>
     </div>
     <p class="note" style="margin:0 0 16px;">${T('مقارنة بين احتساب Carry صفقة بصفقة (Deal-by-Deal / American) — كما تُعرض كل فرصة على حدة أعلاه — واحتساب Carry على مستوى المحفظة كاملة كصفقة واحدة (European): في الهيكل الأوروبي، لا يستحق مدير الصندوق عمولته على الصفقات الرابحة إلا بعد أن تسترد المحفظة كاملة رأس مالها وعائدها التفضيلي (Hurdle) — فلو دُفعت له عمولة مبكرة على صفقات رابحة (أسلوب أمريكي) بينما صفقات أخرى لاحقة أضعف من المتوقع، يظهر "الاسترداد" (Clawback) أدناه كالمبلغ الذي يلتزم برده.','Comparing deal-by-deal (American) carry — as shown for each opportunity above — against carry computed on the whole portfolio as a single deal (European): under a European structure, the manager isn\'t entitled to carry until the WHOLE portfolio has returned its capital and preferred return, so if carry was paid early on winning deals (American-style) while other, later deals underperform, the "clawback" below is the amount the manager owes back.')}</p>
     <div class="kv" style="margin-bottom:14px;">
@@ -2725,7 +2715,7 @@ function renderTable(){
     <div class="panel-head">
       <h2>📊 ${T('مستكشف الفرص العقارية','Real Estate Opportunity Explorer')} <span style="color:var(--ink-faint); font-weight:500;">— Real Estate Opportunity Explorer</span></h2>
       <div style="display:flex; gap:8px; align-items:center;">
-        ${compareIds.length>0? `<span class="tag" style="background:var(--surface-2);">${compareIds.length} ${T('للمقارنة','selected to compare')}</span>`:''}
+        ${compareIds.length>0? `<span class="tag" style="background:var(--surface-2);">${compareIds.length} ${T('مُحددة للمقارنة','selected to compare')}</span>`:''}
         ${compareIds.length>0? `<button class="btn btn-sm btn-ghost" data-action="clear-compare">${T('إلغاء التحديد','Clear Selection')}</button>`:''}
         <button class="btn btn-sm" data-action="open-compare" ${compareIds.length<2?'disabled':''}>⇄ ${T('مقارنة الفرص المحددة','Compare Selected')}</button>
         <button class="btn btn-primary" data-action="open-wizard">＋ ${T('فرصة جديدة','New Opportunity')}</button>
@@ -2799,13 +2789,13 @@ function renderDetail(id){
   <div class="memo" data-print-date="${esc(fmtDateBilingual(todayStr()))}">
     <div class="print-run-header">
       <span>${esc(branding.companyName||T('أوبال القابضة','Opal Holding'))} — ${esc(d.meta.name||T('بدون اسم','Unnamed'))}</span>
-      <span>${T(APP_BRAND.ar,APP_BRAND.en)} · ${esc(fmtDateBilingual(todayStr()))}</span>
+      <span>${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')} · ${esc(fmtDateBilingual(todayStr()))}</span>
     </div>
     <div class="print-letterhead">
       ${branding.logoDataUrl? `<img src="${branding.logoDataUrl}" alt="${esc(branding.companyName||T('شعار الشركة','Company Logo'))}" class="print-letterhead-logo">` : ''}
       <div class="print-letterhead-text">
         <div class="print-letterhead-company">${esc(branding.companyName||'')}</div>
-        <div class="print-letterhead-app">${T(APP_BRAND.ar,APP_BRAND.en)} · ${APP_BRAND.en}</div>
+        <div class="print-letterhead-app">${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')} · Real Estate Opportunity Ledger</div>
         <div class="print-letterhead-date">${T('تم إنشاؤه في','Generated on')} ${esc(fmtDateBilingual(todayStr()))}</div>
       </div>
     </div>
@@ -2818,7 +2808,7 @@ function renderDetail(id){
             <span>📍 ${esc(d.meta.city)} · ${esc(d.meta.neighborhood||'—')} · ${esc(d.meta.tier)}</span>
             <span>${ti.ic} ${T(ti.t,ti.en)}</span>
             <span>🗓️ ${esc(fmtDateBilingual(d.meta.updatedAt||d.meta.createdAt||todayStr()))}</span>
-            ${d.meta.updatedBy? `<span>👤 ${T('آخر تعديل','Last edited by')}: ${esc(d.meta.updatedBy)}</span>` : (d.meta.createdBy? `<span>👤 ${T('بواسطة','Added by')}: ${esc(d.meta.createdBy)}</span>` : '')}
+            ${d.meta.updatedBy? `<span>👤 ${T('آخر تعديل','Last edited by')}: ${esc(d.meta.updatedBy)}</span>` : (d.meta.createdBy? `<span>👤 ${T('أضافها','Added by')}: ${esc(d.meta.createdBy)}</span>` : '')}
           </div>
         </div>
         <div class="small-btns">
@@ -3020,7 +3010,7 @@ ${T('بدلاً من بيع الأصل في نهاية المدة، يقوم ا�
         </div>
 
         <div class="section">
-          <h3><span class="n">5</span> ${T('نموذج التوزيعات','Distribution Model')} (Distribution Model)</h3>
+          <h3><span class="n">5</span> ${T('تدفقات التوزيعات','Distribution Waterfall')} (Distribution Waterfall)</h3>
           <table class="report">
             <thead><tr><th>${T('الطبقة','Tier')}</th><th>${T('المبلغ','Amount')}</th><th>${T('المستفيد','Recipient')}</th></tr></thead>
             <tbody>
@@ -3362,7 +3352,7 @@ function mkChart(id, config){
   destroyChart(id);
   try{ chartInstances[id] = new Chart(canvas, config); }catch(e){ console.error('chart render failed:', id, e); }
 }
-const CHART_BASE_OPTS = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:CHART_COLORS.inkFaint, font:{ family:'Sakkal Majalla, Aptos, Segoe UI, Arial, sans-serif', size:11 } } } },
+const CHART_BASE_OPTS = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:CHART_COLORS.inkFaint, font:{ family:'IBM Plex Sans Arabic, sans-serif', size:11 } } } },
   scales:{ x:{ ticks:{ color:CHART_COLORS.inkFaint, font:{ size:10 } }, grid:{ color:CHART_COLORS.grid } }, y:{ ticks:{ color:CHART_COLORS.inkFaint, font:{ size:10 } }, grid:{ color:CHART_COLORS.grid } } } };
 
 function initPortfolioCharts(){
@@ -3371,7 +3361,7 @@ function initPortfolioCharts(){
   const typeLabels = Object.keys(k.byType);
   mkChart('chart-portfolio-type', { type:'doughnut',
     data:{ labels:typeLabels, datasets:[{ data:typeLabels.map(t=>k.byType[t]), backgroundColor:[CHART_COLORS.accent, CHART_COLORS.gold, CHART_COLORS.inkFaint, CHART_COLORS.good, CHART_COLORS.warn], borderColor:'var(--surface)', borderWidth:2 }] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:CHART_COLORS.inkFaint, font:{ family:'Sakkal Majalla, Aptos, Segoe UI, Arial, sans-serif', size:10 }, boxWidth:10, padding:8 } } } } });
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:CHART_COLORS.inkFaint, font:{ family:'IBM Plex Sans Arabic, sans-serif', size:10 }, boxWidth:10, padding:8 } } } } });
   mkChart('chart-portfolio-verdict', { type:'bar',
     data:{ labels:['🟢 '+T('قوي','Strong'),'🟡 '+T('مراجعة','Review'),'🔴 '+T('دون المعايير','Below Standards')], datasets:[{ data:[k.good,k.warn,k.bad], backgroundColor:[CHART_COLORS.good, CHART_COLORS.warn, CHART_COLORS.bad], borderRadius:6, maxBarThickness:40 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
@@ -3494,8 +3484,8 @@ function renderLogin(){
           <div class="brand" style="justify-content:center; margin-bottom:14px;">
             <div class="mark"><img src="${OPAL_LOGO_MARK}" alt="Opal"></div>
             <div>
-              <h1 style="font-size:17px;">${T(APP_BRAND.ar,APP_BRAND.en)}</h1>
-              <div class="sub">${T(APP_BRAND.en,APP_BRAND.ar)}</div>
+              <h1 style="font-size:17px;">${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')}</h1>
+              <div class="sub">${T('Real Estate Opportunity Ledger','دفتر الفرص العقارية')}</div>
             </div>
           </div>
           <div class="step-title" style="font-size:16px;">${TEAM_ENTRY? T('تسجيل دخول أعضاء الفريق','Team Member Sign-in') : T('تسجيل الدخول','Sign In')}</div>
@@ -3672,7 +3662,7 @@ function renderActivityDropdown(){
         ${recentActivity.map(a=>`
           <div class="activity-item ${a.seen?'':'unseen'}" data-action="open-activity-item" data-id="${esc(a.id)}" data-opp="${esc(a.oppId)}">
             <div class="t">${a.seen?'':'🆕 '}${esc(a.name)}</div>
-            <div class="m">${T('بواسطة','Added by')} ${esc(a.by)} · ${timeAgo(a.at)}</div>
+            <div class="m">${T('أضافها','Added by')} ${esc(a.by)} · ${timeAgo(a.at)}</div>
           </div>
         `).join('')}
       </div>
@@ -4006,8 +3996,8 @@ function render(){
       <div class="brand">
         <div class="mark"><img src="${OPAL_LOGO_MARK}" alt="Opal"></div>
         <div>
-          <h1>${T(APP_BRAND.ar,APP_BRAND.en)}</h1>
-          <div class="sub">${T(APP_BRAND.en+' — SAR',APP_BRAND.ar+' — ر.س')}</div>
+          <h1>${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')}</h1>
+          <div class="sub">${T('Real Estate Opportunity Ledger — SAR','دفتر الفرص العقارية — ر.س')}</div>
         </div>
       </div>
       <div class="badge-row">
@@ -4374,17 +4364,12 @@ document.addEventListener('click', async (e)=>{
    متعرّج (Zebra)، وتنسيق أرقام حقيقي (فواصل الآلاف/النسب) — بدل خلايا نصّية عادية.
    ========================================================================= */
 const XL = { navy:'FF13343B', teal:'FF1F5F6B', tealLight:'FFDCEEEF', tealPale:'FFF3FAFA',
-  white:'FFFFFFFF', border:'FFC7D6D7', teal2:'FF1F5F6B', font:REPORT_FONT_LATIN };
+  white:'FFFFFFFF', border:'FFC7D6D7', teal2:'FF1F5F6B', font:'Arial' };
 function xlBorderAll(){ const b={style:'thin',color:{argb:XL.border}}; return {top:b,bottom:b,left:b,right:b}; }
 function xlColLetter(n){ let s=''; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); } return s; }
 function xlRowsBuilder(){
   const rows=[], kinds=[];
   return { push(vals, kind){ rows.push(vals); kinds.push(kind||'data'); return rows.length; }, rows, kinds };
-}
-function xlFontForValue(value){
-  if(typeof value==='number') return REPORT_FONT_LATIN;
-  const text = value==null ? '' : String(value);
-  return /^[\d\s.,%×()+\-/$A-Za-zر.س—]+$/.test(text) ? REPORT_FONT_LATIN : REPORT_FONT_AR;
 }
 /* rows/kinds: مصفوفتان متوازيتان (قيم كل صف + نوعه: title|section|header|note|data) — كل شيت يُبنى ويُنسَّق دفعة واحدة. */
 function xlNewSheet(wb, name, rows, kinds, opts={}){
@@ -4409,7 +4394,7 @@ function xlNewSheet(wb, name, rows, kinds, opts={}){
     if(kind==='title'){
       try{ ws.mergeCells(rn,1,rn,span); }catch(e){}
       const cell = excelRow.getCell(1);
-      cell.font = { name:REPORT_FONT_AR, bold:true, size:13, color:{argb:XL.white} };
+      cell.font = { name:XL.font, bold:true, size:13, color:{argb:XL.white} };
       cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:XL.navy} };
       cell.alignment = { horizontal:'center', vertical:'middle', rtl:true, wrapText:true };
       excelRow.height = 28;
@@ -4418,7 +4403,7 @@ function xlNewSheet(wb, name, rows, kinds, opts={}){
     if(kind==='section'){
       try{ ws.mergeCells(rn,1,rn,span); }catch(e){}
       const cell = excelRow.getCell(1);
-      cell.font = { name:REPORT_FONT_AR, bold:true, size:11, color:{argb:XL.teal} };
+      cell.font = { name:XL.font, bold:true, size:11, color:{argb:XL.teal} };
       cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:XL.tealLight} };
       cell.alignment = { horizontal:'right', vertical:'middle', rtl:true, wrapText:true };
       excelRow.height = 20;
@@ -4427,7 +4412,7 @@ function xlNewSheet(wb, name, rows, kinds, opts={}){
     if(kind==='header'){
       for(let c2=1;c2<=span;c2++){
         const cell = excelRow.getCell(c2);
-        cell.font = { name:REPORT_FONT_AR, bold:true, size:10, color:{argb:XL.white} };
+        cell.font = { name:XL.font, bold:true, size:10, color:{argb:XL.white} };
         cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:XL.teal} };
         cell.alignment = { horizontal:'center', vertical:'middle', rtl:true, wrapText:true };
         cell.border = xlBorderAll();
@@ -4438,7 +4423,7 @@ function xlNewSheet(wb, name, rows, kinds, opts={}){
     if(kind==='note'){
       for(let c2=1;c2<=span;c2++){
         const cell = excelRow.getCell(c2);
-        cell.font = { name:REPORT_FONT_AR, bold:c2===1, size:10, color:{argb: c2===1?XL.teal:'FF1A2E33'} };
+        cell.font = { name:XL.font, bold:c2===1, size:10, color:{argb: c2===1?XL.teal:'FF1A2E33'} };
         cell.border = xlBorderAll();
         cell.alignment = { horizontal:c2===1?'right':'center', vertical:'middle', rtl:true, wrapText:true };
       }
@@ -4451,7 +4436,7 @@ function xlNewSheet(wb, name, rows, kinds, opts={}){
     for(let c2=1;c2<=span;c2++){
       const cell = excelRow.getCell(c2);
       const v = r[c2-1];
-      cell.font = { name:xlFontForValue(v), size:10 };
+      cell.font = { name:XL.font, size:10 };
       cell.border = xlBorderAll();
       cell.alignment = { horizontal:c2===1?'right':'center', vertical:'middle', rtl:true, wrapText:true };
       if(zebra) cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:XL.tealPale} };
@@ -4462,17 +4447,17 @@ function xlNewSheet(wb, name, rows, kinds, opts={}){
       }
     }
     if(r[0] && typeof r[0]==='string' && /^🎯|^✅|^❌/.test(r[0])){
-      excelRow.getCell(1).font = { name:REPORT_FONT_AR, bold:true, size:10, color:{argb:XL.teal} };
+      excelRow.getCell(1).font = { name:XL.font, bold:true, size:10, color:{argb:XL.teal} };
     }
   });
   ws.pageSetup.printArea = `A1:${xlColLetter(span)}${rows.length}`;
   return ws;
 }
-function xlSetFormula(ws, row, col, formula, numFmt, sourceType){
+function xlSetFormula(ws, row, col, formula, numFmt){
   const cell = ws.getCell(row, col);
   cell.value = { formula };
   cell.numFmt = numFmt || '#,##0;(#,##0);"-"';
-  cell.font = { name:REPORT_FONT_LATIN, size:10, color:{argb:sourceType==='linked'?'FF15803D':'FF1F2937'} };
+  cell.font = { name:XL.font, size:10 };
   cell.alignment = { horizontal:'center', vertical:'middle' };
   cell.border = xlBorderAll();
 }
@@ -4484,13 +4469,13 @@ async function exportOpportunityExcel(id){
   const yrs = c.projectCF.length;
   try{
     const wb = new ExcelJS.Workbook();
-    wb.creator = APP_BRAND.en;
+    wb.creator = 'دفتر الفرص العقارية — أوبال';
     wb.calcProperties = { fullCalcOnLoad:true };
 
     // نبني صفوف الملخص مع تتبّع رقم كل صف، عشان نقدر نكتب معادلات Excel حقيقية (مش أرقام جامدة)
     // للبنود اللي هي نتيجة حسابية مباشرة لبنود أخرى في نفس الجدول (هوية جبرية مضمونة الصحة).
     const B1 = xlRowsBuilder();
-    B1.push([`${APP_BRAND.ar} — مذكرة تقييم فرصة`,''],'title');
+    B1.push(['دفتر الفرص العقارية — مذكرة تقييم فرصة',''],'title');
     B1.push(['معرّف الفرصة', rec.id]);
     B1.push(['اسم الفرصة', d.meta.name||'']);
     B1.push(['المدينة / الحي / الفئة', `${d.meta.city} · ${d.meta.neighborhood||'—'} · ${d.meta.tier}`]);
@@ -4563,11 +4548,6 @@ async function exportOpportunityExcel(id){
     xlSetFormula(wsCF, irrRow, 4, `IRR(D2:D${cfDataRows})`, '0.0%');
     xlSetFormula(wsCF, xirrRow, 3, `XIRR(C2:C${cfDataRows},B2:B${cfDataRows})`, '0.0%');
     xlSetFormula(wsCF, xirrRow, 4, `XIRR(D2:D${cfDataRows},B2:B${cfDataRows})`, '0.0%');
-    // Keep the quick-export summary tied to the cash-flow source cells too.
-    // These references are valid because the source sheet and formula rows now exist.
-    xlSetFormula(wsSummary, 10, 2, `'التدفقات النقدية'!D${irrRow}`, '0.0%', 'linked');
-    xlSetFormula(wsSummary, 11, 2, `'التدفقات النقدية'!C${irrRow}`, '0.0%', 'linked');
-    xlSetFormula(wsSummary, 12, 2, `SUMIF('التدفقات النقدية'!D2:D${cfDataRows},">0",'التدفقات النقدية'!D2:D${cfDataRows})/ABS('التدفقات النقدية'!D2)`, '0.00"×"', 'linked');
 
     // ورقة قائمة الدخل (P&L) — تفصيل محاسبي مبسّط سنوي: إيراد إجمالي محتمل → خسارة إشغال → EGI →
     // مصاريف تشغيلية/أتعاب إدارة ملكية → NOI → فائدة الدين ورسوم الصندوق → صافي الدخل التشغيلي المحاسبي.
@@ -4700,7 +4680,7 @@ async function exportOpportunityExcel(id){
     // تدفقات التوزيعات — معادلات Excel حية تُعيد بناء نفس منطق التدفقات المُستخدَم في التطبيق
     // (ROC → Pref → GP Catch-up → التوزيع المتبقي LP/Carry) خطوة بخطوة، بدل أرقام جامدة.
     const B4 = xlRowsBuilder();
-    B4.push(['نموذج التوزيعات — معادلات حية (Distribution Model)', ''],'title');
+    B4.push(['تدفقات التوزيعات — معادلات حية (Distribution Waterfall)', ''],'title');
     B4.push(['البند', 'المبلغ (ريال)'],'header');
     const rPIC = B4.push(['رأس المال المستثمر (PIC = Equity)', 0]);
     const rTotDist = B4.push(['إجمالي التوزيعات (من ورقة التدفقات النقدية)', 0]);
@@ -4872,7 +4852,7 @@ async function exportOpportunityExcel(id){
 async function exportInvestorLedgerExcel(){
   try{
     const wb = new ExcelJS.Workbook();
-    wb.creator = APP_BRAND.en;
+    wb.creator = 'دفتر الفرص العقارية — أوبال';
     wb.calcProperties = { fullCalcOnLoad:true };
 
     // ---- شيت المستثمرون (بيانات خام) ----
@@ -4971,10 +4951,9 @@ function exportOpportunityPptx(id){
     const pres = new Ctor();
     pres.defineLayout({ name:'WIDE', width:13.33, height:7.5 });
     pres.layout = 'WIDE';
-    pres.theme = { headFontFace:REPORT_FONT_AR, bodyFontFace:REPORT_FONT_AR, lang:'ar-SA' };
 
     const s1 = pres.addSlide();
-    s1.addText(d.meta.name||'فرصة استثمارية', { x:0.5,y:0.5,w:12.3,h:1, fontSize:28, bold:true, color:'1F5F6B', align:'right', fontFace:'Sakkal Majalla' });
+    s1.addText(d.meta.name||'فرصة استثمارية', { x:0.5,y:0.5,w:12.3,h:1, fontSize:28, bold:true, color:'0E6B4C', align:'right' });
     s1.addText(`${d.meta.city} · ${d.meta.neighborhood||'—'} · ${d.meta.tier}  |  ${rec.id}`, { x:0.5,y:1.4,w:12.3,h:0.5, fontSize:14, color:'4C5850', align:'right' });
     const vlbl = c.verdict==='good'?'التوصية: قابلة للعرض على لجنة الاستثمار':c.verdict==='warn'?'التوصية: تحت المراجعة':'التوصية: دون معايير القبول';
     s1.addText(vlbl, { x:0.5,y:2.0,w:12.3,h:0.5, fontSize:16, bold:true, color: c.verdict==='good'?'1E8A56':c.verdict==='warn'?'9C6A0A':'AE2E22', align:'right' });
@@ -4989,8 +4968,8 @@ function exportOpportunityPptx(id){
     ];
     let kx = 0.5;
     kpis.forEach(([l,v])=>{
-      s1.addText([{text:v+'\n',options:{fontSize:20,bold:true,color:'1F5F6B',fontFace:REPORT_FONT_LATIN}},{text:l,options:{fontSize:11,color:'565A63',fontFace:REPORT_FONT_AR}}],
-        { x:kx,y:2.8,w:1.95,h:1.1, align:'center', valign:'middle', fill:{color:'F3F4F0'}, line:{color:'DCDAD3',width:1}, fontFace:'Sakkal Majalla' });
+      s1.addText([{text:v+'\n',options:{fontSize:20,bold:true,color:'0E6B4C'}},{text:l,options:{fontSize:11,color:'4C5850'}}],
+        { x:kx,y:2.8,w:1.95,h:1.1, align:'center', valign:'middle', fill:{color:'F3F4F0'}, line:{color:'D6DACF',width:1} });
       kx += 2.0;
     });
 
@@ -5002,7 +4981,7 @@ function exportOpportunityPptx(id){
     ], { x:0.5,y:4.2,w:12.3,h:2, fontSize:14, align:'right', color:'152019' });
 
     const s2 = pres.addSlide();
-    s2.addText('التدفقات النقدية السنوية', { x:0.5,y:0.4,w:12.3,h:0.6, fontSize:22, bold:true, color:'1F5F6B', align:'right', fontFace:'Sakkal Majalla' });
+    s2.addText('التدفقات النقدية السنوية', { x:0.5,y:0.4,w:12.3,h:0.6, fontSize:22, bold:true, color:'0E6B4C', align:'right' });
     const rows = [[
       {text:'تدفق حقوق الملكية', options:{bold:true, fill:{color:'E3EFE7'}}},
       {text:'تدفق المشروع', options:{bold:true, fill:{color:'E3EFE7'}}},
@@ -5016,7 +4995,7 @@ function exportOpportunityPptx(id){
     if(d.constructionFinancing){
       const cfin = d.constructionFinancing;
       const s3 = pres.addSlide();
-      s3.addText('التمويل الفعلي — على تكلفة الإنشاء فقط', { x:0.5,y:0.4,w:12.3,h:0.6, fontSize:22, bold:true, color:'1F5F6B', align:'right', fontFace:'Sakkal Majalla' });
+      s3.addText('التمويل الفعلي — على تكلفة الإنشاء فقط', { x:0.5,y:0.4,w:12.3,h:0.6, fontSize:22, bold:true, color:'0E6B4C', align:'right' });
       s3.addText(cfin.note||'', { x:0.5,y:1.0,w:12.3,h:0.5, fontSize:13, color:'4C5850', align:'right' });
       const finKpis = [
         ['القرض البنكي', fmtSAR(cfin.bankLoan)],
@@ -5026,8 +5005,8 @@ function exportOpportunityPptx(id){
       ];
       let fx = 0.5;
       finKpis.forEach(([l,v])=>{
-        s3.addText([{text:v+'\n',options:{fontSize:20,bold:true,color:'1F5F6B',fontFace:REPORT_FONT_LATIN}},{text:l,options:{fontSize:11,color:'565A63',fontFace:REPORT_FONT_AR}}],
-          { x:fx,y:1.7,w:2.95,h:1.1, align:'center', valign:'middle', fill:{color:'F3F4F0'}, line:{color:'DCDAD3',width:1}, fontFace:'Sakkal Majalla' });
+        s3.addText([{text:v+'\n',options:{fontSize:20,bold:true,color:'0E6B4C'}},{text:l,options:{fontSize:11,color:'4C5850'}}],
+          { x:fx,y:1.7,w:2.95,h:1.1, align:'center', valign:'middle', fill:{color:'F3F4F0'}, line:{color:'D6DACF',width:1} });
         fx += 3.0;
       });
       const finRows = [
@@ -5095,10 +5074,6 @@ document.addEventListener('change', (e)=>{
 
 /* ==================== نهاية core.js — تصدير كل شيء لملفات src/features/*.js ==================== */
 export {
-  APP_BRAND,
-  REPORT_FONT_AR,
-  REPORT_FONT_LATIN,
-  REPORT_FONT_FALLBACK,
   DB,
   claudeReady,
   currentUser,

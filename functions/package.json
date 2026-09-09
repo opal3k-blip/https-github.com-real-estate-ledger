@@ -1,0 +1,18 @@
+{
+  "name": "reop-audit-functions",
+  "description": "دفتر الفرص العقارية — Cloud Function واحدة: كتابة سجل التدقيق (oppAuditLog) بصلاحيات Admin SDK بعد قفل firestore.rules الكامل لكتابة العميل على هذه المجموعة (المرحلة السابعة، P0 #3).",
+  "private": true,
+  "type": "commonjs",
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "lint": "node --check index.js",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^6.1.0"
+  }
+}

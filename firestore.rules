@@ -35,11 +35,66 @@ service cloud.firestore {
         || existingData.meta.createdBy.lower() == request.auth.token.email.lower();
     }
 
+    // ==================== المرحلة السابعة (الحوكمة المؤسسية) ====================
+    // نقطة ٧-١: نزاهة النِّسبة (Attribution Integrity). سجل التدقيق (audit-trail.js/Cloud
+    // Function أدناه) يعتمد على meta.updatedBy لمعرفة "من عدَّل فعلاً" — بلا هذا الشرط، أي عميل
+    // (حتى لو مصرَّح له) يقدر يكتب meta.updatedBy بأي بريد آخر ويُزيِّف من قام بالتعديل فعلياً في
+    // كل تقارير/سجلات التدقيق. الأدمن مُستثنى عمداً من هذا الشرط (قد يحتاج تصحيح بيانات نيابة عن
+    // عضو غادر الفريق) — لكنه مُسجَّل بوضوح في سجل التدقيق كأدمن قام بالتعديل نفسه في تلك الحالة.
+    function attributionHonest() {
+      return request.resource.data.meta.updatedBy != null
+        && request.resource.data.meta.updatedBy.lower() == request.auth.token.email.lower();
+    }
+
+    // أدوار الفريق (محلل/عضو لجنة أول/مدير صندوق) — منقولة هنا (كانت أسفل مطابقة opportunities)
+    // لأن نقطة ٧-٢ أدناه تحتاجها؛ لا تغيير في منطقها، فقط ترتيب التعريف حتى نُعيد استخدامها بدل
+    // تكرار منطق قراءة team_roles من جديد. القراءة لأي عضو مصرَّح له (كل عضو يحتاج يعرف دوره
+    // ودور غيره لإظهار/إخفاء أزرار الواجهة بشكل صحيح)، والكتابة (تعيين/تغيير دور) للأدمن فقط.
+    function currentRole() {
+      return exists(/databases/$(database)/documents/team_roles/$(request.auth.token.email.lower()))
+        ? get(/databases/$(database)/documents/team_roles/$(request.auth.token.email.lower())).data.role
+        : 'analyst';
+    }
+    function isFundManagerOrAbove() {
+      return isAdminEmail() || (isAllowlisted() && currentRole() == 'fund_manager');
+    }
+
+    // نقطة ٧-٢: صلاحية اعتماد لجنة الاستثمار (canApproveIC في roles-permissions.js) — عضو لجنة
+    // استثمار أول فأعلى. مطلوبة هنا (لا فقط في واجهة العميل) لأن ic-workflow.js يسمح لعضو لجنة
+    // استثمار بتسجيل قرار على فرصة *لا يملكها* (لم يُنشئها) — وهذا بالضبط ما كانت قاعدة ownsOpp
+    // القديمة تمنعه بالكامل (كانت تحصر أي تعديل بالمالك أو الأدمن فقط، فيستحيل معها عملياً أن
+    // يعتمد أي عضو لجنة قراراً على فرصة زميل آخر عبر Firestore الحقيقي، حتى لو واجهة العميل
+    // تسمح بالنقر على الزر). المسار الجديد أدناه (icOnlyChange) يفتح ثغرة ضيقة ومضبوطة فقط لهذه
+    // الحالة، لا يفتح الفرصة كاملة للتعديل من غير مالكها.
+    function currentRoleIsSeniorICOrAbove() {
+      return isAllowlisted() && currentRole() in ['senior_ic','fund_manager'];
+    }
+
+    // نقطة ٧-٣: تحقّق أن التعديل من عضو لجنة الاستثمار (غير المالك) لم يغيّر إلا حقل قرارات
+    // اللجنة (ic) بالإضافة لطابعي التوقيت/المعدِّل الإداريين في meta (updatedAt/updatedBy) — لا
+    // أي حقل مالي أو تشغيلي آخر في الفرصة. affectedKeys() على مستوى الجذر يكفي لحقل "ic" (كائن
+    // كامل مُستبدَل بالكامل من ic-workflow.js دوماً)، ولمستوى meta نتحقق بالتفصيل من أن الحقول
+    // المتغيّرة فيه هي فقط updatedAt/updatedBy (لا name/city/analyst/... التي تبقى بلا تغيير).
+    function icOnlyChange(before, after) {
+      return after.diff(before).affectedKeys().hasOnly(['ic', 'meta'])
+        && after.meta.diff(before.meta).affectedKeys().hasOnly(['updatedAt', 'updatedBy']);
+    }
+    // ============================================================================
+
     // بيانات الفرص الاستثمارية — للفريق المصرَّح له فقط (ولسه ضمن مدة الوصول).
-    // القراءة والإضافة: لأي عضو مصرَّح له. التعديل/الحذف: الأدمن، أو عضو الفريق لفرصته الخاصة فقط.
+    // القراءة: لأي عضو مصرَّح له. الإضافة: لأي عضو مصرَّح له (بشرط نزاهة النِّسبة). التعديل:
+    // الأدمن، أو عضو الفريق لفرصته الخاصة، أو عضو لجنة استثمار أول فأعلى *لكن فقط لتسجيل قرار
+    // لجنة الاستثمار* (icOnlyChange أعلاه) — كل ذلك بشرط نزاهة النِّسبة أيضاً. الحذف: الأدمن أو
+    // مالك الفرصة فقط (لم يُوسَّع لعضو اللجنة عمداً — الحذف قرار أكبر من مجرد تسجيل قرار لجنة).
     match /opportunities/{oppId} {
-      allow read, create: if isAuthorized();
-      allow update, delete: if isAdminEmail() || (isAllowlisted() && ownsOpp(resource.data));
+      allow read: if isAuthorized();
+      allow create: if isAuthorized() && attributionHonest();
+      allow update: if attributionHonest() && (
+             isAdminEmail()
+          || (isAllowlisted() && ownsOpp(resource.data))
+          || (currentRoleIsSeniorICOrAbove() && icOnlyChange(resource.data, request.resource.data))
+      );
+      allow delete: if isAdminEmail() || (isAllowlisted() && ownsOpp(resource.data));
     }
 
     // أعضاء الفريق المصرَّح لهم — إدارة (إضافة/إزالة/تعديل المدة) للمسؤول فقط.
@@ -47,6 +102,14 @@ service cloud.firestore {
     // الداخلي في القواعد وهو غير مقيَّد بهذه القاعدة.
     match /team_members/{email} {
       allow read, write: if isAdminEmail();
+    }
+
+    // أدوار الفريق (محلل/عضو لجنة أول/مدير صندوق) — طبقة صلاحيات إضافية فوق team_members.
+    // (currentRole/isFundManagerOrAbove عُرِّفتا أعلاه الآن، بجانب isAdminEmail/isAllowlisted —
+    // نفس المنطق تماماً، فقط نُقلا لأعلى الملف لأن مطابقة opportunities تحتاجهما أيضاً.)
+    match /team_roles/{email} {
+      allow read: if isAuthorized();
+      allow write: if isAdminEmail();
     }
 
     // إعدادات عامة (شعار الشركة/اسمها لتقارير الطباعة) — أي عضو مصرَّح له يقدر يقرأها
@@ -61,6 +124,115 @@ service cloud.firestore {
     match /presence/{uid} {
       allow read: if isAuthorized();
       allow write: if request.auth != null && request.auth.uid == uid && isAuthorized();
+    }
+
+    // ⚠️ اكتُشفت هذه المجموعات (Phase 1-4) خلال إضافة طبقة الأدوار: كانت مسجَّلة وتُقرأ/تُكتب من
+    // كود الواجهة (core.registerDataCollection) لكن بلا أي قاعدة أمان مقابلة هنا — أي طلب لمسار
+    // بلا "match" مطابق يُرفَض تلقائياً في Firestore، فكانت هذه المجموعات كلها مرفوضة بالكامل مع
+    // أي Firebase حقيقي (لم يظهر هذا أثناء الاختبار السابق لأن كل اختبارات Playwright السابقة
+    // استخدمت وضع الديمو ?demo=1 المحلي البديل عن Firebase تماماً — لم يلمس Firestore الحقيقي
+    // إطلاقاً). أُضيفت القواعد الناقصة هنا كجزء من نفس عمل هذه المرحلة (طبقة حماية حقيقية
+    // للفريق الحقيقي) بدل تركها مكسورة بصمت.
+
+    // دفتر المستثمرين/الصناديق (investors/funds/commitments/capitalCalls/distributions/
+    // transactions) — دفتر الصندوق الحقيقي (Fund/Investor Ledger). كانت هذه الست مجموعات
+    // "قراءة/كتابة لأي عضو مصرَّح له" (نفس منطق opportunities القديم) — وهذا بالضبط ما رصدناه في
+    // مراجعة المرحلة السابعة كثغرة حوكمية حقيقية: الواجهة تُظهر دور "مدير صندوق" (fund_manager)
+    // لكن القاعدة الفعلية لم تكن تفرضه على أي منها، فأي محلل عادي كان يقدر يعدّل التزامات
+    // مستثمر أو يسجّل توزيعاً فعلياً عبر Firestore مباشرة (بتجاوز واجهة العميل بالكامل) دون أي
+    // مانع حقيقي — "UI Governance ≠ Database Governance" بالضبط. القراءة تبقى لأي عضو مصرَّح له
+    // (يحتاجها الكل لعرض لوحة المحفظة/التقارير)، والكتابة (إضافة/تعديل/حذف) أصبحت الآن مقصورة
+    // على مدير صندوق فأعلى فقط (isFundManagerOrAbove، المُعرَّفة أعلاه) — تطابق تماماً الآن بين
+    // ما تعرضه الواجهة (دور "مدير صندوق") وما تفرضه القاعدة الحقيقية.
+    // ⚠️ قيد معماري صريح: core.js نفسه (لا ملف ميزة مستقل) يملك واجهة إضافة/تعديل هذه السجلات
+    // مباشرة (blankInvestor/blankFund وما حولها) — ولا يوجد فيه أي نقطة توسّع (extension point)
+    // تسمح لملف ميزة خارجي باعتراض إجراءاته الداخلية وإخفاء أزرارها *قبل* تنفيذها (registerActionHandler
+    // يُستدعى فقط لو لم يتعرّف عليه أي معالج داخلي، انظر تعليق core.js نفسه)، وقاعدة هذا المشروع
+    // الثابتة منذ المرحلة الأولى ألا يُلمَس core.js إطلاقاً. لذلك التطبيق الفعلي هنا هو الحماية
+    // الحقيقية عبر Firestore (لا يمكن تجاوزها أبداً بأي حال) — لا إخفاء أزرار واجهة إضافي؛ محلل
+    // يضغط زر الإضافة سيرى خطأ "الصلاحية مرفوضة" من Firestore نفسه بدل ألا يرى الزر أصلاً. هذا
+    // أضعف تجربة استخدام من إخفاء الزر، لكنه الحماية الوحيدة الصحيحة والمُتاحة بلا كسر القيد
+    // المعماري الأساسي للمشروع — ونؤكد أنها الحماية *الفعلية* بصرف النظر عن شكل الواجهة.
+    match /investors/{id}      { allow read: if isAuthorized(); allow create, update, delete: if isFundManagerOrAbove(); }
+    match /funds/{id}          { allow read: if isAuthorized(); allow create, update, delete: if isFundManagerOrAbove(); }
+    match /commitments/{id}    { allow read: if isAuthorized(); allow create, update, delete: if isFundManagerOrAbove(); }
+    match /capitalCalls/{id}   { allow read: if isAuthorized(); allow create, update, delete: if isFundManagerOrAbove(); }
+    match /distributions/{id}  { allow read: if isAuthorized(); allow create, update, delete: if isFundManagerOrAbove(); }
+    match /transactions/{id}   { allow read: if isAuthorized(); allow create, update, delete: if isFundManagerOrAbove(); }
+
+    // المقارنات العقارية (comparables.js) والمعايير المرجعية (benchmark-engine.js) — مكتبات
+    // مرجعية بالمعنى الدقيق: أي عضو مصرَّح له يقرأها ويستخدمها في المقارنة، لكن الإضافة/التعديل/
+    // الحذف (وأي مكتبة مرجعية أخرى تُبنى بنفس النمط لاحقاً) محصورة بمدير الصندوق فأعلى فقط —
+    // هذا التقييد الجديد هو جوهر طلب "طبقة الحماية" لهذه المرحلة.
+    match /comparables/{id} {
+      allow read: if isAuthorized();
+      allow create, update, delete: if isFundManagerOrAbove();
+    }
+    match /benchmarks/{id} {
+      allow read: if isAuthorized();
+      allow create, update, delete: if isFundManagerOrAbove();
+    }
+
+    // مكتبة الكفاءة المعمارية والتكلفة المرجعية (space-efficiency-library.js) — السجلات
+    // الأساسية (١٥٣ سجلاً) ثابتة في الكود ولا تُخزَّن في Firestore أصلاً؛ هذه المجموعة
+    // فقط لتجاوزات/إضافات الفريق المحلية (نفس نمط comparables/benchmarks بالضبط).
+    match /spaceEffOverrides/{id} {
+      allow read: if isAuthorized();
+      allow create, update, delete: if isFundManagerOrAbove();
+    }
+
+    // مكتبة رسوم الصندوق والمصاريف التشغيلية المرجعية (fund-fees-opex-library.js، المرحلة ٥) —
+    // نفس نمط spaceEffOverrides/benchmarks بالضبط: قراءة لأي عضو مصرَّح له، كتابة/تعديل/حذف
+    // لمدير صندوق فأعلى فقط.
+    match /fundFeeOverrides/{id} {
+      allow read: if isAuthorized();
+      allow create, update, delete: if isFundManagerOrAbove();
+    }
+
+    // مكتبة الأنظمة واللوائح العقارية السعودية المرجعية (saudi-regulatory-library.js،
+    // المرحلة ٦) — نفس نمط fundFeeOverrides/spaceEffOverrides/benchmarks بالضبط: قراءة لأي
+    // عضو مصرَّح له، كتابة/تعديل/حذف/تصديق لمدير صندوق فأعلى فقط (canManageLibraries).
+    // ملاحظة: rent-roll.js (سجلات العقود) وmacro-context.js وsustainability-mostadam.js
+    // (المرحلة ٦ أيضاً) لا تحتاج أي قاعدة جديدة هنا — بياناتها مُخزَّنة بالكامل داخل وثيقة
+    // الفرصة نفسها (rentRoll/sustainability كحقول جذر جديدة عبر registerOpportunitySchemaExtender)
+    // أو مرجعية ثابتة بالكود بلا تخزين في Firestore أصلاً، فتُحمى بقاعدة opportunities
+    // الموجودة أصلاً دون أي تعديل عليها.
+    match /saudiRegOverrides/{id} {
+      allow read: if isAuthorized();
+      allow create, update, delete: if isFundManagerOrAbove();
+    }
+
+    // سجل التدقيق (audit-trail.js/functions/index.js، المرحلة السابعة) — كانت هذه المجموعة
+    // "قراءة/إنشاء لأي عضو مصرَّح له" (audit-trail.js يكتب سجلاً بنفسه من العميل عند كل حفظ) —
+    // وهذا بالضبط الثغرة المرصودة في مراجعة المرحلة السابعة: "الواجهة تقول Audit Trail لكن
+    // أمنياً لا يزال Client-Writable Audit Log". أي عميل (حتى مصرَّح له بحسن نية) يقدر تقنياً
+    // يكتب سجل تدقيق مُزيَّف (بريد مُعدِّل خاطئ، أو حدثاً لم يقع فعلاً) لأن create كان مسموحاً
+    // بلا أي تحقق من محتوى السجل نفسه. الحل المؤسسي الحقيقي هنا: **لا كتابة من العميل إطلاقاً**
+    // — write بالكامل false لأي طلب عميل (create/update/delete كلها ممنوعة). الكتابة الوحيدة
+    // تأتي الآن من Cloud Function خلفية (functions/index.js، Firestore Trigger على مجموعة
+    // opportunities) تستخدم Admin SDK، الذي يتجاوز قواعد الأمان هذه بالكامل بتصميم Firebase —
+    // فلا حاجة لقاعدة "allow write" مطابقة له هنا (ولا يُفترض أن تكون موجودة، فتجاوز Admin SDK
+    // لقواعد الأمان مصمَّم بالضبط لهذه الحالة: كود خلفي موثوق بدل عميل غير موثوق بالكامل). القراءة
+    // تبقى لأي عضو مصرَّح له (يحتاجها الكل لرؤية سجل التعديلات في تفاصيل كل فرصة).
+    // ⚠️ يتطلب نشر Cloud Function الفعلية (functions/ المرفقة) على مشروع Firebase الحقيقي على
+    // خطة الدفع بالاستخدام (Blaze) — راجع functions/README.md المرفق لخطوات النشر والتكلفة
+    // المتوقعة. إلى حين نشرها، لا شيء سيكتب في هذه المجموعة (لا العميل بعد هذا التعديل، ولا
+    // الخلفية قبل النشر) — قسم "سجل التعديلات" في واجهة كل فرصة سيظهر فارغاً لأي حفظ جديد حتى
+    // يتم النشر (audit-trail.js يبقى يكتب محلياً في وضع الديمو ?demo=1 فقط، الذي لا يلمس Firestore
+    // الحقيقي إطلاقاً — انظر التعليق المقابل في رأس audit-trail.js).
+    match /oppAuditLog/{id} {
+      allow read: if isAuthorized();
+      allow write: if false;
+    }
+
+    // سجلات نسخ الاكتتاب (Versioned Underwriting، underwriting-versions.js، المرحلة السابعة) —
+    // لقطة (Snapshot) كاملة لبيانات وحسابات الفرصة عند لحظة مهمة (إنشاء، قرار لجنة استثمار،
+    // حفظ يدوي). سجل إضافة فقط بنفس فلسفة oppAuditLog (لا داعي هنا لـCloud Function لأن الخطر
+    // أقل جوهرياً — هذه لقطات تحليلية داعمة للقرار، لا سجل تدقيق رسمي مُلزِم قانونياً)، فتبقى
+    // القراءة/الإنشاء لأي عضو مصرَّح له (لأي فرصة يقدر يقرأها فعلاً)، والتعديل/الحذف للأدمن فقط.
+    match /underwritingVersions/{id} {
+      allow read, create: if isAuthorized();
+      allow update, delete: if isAdminEmail();
     }
   }
 }

@@ -1,11 +1,33 @@
 /* =========================================================================
-   سجل التعديلات — Version Control / Audit Trail (Phase 1، النظام الأول)
+   سجل التعديلات — Version Control / Audit Trail (Phase 1، ثم إصلاح حوكمي
+   جوهري في المرحلة السابعة — P0 #3: "الـ Audit Trail ليس Immutable بالكامل")
    ---------------------------------------------------------------------------
    يسجّل تلقائياً كل تعديل حقيقي على أي حقل في أي فرصة: القيمة قبل، القيمة بعد،
    من عدَّل، متى، ولماذا (سبب اختياري يكتبه المستخدم في خطوة "المراجعة والحفظ").
    بنية علائقية مستقلة: مجموعة Firestore خاصة (oppAuditLog) مرتبطة بمعرّف الفرصة
    (oppId) فقط — لا تُضاف أي حقول تدقيق داخل مستند الفرصة نفسها (باستثناء حقل
-   إدخال السبب المؤقت audit.changeReason الذي يُصفَّر بعد كل حفظ).
+   إدخال السبب المؤقت audit.changeReason، الذي **لم يعد يُصفَّر تلقائياً** بعد
+   كل حفظ — انظر التعليق أدناه عند registerBeforeOpportunitySave).
+
+   ---------------------------------------------------------------------------
+   إصلاح P0 #3 — "User → Application → Server Function → Immutable Audit
+   Event" بدل "User → Application → Firestore مباشرة":
+   كانت firestore.rules تسمح بـ`allow read, create: if isAuthorized();` على
+   oppAuditLog — أي أن أي عميل مصرَّح له (بما فيه عميل مُعدَّل أو خبيث) يستطيع
+   كتابة "سجل تدقيق" مزيَّف بنفسه مباشرة، وهذا يُبطل قيمة السجل كدليل موثوق —
+   سجل تدقيق يستطيع الفاعل نفسه كتابته ليس سجل تدقيق حقيقياً.
+   الإصلاح: firestore.rules الآن `allow write: if false;` على oppAuditLog —
+   **لا يمكن لأي عميل (ولا حتى الأدمن) الكتابة على هذه المجموعة نهائياً**.
+   الكتابة الفعلية انتقلت إلى functions/index.js (Cloud Function مُشغَّلة بـ
+   onDocumentWritten على opportunities/{oppId}، تعمل بصلاحيات Admin SDK التي
+   تتجاوز Security Rules بتصميم Firebase نفسه) — أي أن الكود أدناه **لم يعد
+   يكتب إلى Firestore الحقيقي مطلقاً**؛ الكتابة المحلية هنا تعمل فقط في وضع
+   الديمو (core.DEMO_MODE، حيث لا Firestore حقيقياً أصلاً ولا قيمة حوكمية
+   للتزييف) حتى تبقى تجربة الديمو تعرض سجل تعديلات فعلياً بلا نشر أي Function.
+   منطق deepDiff/fieldLabel/IGNORE_PATHS نفسه أُعيد استخدامه (منقولاً، لا
+   مستورَداً — Cloud Functions بيئة Node منفصلة) في functions/index.js حتى لا
+   يتباعد المنطقان — راجع تعليق تلك الدالة هناك لأي تعديل مستقبلي على قواعد
+   الفرق نفسها (يجب تحديث الملفَين معاً).
    لا تعديل هنا على منطق core.js الداخلي — كل شيء عبر نقاط التوسّع المُصدَّرة:
      registerDataCollection، registerOpportunitySchemaExtender،
      registerBeforeOpportunitySave، registerDetailSection، registerWizardStepExtra.
@@ -76,12 +98,25 @@ export function registerAuditTrail(core){
   }));
 
   core.registerBeforeOpportunitySave(async (oldData, newData, oppId)=>{
+    // إصلاح P0 #3: لا نُصفِّر audit.changeReason هنا بعد الآن. سابقاً كان يُصفَّر
+    // فوراً بعد قراءته لأن هذا الملف نفسه كان يكتب سجل التدقيق من العميل؛ أما
+    // الآن (Firestore الحقيقي) فالكتابة الفعلية تتم من Cloud Function تقرأ
+    // *المستند المحفوظ* بعد الحفظ — فتصفير الحقل هنا كان سيجعله يصل فارغاً
+    // للـ Function دائماً. الحقل يبقى في المستند كـ"آخر سبب تعديل أُدخل" (غير
+    // ضار)؛ عدم تكراره في الواجهة للمستخدم عند إعادة فتح المعالج هو تعديل عرض
+    // فقط (انظر registerWizardStepExtra أدناه) لا تعديل بيانات.
     const reason = (newData.audit && newData.audit.changeReason) ? String(newData.audit.changeReason).trim() : '';
-    // نصفّر حقل السبب المؤقت فور قراءته حتى لا يبقى ملصقاً بكل حفظ لاحق.
-    if(newData.audit) newData.audit.changeReason = '';
 
     const changedBy = core.currentUser ? core.currentUser.email : (core.DEMO_MODE ? 'زائر تجريبي' : 'محلي');
     const changedAt = new Date().toISOString();
+
+    // في وضع Firestore الحقيقي: firestore.rules تمنع أي كتابة عميل على
+    // oppAuditLog كلياً (allow write: if false) — الكتابة الحقيقية من
+    // functions/index.js عبر Admin SDK. الكتابة أدناه تعمل فقط في وضع الديمو
+    // المحلي (لا Firestore حقيقياً، لا Cloud Function تُشغَّل أصلاً) حتى لا
+    // تفقد تجربة الديمو سجل التعديلات، وحتى لا نحاول كتابة ستُرفَض دائماً في
+    // الوضع الحقيقي (وهذا كان سيكسر تدفّق الحفظ نفسه لو تُرك بلا هذا الشرط).
+    if(!core.DEMO_MODE) return;
 
     if(!oldData){
       // فرصة جديدة بالكامل — نسجّل حدث "إنشاء" واحد بدل فرق حقول تفصيلي (لا معنى لمقارنتها بلا شيء).
@@ -110,10 +145,15 @@ export function registerAuditTrail(core){
   // (أي عنصر بخاصية name داخل #wizard-modal) دون أي وصلة إضافية.
   core.registerWizardStepExtra(core.STEPS.length-1, (d)=>{
     if(!core.wizard || !core.wizard.editId) return '';
+    // ملاحظة (بعد إصلاح P0 #3): الحقل audit.changeReason لم يعد يُصفَّر تلقائياً
+    // بعد الحفظ (انظر registerBeforeOpportunitySave أعلاه) — فلا نُعيد تعبئة
+    // القيمة السابقة هنا (نص فراغ دائماً) حتى لا يظهر سبب التعديل *السابق*
+    // كأنه مكتوب للتعديل *الحالي*؛ هذا تعديل عرض فقط، لا تعديل بيانات — القيمة
+    // القديمة تبقى محفوظة في المستند لأي قراءة أخرى (مثل Cloud Function).
     return `
       <div class="section" style="margin-top:16px; background:var(--surface-2); border-style:dashed;">
         <p class="step-sub" style="margin:0 0 10px;">${core.T('سبب التعديل (اختياري)','Reason for this change (optional)')}</p>
-        <textarea name="audit.changeReason" rows="2" placeholder="${core.T('مثال: تعديل سعر الأرض بعد عرض مضاد من البائع','e.g. Updated land price after seller counteroffer')}" style="width:100%; padding:9px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-size:13px; font-family:inherit; direction:rtl;">${core.esc(d.audit && d.audit.changeReason || '')}</textarea>
+        <textarea name="audit.changeReason" rows="2" placeholder="${core.T('مثال: تعديل سعر الأرض بعد عرض مضاد من البائع','e.g. Updated land price after seller counteroffer')}" style="width:100%; padding:9px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-size:13px; font-family:inherit; direction:rtl;"></textarea>
         <p class="note" style="margin-top:6px;">${core.T('يُسجَّل مع كل حقل تغيّر في هذا الحفظ ضمن سجل التعديلات أدناه في شاشة تفاصيل الفرصة.','Recorded against every field that changed in this save, in the Version History section on the opportunity detail screen.')}</p>
       </div>`;
   });

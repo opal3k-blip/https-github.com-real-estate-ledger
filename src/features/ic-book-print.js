@@ -83,12 +83,6 @@ export function registerICBookPrint(core){
   core.registerActionHandler(async (action, el)=>{
     if(action==='icbook-open'){ core.setCoreState({ openDetailId: el.dataset.id, mainView:'icBook', render:true }); return true; }
     if(action==='icbook-close'){ core.setCoreState({ mainView:null, render:true }); return true; }
-    if(action==='icbook-print'){
-      document.body.classList.add('printing-ic-book');
-      window.print();
-      window.setTimeout(()=>document.body.classList.remove('printing-ic-book'), 1200);
-      return true;
-    }
     return false;
   });
 }
@@ -100,7 +94,7 @@ export function registerICBookPrint(core){
 function sec(core, num, titleAr, titleEn, subtitle, bodyHtml){
   const { T, esc } = core;
   return `
-  <div class="section print-section" style="break-inside:avoid; page-break-inside:avoid; margin-bottom:14px;">
+  <div class="section" style="break-inside:avoid; margin-bottom:14px;">
     <h3><span class="n">${num}</span> ${T(titleAr,titleEn)}${subtitle? ` <span style="color:var(--ink-faint); font-weight:500; font-size:12px;">(${esc(subtitle)})</span>` : ''}</h3>
     ${bodyHtml}
   </div>`;
@@ -144,7 +138,7 @@ function buildICBook(core, rec, d, c){
       ${core.branding.logoDataUrl? `<img src="${core.branding.logoDataUrl}" alt="${esc(core.branding.companyName||T('شعار الشركة','Company Logo'))}" class="print-letterhead-logo">` : ''}
       <div class="print-letterhead-text">
         <div class="print-letterhead-company">${esc(core.branding.companyName||'')}</div>
-        <div class="print-letterhead-app">${T('منصة استكشاف الفرص العقارية','Opal Real Estate Opportunity Explorer')} · Opal Real Estate Opportunity Explorer</div>
+        <div class="print-letterhead-app">${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')} · Real Estate Opportunity Ledger</div>
         <div class="print-letterhead-date">${T('تم إنشاؤه في','Generated on')} ${esc(core.fmtDateBilingual(core.todayStr()))}</div>
       </div>
     </div>
@@ -159,7 +153,7 @@ function buildICBook(core, rec, d, c){
       </div>
       <div class="verdict-banner ${vcls}" style="margin:22px auto 0; max-width:640px;">${vlbl}</div>
       <div style="margin-top:18px;">
-        <button type="button" class="btn btn-sm" data-action="icbook-print">🖨️ ${T('طباعة / PDF','Print / PDF')}</button>
+        <button type="button" class="btn btn-sm" data-action="print-memo">🖨️ ${T('طباعة / PDF','Print / PDF')}</button>
         <button type="button" class="btn btn-sm btn-ghost" data-action="icbook-close">✖ ${T('إغلاق والرجوع للفرصة','Close & return to opportunity')}</button>
       </div>
     </div>`;
@@ -189,7 +183,7 @@ function buildICBook(core, rec, d, c){
       [T('الفئة','Tier'), esc(d.meta.tier)],
       [T('نوع الفرصة','Opportunity Type'), T(ti.t,ti.en)],
       [T('نوع الاستخدام','Use Type'), esc(d.meta.useType||'—')],
-      [T('مرحلة مسار الاستثمار','Investment Path Stage'), stg? T(stg.ar,stg.en) : '—'],
+      [T('مرحلة خط الأنابيب','Pipeline Stage'), stg? T(stg.ar,stg.en) : '—'],
       [T('المحلل','Analyst'), esc(d.meta.analyst||'—')],
       [T('تاريخ الإنشاء','Created'), d.meta.createdAt? esc(core.fmtDateBilingual(d.meta.createdAt)) : '—'],
       [T('آخر تحديث','Last Updated'), d.meta.updatedAt? esc(core.fmtDateBilingual(d.meta.updatedAt)) : '—'],
@@ -487,8 +481,8 @@ function buildICBook(core, rec, d, c){
       [T('تاريخ إصدار هذا الكتاب','This book generated on'), esc(core.fmtDateBilingual(core.todayStr()))],
     ])}
     <p style="margin:12px 0 0; font-size:11px; line-height:1.8; color:var(--ink-faint);">
-      ${T('هذا الكتاب أُعِدَّ آلياً من بيانات مُدخَلة داخل تطبيق منصة استكشاف الفرص العقارية، ويستند إلى الافتراضات المُدخَلة من المحلل المسؤول وقت الإعداد. الأرقام هنا تقديرية ولا تُغني عن تقييم مستقل معتمد أو مراجعة قانونية/ضريبية/شرعية متخصصة قبل اتخاذ أي قرار استثماري نهائي. جميع الحقوق محفوظة.',
-        'This book was automatically compiled from data entered into Opal Real Estate Opportunity Explorer, and is based on assumptions entered by the responsible analyst at the time of preparation. Figures here are estimates and do not substitute for an accredited independent valuation or specialized legal/tax/Sharia review before any final investment decision. All rights reserved.')}
+      ${T('هذا الكتاب أُعِدَّ آلياً من بيانات مُدخَلة داخل تطبيق دفتر الفرص العقارية، ويستند إلى الافتراضات المُدخَلة من المحلل المسؤول وقت الإعداد. الأرقام هنا تقديرية ولا تُغني عن تقييم مستقل معتمد أو مراجعة قانونية/ضريبية/شرعية متخصصة قبل اتخاذ أي قرار استثماري نهائي. جميع الحقوق محفوظة.',
+        'This book was automatically compiled from data entered into the Real Estate Opportunity Ledger, and is based on assumptions entered by the responsible analyst at the time of preparation. Figures here are estimates and do not substitute for an accredited independent valuation or specialized legal/tax/Sharia review before any final investment decision. All rights reserved.')}
     </p>
   `);
 

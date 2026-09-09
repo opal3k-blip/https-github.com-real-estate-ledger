@@ -1,5 +1,5 @@
 /* =========================================================================
-   مسار الاستثمار — Investment Path (Phase 1، النظام الثاني)
+   خط الأنابيب الاستثماري — Investment Pipeline (Phase 1، النظام الثاني)
    ---------------------------------------------------------------------------
    يتتبّع كل فرصة عبر مراحل واضحة من "عميل محتمل" حتى "الأرشفة"، مع: المرحلة
    الحالية، المرحلة السابقة، المسؤول (Owner)، تاريخ الدخول للمرحلة، عدد الأيام
@@ -39,7 +39,7 @@ function daysSince(dateStr){
 }
 
 export function registerPipeline(core){
-  // مسار الاستثمار يُخزَّن داخل بيانات الفرصة نفسها (pipeline.*) — لا يحتاج مجموعة Firestore مستقلة.
+  // خط الأنابيب يُخزَّن داخل بيانات الفرصة نفسها (pipeline.*) — لا يحتاج مجموعة Firestore مستقلة.
   core.registerOpportunitySchemaExtender(()=>({
     pipeline: {
       stage: DEFAULT_STAGE,
@@ -51,9 +51,9 @@ export function registerPipeline(core){
     },
   }));
 
-  /* ---------------- زر شريط علوي لفتح لوحة مسار الاستثمار ---------------- */
+  /* ---------------- زر شريط علوي لفتح لوحة خط الأنابيب ---------------- */
   core.registerTopbarButton(()=>{
-    return `<button class="btn btn-sm" data-action="pipeline-open">🧭 ${core.T('مسار الاستثمار','Investment Path')}</button>`;
+    return `<button class="btn btn-sm" data-action="pipeline-open">🧭 ${core.T('خط الأنابيب الاستثماري','Investment Pipeline')}</button>`;
   });
 
   /* ---------------- اللوحة الكاملة (Kanban) ---------------- */
@@ -68,7 +68,7 @@ export function registerPipeline(core){
     return `
     <div class="section" style="margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
       <div>
-        <h2 style="margin:0;">🧭 ${core.T('مسار الاستثمار','Investment Path')}</h2>
+        <h2 style="margin:0;">🧭 ${core.T('خط الأنابيب الاستثماري','Investment Pipeline')}</h2>
         <p class="note" style="margin:4px 0 0;">${core.T('عدد الفرص النشطة (بدون المؤرشفة)','Active opportunities (excluding archived)')}: <b>${totalActive}</b></p>
       </div>
       <button class="btn btn-sm btn-ghost" data-action="pipeline-close">✖ ${core.T('إغلاق ورجوع للوحة الفرص','Close & return to dashboard')}</button>
@@ -129,7 +129,7 @@ export function registerPipeline(core){
     const canEdit = core.canEditOpp(rec);
     return `
     <div class="section">
-      <h3>🧭 ${core.T('مسار الاستثمار','Investment Path')}</h3>
+      <h3>🧭 ${core.T('خط الأنابيب الاستثماري','Investment Pipeline')}</h3>
       <div class="kv" style="margin-bottom:12px;">
         <div class="k">${core.T('المرحلة الحالية','Current Stage')}</div><div class="v"><span class="tag" style="background:${(STAGE_BY_KEY[p.stage]||{}).color||'#999'}22; color:${(STAGE_BY_KEY[p.stage]||{}).color||'#666'}; font-weight:700;">${stageLabel(core, p.stage)}</span></div>
         <div class="k">${core.T('أيام في هذه المرحلة','Days in this Stage')}</div><div class="v">${days==null?'—':days}</div>

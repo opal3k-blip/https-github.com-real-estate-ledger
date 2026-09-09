@@ -15,9 +15,14 @@
    الداخلي — فقط عبر نقاط التوسّع المُصدَّرة.
    ========================================================================= */
 
-import { COST_REFERENCE, MARKET_REFERENCE, OPAL_SOURCE_REGISTRY } from '../reference-data.js';
+import { canManageLibraries, certifyBadge } from './roles-permissions.js';
 
 const BENCH_COLLECTION = 'benchmarks';
+// عتبات تصنيف "تطابق المعيارين" (سعر البيع المُدخَل مباشرة ↔ سعر مُشتق من الإيجار ÷ معدل الرسملة
+// — نفس منطق Income Capitalization Approach القياسي). الفكرة: معيارين مستقلين لاستخراج السعر
+// يجب أن يتقاربا؛ فرق كبير بينهما علامة على خطأ إدخال أو مصدر غير دقيق يستحق مراجعة.
+const PRICE_CROSSCHECK_GOOD = 0.10;  // ≤10% فرق → 🟢 تطابق قوي
+const PRICE_CROSSCHECK_WARN = 0.20;  // 10-20% → 🟡 فرق ملحوظ يستحق مراجعة، >20% → 🔴 تضارب
 
 function oppTypeOptions(core){
   return Object.keys(core.OPP_TYPE_INFO).map(k=>[core.T(core.OPP_TYPE_INFO[k].t, core.OPP_TYPE_INFO[k].en), k]);
@@ -50,56 +55,35 @@ function aggregateBench(rows){
   };
 }
 
+/* معيار مستقل ثانٍ لاستنتاج سعر البيع/م² — منهج رسملة الدخل (Income Capitalization):
+   السعر = الإيجار السنوي/م² ÷ معدل الرسملة. يُستخدَم كتقاطع تحقق (Cross-Check) مع سعر البيع/م²
+   المُدخَل مباشرة في نفس السجل — لو المعياران متقاربان فثقتنا في دقة المكتبة أعلى؛ لو متباعدان
+   فهذا تنبيه لمراجعة أحد الرقمين (سعر البيع، الإيجار، أو معدل الرسملة) قبل الاعتماد عليه. */
+function impliedPriceFromRent(rentPerM2, capRateMin, capRateMax){
+  const capMid = avg([capRateMin, capRateMax]);
+  if(rentPerM2==null || capMid==null || capMid<=0) return null;
+  return rentPerM2 / capMid;
+}
+function priceCrosscheck(row){
+  const implied = impliedPriceFromRent(row.rentPerM2, row.capRateMin, row.capRateMax);
+  if(implied==null || row.salePricePerM2==null || row.salePricePerM2<=0) return null;
+  const diffPct = Math.abs(row.salePricePerM2 - implied) / row.salePricePerM2;
+  const band = diffPct<=PRICE_CROSSCHECK_GOOD ? 'good' : (diffPct<=PRICE_CROSSCHECK_WARN ? 'warn' : 'bad');
+  return { implied, diffPct, band };
+}
+function crosscheckBadge(core, row){
+  const cc = priceCrosscheck(row);
+  if(!cc) return `<span style="color:var(--ink-faint); font-size:11px;">—</span>`;
+  const icon = cc.band==='good'? '🟢' : (cc.band==='warn'? '🟡' : '🔴');
+  const color = cc.band==='good'? 'var(--good)' : (cc.band==='warn'? 'var(--warn)' : 'var(--bad)');
+  return `<span title="${core.T('السعر المشتق من الإيجار÷معدل الرسملة','Price implied from rent÷cap rate')}: ${core.fmtSAR(cc.implied)} — ${core.T('الفرق','diff')} ${core.fmtPct(cc.diffPct)}" style="color:${color}; font-weight:700; font-size:11px; cursor:help;">${icon} ${core.fmtPct(cc.diffPct,0)}</span>`;
+}
+
 export function registerBenchmarkEngine(core){
   core.registerDataCollection(BENCH_COLLECTION);
 
   core.registerTopbarButton(()=>{
-    return `<button class="btn btn-sm" data-action="bench-open">📚 ${core.T('مكتبة أوبال المرجعية','OPAL Reference Library')}</button>
-      <button class="btn btn-sm btn-ghost" data-action="reference-open">📊 ${core.T('بيانات التكلفة والسوق','Cost & Market Data')}</button>`;
-  });
-
-  core.registerMainView('reference-library', ()=>{
-    const money = v => v==null ? '—' : Number(v).toLocaleString('en-US');
-    const costRows = COST_REFERENCE.map(r=>`<tr>
-      <td>${core.esc(r.id)}</td><td>${core.esc(r.sector||'—')}</td><td>${core.esc(r.product||'—')}</td><td>${core.esc(r.class||'—')}</td>
-      <td class="num mono">${money(r.costMin)}–${money(r.costMax)}</td><td class="num mono">${money(r.costAvg)}</td><td>${core.esc(r.costUnit||'—')}</td>
-      <td>${core.esc(r.parkingRule||'—')}</td><td>${core.esc(r.validationStatus||'—')}</td>
-    </tr>`).join('');
-    const marketRows = MARKET_REFERENCE.map(r=>`<tr>
-      <td>${core.esc(r.city||'—')}</td><td>${core.esc(r.district||'—')}</td><td>${core.esc(r.tier||'—')}</td><td>${core.esc(r.propertyType||'—')}</td>
-      <td class="num mono">${money(r.saleMin)}–${money(r.saleMax)}</td><td class="num mono">${money(r.saleAvg)}</td>
-      <td class="num mono">${money(r.rentMin)}–${money(r.rentMax)}</td><td class="num mono">${money(r.rentAvg)}</td>
-      <td>${core.esc(r.rentBasis||'—')}</td><td>${core.esc(r.source||'—')}</td>
-    </tr>`).join('');
-    const sources = OPAL_SOURCE_REGISTRY.map(s=>`<tr>
-      <td>${core.esc(s.name)}</td><td>${core.esc(s.type)}</td><td>${core.esc(s.scope)}</td><td>${core.esc(s.metrics)}</td>
-      <td><a href="${core.esc(s.url)}" target="_blank" rel="noopener">${core.T('فتح المصدر','Open source')}</a></td>
-    </tr>`).join('');
-    return `<div class="section" style="margin-bottom:14px;">
-      <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;">
-        <div><h2 style="margin:0;">📊 ${core.T('مكتبة أوبال للتكلفة والسوق','OPAL Cost & Market Reference Library')}</h2>
-        <p class="note" style="margin:4px 0 0;">${COST_REFERENCE.length} ${core.T('مرجع تكلفة ومواقف','cost & parking references')} · ${MARKET_REFERENCE.length} ${core.T('مرجع سعر بيع وإيجار','sale & rent references')} · ${OPAL_SOURCE_REGISTRY.length} ${core.T('مصادر موثقة للرجوع','source references')}</p></div>
-        <button class="btn btn-sm btn-ghost" data-action="bench-close">✖ ${core.T('إغلاق','Close')}</button>
-      </div>
-      <div class="note" style="margin-top:12px; padding:10px; border-inline-start:4px solid var(--accent);">
-        ${core.T('هذه مكتبة مرجعية وليست سجلاً لمعاملات مؤكدة. كل رقم يحتفظ بوحدته ومصدره وحالته، ويجب التحقق منه قبل اعتماده في قرار استثماري أو عرض سعر.','Reference-only data, not verified transactions. Every value keeps its unit, source and validation status; verify before using it in an investment decision or quotation.')}
-      </div>
-    </div>
-    <details class="section" open><summary><b>🏗️ ${core.T('تكاليف الإنشاء وقواعد المواقف','Construction Costs & Parking Rules')}</b></summary>
-      <div class="tablewrap"><table class="db" style="font-size:11px;"><thead><tr>
-        <th>ID</th><th>${core.T('القطاع','Sector')}</th><th>${core.T('المنتج','Product')}</th><th>${core.T('الفئة','Class')}</th>
-        <th>${core.T('نطاق التكلفة','Cost Range')}</th><th>${core.T('المتوسط','Average')}</th><th>${core.T('الوحدة','Unit')}</th><th>${core.T('المواقف','Parking')}</th><th>${core.T('التحقق','Validation')}</th>
-      </tr></thead><tbody>${costRows}</tbody></table></div>
-    </details>
-    <details class="section"><summary><b>🏙️ ${core.T('أسعار البيع والإيجار حسب المدينة والحي','Sale & Rent by City and District')}</b></summary>
-      <div class="tablewrap"><table class="db" style="font-size:11px;"><thead><tr>
-        <th>${core.T('المدينة','City')}</th><th>${core.T('الحي','District')}</th><th>${core.T('الشريحة','Tier')}</th><th>${core.T('نوع العقار','Property')}</th>
-        <th>${core.T('نطاق البيع','Sale Range')}</th><th>${core.T('متوسط البيع','Avg Sale')}</th><th>${core.T('نطاق الإيجار','Rent Range')}</th><th>${core.T('متوسط الإيجار','Avg Rent')}</th><th>${core.T('دورية الإيجار','Rent Basis')}</th><th>${core.T('المصدر','Source')}</th>
-      </tr></thead><tbody>${marketRows}</tbody></table></div>
-    </details>
-    <details class="section"><summary><b>🔎 ${core.T('سجل المصادر والمنهجية','Source & Methodology Register')}</b></summary>
-      <div class="tablewrap"><table class="db" style="font-size:11px;"><thead><tr><th>${core.T('المصدر','Source')}</th><th>${core.T('النوع','Type')}</th><th>${core.T('النطاق','Scope')}</th><th>${core.T('المقاييس','Metrics')}</th><th>${core.T('الرابط','Link')}</th></tr></thead><tbody>${sources}</tbody></table></div>
-    </details>`;
+    return `<button class="btn btn-sm" data-action="bench-open">📚 ${core.T('مكتبة أوبال المرجعية','OPAL Benchmark Library')}</button>`;
   });
 
   core.registerMainView('benchmarks', ()=>{
@@ -113,6 +97,7 @@ export function registerBenchmarkEngine(core){
       <button class="btn btn-sm btn-ghost" data-action="bench-close">✖ ${core.T('إغلاق ورجوع للوحة الفرص','Close & return to dashboard')}</button>
     </div>
 
+    ${canManageLibraries(core)? `
     <div class="section" style="margin-bottom:14px; background:var(--surface-2); border:1px dashed var(--border);">
       <p class="step-sub" style="margin:0 0 10px;">${core.T('إضافة معيار مرجعي جديد','Add a new benchmark')}</p>
       <form id="bench-add-form" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
@@ -133,14 +118,18 @@ export function registerBenchmarkEngine(core){
         <input type="text" name="source" placeholder="${core.T('المصدر','Source')}" style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-family:inherit; font-size:12.5px;">
       </form>
       <button type="button" class="btn btn-sm btn-primary" style="margin-top:8px;" data-action="bench-add">➕ ${core.T('إضافة','Add')}</button>
-    </div>
+    </div>` : `
+    <div class="section" style="margin-bottom:14px; background:var(--surface-2); border:1px dashed var(--border);">
+      <p class="note" style="margin:0;">🔒 ${core.T('إضافة/تعديل/حذف/تصديق السجلات المرجعية يتطلب صلاحية مدير صندوق فأعلى — تقدر تشوف وتستخدم المكتبة في المقارنة بصلاحيتك الحالية.','Adding, editing, deleting, or certifying benchmark records requires Fund Manager tier or above — you can view and use the library for comparison at your current tier.')}</p>
+    </div>`}
 
     <div class="tablewrap"><table class="db" style="font-size:11.5px;">
       <thead><tr>
         <th>${core.T('المدينة','City')}</th><th>${core.T('النوع','Type')}</th><th>${core.T('الوصف','Label')}</th>
         <th>IRR</th><th>Cap Rate</th><th>DSCR</th><th>YoC</th>
         <th>${core.T('الإيجار/م²','Rent/m²')}</th><th>${core.T('البيع/م²','Sale/m²')}</th><th>${core.T('البناء/م²','Build/m²')}</th>
-        <th>${core.T('المصدر','Source')}</th><th></th>
+        <th title="${core.T('تطابق السعر المُدخَل مباشرة مع السعر المُشتق من الإيجار÷معدل الرسملة — معياران مستقلان لضمان دقة المكتبة','Cross-check: directly-entered price vs. price implied by rent÷cap rate — two independent methods to keep the library accurate')}">${core.T('تطابق السعرين','Cross-check')}</th>
+        <th>${core.T('المصدر','Source')}</th><th>${core.T('الحالة','Status')}</th><th></th>
       </tr></thead>
       <tbody>
         ${rows.slice().sort((a,b)=> (a.data.city||'').localeCompare(b.data.city||'')).map(rec=>{
@@ -154,10 +143,16 @@ export function registerBenchmarkEngine(core){
             <td class="num mono">${b.rentPerM2!=null?core.fmtSAR(b.rentPerM2):'—'}</td>
             <td class="num mono">${b.salePricePerM2!=null?core.fmtSAR(b.salePricePerM2):'—'}</td>
             <td class="num mono">${b.buildCostPerM2!=null?core.fmtSAR(b.buildCostPerM2):'—'}</td>
+            <td class="num">${crosscheckBadge(core,b)}</td>
             <td style="font-size:11px;">${core.esc(b.source||'—')}</td>
-            <td><button class="btn btn-sm btn-ghost" data-action="bench-delete" data-id="${rec.id}">🗑️</button></td>
+            <td>${certifyBadge(core,b)}</td>
+            <td>${canManageLibraries(core)? `
+              <div class="small-btns">
+                ${!b.certified? `<button class="btn btn-sm btn-ghost" data-action="bench-certify" data-id="${rec.id}" title="${core.T('تصديق هذا السجل','Certify this record')}">✅</button>` : ''}
+                <button class="btn btn-sm btn-ghost" data-action="bench-delete" data-id="${rec.id}">🗑️</button>
+              </div>` : ''}</td>
           </tr>`;
-        }).join('') || `<tr><td colspan="11" style="text-align:center; padding:16px;">${core.T('لا توجد معايير مرجعية مسجَّلة بعد','No benchmarks recorded yet')}</td></tr>`}
+        }).join('') || `<tr><td colspan="14" style="text-align:center; padding:16px;">${core.T('لا توجد معايير مرجعية مسجَّلة بعد','No benchmarks recorded yet')}</td></tr>`}
       </tbody>
     </table></div>`;
   });
@@ -214,9 +209,9 @@ export function registerBenchmarkEngine(core){
 
   core.registerActionHandler(async (action, el)=>{
     if(action==='bench-open'){ core.setCoreState({ mainView:'benchmarks', openDetailId:null, render:true }); return true; }
-    if(action==='reference-open'){ core.setCoreState({ mainView:'reference-library', openDetailId:null, render:true }); return true; }
     if(action==='bench-close'){ core.setCoreState({ mainView:null, render:true }); return true; }
     if(action==='bench-add'){
+      if(!canManageLibraries(core)) return true;
       const form = document.getElementById('bench-add-form');
       if(!form) return true;
       const g = name => { const v = form.querySelector(`[name="${name}"]`).value; return v===''? null : Number(v); };
@@ -234,12 +229,30 @@ export function registerBenchmarkEngine(core){
         rentPerM2: g('rentPerM2'), salePricePerM2: g('salePricePerM2'), buildCostPerM2: g('buildCostPerM2'),
         source: form.querySelector('[name="source"]').value.trim(),
         enteredBy: core.currentUser? core.currentUser.email : (core.DEMO_MODE? 'زائر تجريبي':'محلي'),
+        // كل سجل جديد يبدأ كمسودة غير مُصدَّقة — التصديق فعل مستقل يقوم به مدير صندوق/أدمن
+        // بعد مراجعة الرقم (انظر certifyBadge في roles-permissions.js وإجراء bench-certify أدناه).
+        certified: false, certifiedBy: null, certifiedAt: null,
       }};
       await core.persistIfRecord(BENCH_COLLECTION, rec);
       core.render();
       return true;
     }
+    if(action==='bench-certify'){
+      if(!canManageLibraries(core)) return true;
+      const rec = (core.STORE[BENCH_COLLECTION]||[]).find(r=>r.id===el.dataset.id);
+      if(!rec) return true;
+      const updated = { id: rec.id, data: {
+        ...rec.data,
+        certified: true,
+        certifiedBy: core.currentUser? core.currentUser.email : 'محلي',
+        certifiedAt: new Date().toISOString(),
+      }};
+      await core.persistIfRecord(BENCH_COLLECTION, updated);
+      core.render();
+      return true;
+    }
     if(action==='bench-delete'){
+      if(!canManageLibraries(core)) return true;
       await core.deleteIfRecord(BENCH_COLLECTION, el.dataset.id);
       core.render();
       return true;

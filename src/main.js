@@ -79,9 +79,6 @@ registerInvestmentScore(core);
 import { registerICWorkflow } from './features/ic-workflow.js';
 registerICWorkflow(core);
 
-import { registerICReadiness } from './features/ic-readiness.js';
-registerICReadiness(core);
-
 /* ---------------- المرحلة ٢ ---------------- */
 import { registerMaxAcquisitionPrice } from './features/max-acquisition-price.js';
 registerMaxAcquisitionPrice(core);
@@ -138,6 +135,111 @@ registerExcelWorkbook(core);
 // الحالية في core.js (تبقى كما هي، لا تزال متاحة كتصدير سريع من زر "⬇️ PowerPoint" الأصلي).
 import { registerICPresentation } from './features/ic-presentation.js';
 registerICPresentation(core);
+
+/* ---------------- المرحلة ٤ (الأدوار والصلاحيات + إثراء المكتبات المرجعية) ---------------- */
+// الأدوار والصلاحيات — يجب تسجيلها أولاً بين وحدات المرحلة ٤ لأن الوحدات التالية (المكتبات
+// المرجعية الجديدة) تستورد دوال الفحص منها مباشرة (canManageLibraries/certifyBadge) — لا علاقة
+// بترتيب التسجيل نفسه (وحدات ES تُحل عند الاستيراد بصرف النظر عن هذا الترتيب)، فقط توضيح منطقي.
+import { registerRolesPermissions } from './features/roles-permissions.js';
+registerRolesPermissions(core);
+
+// مكتبة الكفاءة المعمارية والتكلفة المرجعية — تُسجَّل بعد الأدوار مباشرة (تستورد
+// canManageLibraries/certifyBadge منها). طلب المستخدم الثاني في هذه المرحلة: مكتبة
+// كفاءة/تكلفة غنية تُظهر مؤشرات معمارية لحظة الإدخال (Step 3: نوع الاستخدام الرئيسي).
+import { registerSpaceEfficiencyLibrary } from './features/space-efficiency-library.js';
+registerSpaceEfficiencyLibrary(core);
+
+// قنوات الخروج المؤسسية (REIT بالجملة / Strata / إعادة تمويل / IPO / تصفية صندوق) — طلب
+// المستخدم الثالث في هذه المرحلة. لا علاقة بـEXIT_STRATEGIES/holdStrategy الحاليين في
+// core.js (يبقيان بلا أي تعديل) — بُعد "قناة المشتري" إضافي وإعلامي فقط (انظر رأس الملف).
+import { registerExitChannels } from './features/exit-channels.js';
+registerExitChannels(core);
+
+// رافعات الجدوى القابلة للتفعيل — طلب المستخدم الرابع. تستورد matchBenchmarks/
+// aggregateBench من benchmark-engine.js مباشرة (يجب أن يكون معرَّفاً/مُصدَّراً وقت
+// الاستيراد — ترتيب الاستيراد هنا غير حرج فعلياً لأن ES modules تُحل كل الاستيرادات
+// أولاً بصرف النظر عن ترتيب سطور import، لكن نضعه بعد تسجيل benchmark-engine منطقياً).
+import { registerFeasibilityLevers } from './features/feasibility-levers.js';
+registerFeasibilityLevers(core);
+
+// مكتبة منحنيات التوزيع الإحصائي للتكاليف/الافتراضات — طلب المستخدم الخامس (سؤال
+// اقترحه ووافقنا عليه). مرجعي/تثقيفي بالكامل، لا يُغيِّر أي حساب.
+import { registerCostDistributionLibrary } from './features/cost-distribution-library.js';
+registerCostDistributionLibrary(core);
+
+/* ---------------- المرحلة ٥ (رسوم/مصاريف الصندوق + خريطة الفرص) ---------------- */
+// مكتبة رسوم الصندوق والمصاريف التشغيلية المرجعية — تُسجَّل قبل space-efficiency-library
+// (فوق) بحكم ترتيب الاستيراد فقط (لا يؤثر على تسلسل التسجيل الفعلي — ES modules تُحل كل
+// الاستيرادات أولاً)؛ يُصدِّر OPEX_BY_SECTOR الذي تستورده space-efficiency-library.js
+// باتجاه واحد فقط (طلب المستخدم "كلاهما": مكتبة رسوم جديدة + إغناء المكتبة القائمة).
+import { registerFundFeesOpexLibrary } from './features/fund-fees-opex-library.js';
+registerFundFeesOpexLibrary(core);
+
+// خريطة الفرص العقارية (Leaflet.js) — طلب المستخدم الثاني في هذه المرحلة، بموقع دقيق
+// (Lat/Lng) لكل فرصة (حقل جذر جديد geo، عبر registerOpportunitySchemaExtender) بدل مجرد
+// تجميع فرص كل مدينة عند نقطة واحدة. راجع رأس opportunities-map.js لتفاصيل آلية التهيئة بعد
+// الرسم (MutationObserver) بلا أي تعديل على core.js.
+import { registerOpportunitiesMap } from './features/opportunities-map.js';
+registerOpportunitiesMap(core);
+
+/* ---------------- المرحلة ٦ (الأنظمة السعودية + Rent Roll + السياق الاقتصادي + الاستدامة) ---------------- */
+// طلب المستخدم (بعد اختيار الأربعة معاً عبر AskUserQuestion): مكتبة الأنظمة واللوائح
+// السعودية المرجعية، سجل عقود الإيجار التفصيلي (Rent Roll)، طبقة السياق الاقتصادي الكلي
+// على الخريطة (مشاريع رؤية ٢٠٣٠)، وتصنيف الاستدامة (مستدام/ESG). ملاحظة استيراد مهمة:
+// geo-utils.js (وُرِثَ من المرحلة ٥) ملف "ورقة" بلا أي استيراد، تستورده كل من
+// opportunities-map.js وmacro-context.js باتجاه واحد فقط؛ وopportunities-map.js يستورد
+// MEGAPROJECTS من macro-context.js باتجاه واحد أيضاً (macro-context.js لا يستورد شيئاً من
+// opportunities-map.js) — فلا استيراد دائري بين الملفين الثلاثة، بصرف النظر عن ترتيب
+// استدعاءات register* أدناه (ES modules تُحل كل الاستيرادات وقت التحميل، لا وقت التسجيل).
+
+// مكتبة الأنظمة واللوائح العقارية السعودية المرجعية — تستورد canManageLibraries/certifyBadge
+// من roles-permissions.js (مُسجَّلة فعلاً أعلاه في المرحلة ٤).
+import { registerSaudiRegulatoryLibrary } from './features/saudi-regulatory-library.js';
+registerSaudiRegulatoryLibrary(core);
+
+// سجل عقود الإيجار التفصيلي (Rent Roll) — بيانات عملياتية خاصة بكل فرصة (حقل جذر جديد
+// rentRoll)، محمية بصلاحية core.canEditOpp(rec) نفسها (لا canManageLibraries — ليست مكتبة
+// مرجعية مشتركة للفريق، بل بيانات صفقة). لا يستورد ولا يُستورَد من أي ملف آخر هنا.
+import { registerRentRoll } from './features/rent-roll.js';
+registerRentRoll(core);
+
+// طبقة السياق الاقتصادي الكلي (مشاريع رؤية ٢٠٣٠) — تُسجَّل بعد خريطة الفرص منطقياً (تُضيف
+// طبقة اختيارية فوقها عبر opportunities-map.js نفسه الذي استورد MEGAPROJECTS منها أعلاه)،
+// وتُسجِّل بنفسها قسم تفاصيل "أقرب مشروع كبرى" (Haversine، عبر geo-utils.js).
+import { registerMacroContext } from './features/macro-context.js';
+registerMacroContext(core);
+
+// تصنيف الاستدامة (مستدام/ESG) — النظام الرابع والأخير المطلوب في هذه المرحلة. حقل جذر جديد
+// (sustainability) عبر registerOpportunitySchemaExtender، مرجعي بالكامل بلا أي تعديل على أي
+// حساب فعلي في core.js. لا يستورد ولا يُستورَد من أي ملف آخر هنا.
+import { registerSustainabilityMostadam } from './features/sustainability-mostadam.js';
+registerSustainabilityMostadam(core);
+
+/* ---------------- المرحلة ٧ (الحوكمة والضبط المؤسسي — P0) ---------------- */
+// "لا أريد الآن أن نصل إلى ٩٫٥ بإضافة Features. أريد أن نصل إلى ٩٫٥ بالحوكمة."
+// هذه المرحلة لا تضيف نظاماً استثمارياً جديداً بالمعنى المعتاد — تُحكِّم ما هو
+// موجود فعلاً: صلاحيات لجنة الاستثمار الحقيقية (لا owner-based)، بوابة جهوزية
+// حقيقية بدل "تسجيل قرار" حر، توحيد نموذج الصلاحيات بين الواجهة وFirestore،
+// سجل تدقيق غير قابل للتلاعب (Cloud Function، انظر ../../functions)، وتسعير
+// موثَّق بالإصدارات. تعديلات ic-workflow.js/comparables.js/evidence-tracking.js/
+// audit-trail.js نفسها أعلاه (لا تسجيل جديد لها — register* الحالي لكل منها
+// كافٍ)؛ وحدتان جديدتان فقط تحتاجان تسجيلاً:
+
+// بوابة قرار لجنة الاستثمار — تستورد evidenceCoverageStats من evidence-tracking.js
+// (المُسجَّلة أعلاه في المرحلة ٢) ودوال أخرى من due-diligence.js/data-quality.js/
+// max-acquisition-price.js (كل ذلك عبر import ثابت، لا يعتمد على ترتيب التسجيل).
+// يجب تسجيلها قبل ic-workflow.js منطقياً في العرض (تظهر بوابة الجهوزية في قسمها
+// المستقل، ثم قسم "لجنة الاستثمار" الذي يستخدم icReadiness() داخلياً لمنع الاعتماد
+// دون جهوزية) — لكن ic-workflow.js نفسه مُسجَّل أعلاه في Phase 1 بالفعل، فهذا الترتيب
+// هنا يؤثر فقط على ترتيب ظهور الأقسام الإضافية الجديدة نسبياً لبعضها، لا على الاستيراد.
+import { registerICDecisionGate } from './features/ic-decision-gate.js';
+registerICDecisionGate(core);
+
+// التسعير الموثَّق بالإصدارات (v1→v4 + Actual vs. Underwriting) — مجموعة بيانات
+// جديدة مستقلة (underwritingVersions) + حقل جذر جديد (actuals). يستمع تلقائياً لكل
+// حفظ فرصة (registerBeforeOpportunitySave) لاكتشاف قرار لجنة اعتماد جديد.
+import { registerUnderwritingVersions } from './features/underwriting-versions.js';
+registerUnderwritingVersions(core);
 
 /* ---------------- التهيئة ---------------- */
 core.initDb();
