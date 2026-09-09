@@ -4951,6 +4951,7 @@ function exportOpportunityPptx(id){
     const pres = new Ctor();
     pres.defineLayout({ name:'WIDE', width:13.33, height:7.5 });
     pres.layout = 'WIDE';
+    pres.theme = { headFontFace:'Sakkal Majalla', bodyFontFace:'Aptos', lang:'ar-SA' };
 
     const s1 = pres.addSlide();
     s1.addText(d.meta.name||'فرصة استثمارية', { x:0.5,y:0.5,w:12.3,h:1, fontSize:28, bold:true, color:'0E6B4C', align:'right' });
