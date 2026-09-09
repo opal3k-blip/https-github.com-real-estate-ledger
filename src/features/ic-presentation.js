@@ -59,6 +59,7 @@ async function exportICPresentation(core, id){
     const pres = new Ctor();
     pres.defineLayout({ name:'WIDE', width:13.33, height:7.5 });
     pres.layout = 'WIDE';
+    pres.theme = { headFontFace:'Sakkal Majalla', bodyFontFace:'Aptos', lang:'ar-SA' };
 
     const narrative = generateAnalystNarrative(core, d, c);
     const decisions = (d.ic && d.ic.decisions) || [];
@@ -290,7 +291,7 @@ async function exportICPresentation(core, id){
         {text:'ROI: ', options:{bold:true}}, {text:fmtPct(c.ROI)+'    '},
         {text:'فترة الاسترداد: ', options:{bold:true}}, {text:(c.paybackPeriod!=null?c.paybackPeriod.toFixed(1)+' سنة':'—')+'\n'},
       ], { x:0.5,y:1.4,w:12.3,h:3, fontSize:14, align:'right', color:PAL.ink, lineSpacing:34 });
-      s.addText('هذا العرض أُعِدَّ آلياً من بيانات دفتر الفرص العقارية. الأرقام تقديرية ولا تُغني عن تقييم مستقل معتمد قبل أي قرار استثماري نهائي.',
+      s.addText('هذا العرض أُعِدَّ آلياً من بيانات منصة استكشاف الفرص العقارية. الأرقام تقديرية ولا تُغني عن تقييم مستقل معتمد قبل أي قرار استثماري نهائي.',
         { x:0.5,y:5.0,w:12.3,h:1, fontSize:10, color:PAL.text, align:'right', italic:true });
     }
 

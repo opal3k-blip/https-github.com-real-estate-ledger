@@ -138,7 +138,7 @@ function buildICBook(core, rec, d, c){
       ${core.branding.logoDataUrl? `<img src="${core.branding.logoDataUrl}" alt="${esc(core.branding.companyName||T('شعار الشركة','Company Logo'))}" class="print-letterhead-logo">` : ''}
       <div class="print-letterhead-text">
         <div class="print-letterhead-company">${esc(core.branding.companyName||'')}</div>
-        <div class="print-letterhead-app">${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')} · Real Estate Opportunity Ledger</div>
+        <div class="print-letterhead-app">${T('منصة استكشاف الفرص العقارية','Opal Real Estate Opportunity Explorer')} · Opal Real Estate Opportunity Explorer</div>
         <div class="print-letterhead-date">${T('تم إنشاؤه في','Generated on')} ${esc(core.fmtDateBilingual(core.todayStr()))}</div>
       </div>
     </div>
@@ -481,8 +481,8 @@ function buildICBook(core, rec, d, c){
       [T('تاريخ إصدار هذا الكتاب','This book generated on'), esc(core.fmtDateBilingual(core.todayStr()))],
     ])}
     <p style="margin:12px 0 0; font-size:11px; line-height:1.8; color:var(--ink-faint);">
-      ${T('هذا الكتاب أُعِدَّ آلياً من بيانات مُدخَلة داخل تطبيق دفتر الفرص العقارية، ويستند إلى الافتراضات المُدخَلة من المحلل المسؤول وقت الإعداد. الأرقام هنا تقديرية ولا تُغني عن تقييم مستقل معتمد أو مراجعة قانونية/ضريبية/شرعية متخصصة قبل اتخاذ أي قرار استثماري نهائي. جميع الحقوق محفوظة.',
-        'This book was automatically compiled from data entered into the Real Estate Opportunity Ledger, and is based on assumptions entered by the responsible analyst at the time of preparation. Figures here are estimates and do not substitute for an accredited independent valuation or specialized legal/tax/Sharia review before any final investment decision. All rights reserved.')}
+      ${T('هذا الكتاب أُعِدَّ آلياً من بيانات مُدخَلة داخل منصة استكشاف الفرص العقارية، ويستند إلى الافتراضات المُدخَلة من المحلل المسؤول وقت الإعداد. الأرقام هنا تقديرية ولا تُغني عن تقييم مستقل معتمد أو مراجعة قانونية/ضريبية/شرعية متخصصة قبل اتخاذ أي قرار استثماري نهائي. جميع الحقوق محفوظة.',
+        'This book was automatically compiled from data entered into the Opal Real Estate Opportunity Explorer, and is based on assumptions entered by the responsible analyst at the time of preparation. Figures here are estimates and do not substitute for an accredited independent valuation or specialized legal/tax/Sharia review before any final investment decision. All rights reserved.')}
     </p>
   `);
 

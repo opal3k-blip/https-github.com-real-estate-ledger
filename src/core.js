@@ -116,7 +116,7 @@ function updateDocMeta(){
     document.title = LANG==='en' ? 'Opal Real Estate Opportunity Explorer' : 'منصة استكشاف الفرص العقارية — أوبال';
     const metaDesc = document.querySelector('meta[name="description"]');
     if(metaDesc) metaDesc.setAttribute('content', LANG==='en'
-      ? 'Real Estate Opportunity Ledger — a real-estate investment underwriting and feasibility tool by Opal'
+      ? 'Opal Real Estate Opportunity Explorer — real-estate underwriting and feasibility platform'
       : 'منصة استكشاف الفرص العقارية — أداة تقييم وتحليل جدوى الفرص العقارية من شركة أوبال القابضة (Opal Holding)');
   }catch(e){}
 }
@@ -2789,13 +2789,13 @@ function renderDetail(id){
   <div class="memo" data-print-date="${esc(fmtDateBilingual(todayStr()))}">
     <div class="print-run-header">
       <span>${esc(branding.companyName||T('أوبال القابضة','Opal Holding'))} — ${esc(d.meta.name||T('بدون اسم','Unnamed'))}</span>
-      <span>${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')} · ${esc(fmtDateBilingual(todayStr()))}</span>
+      <span>${T('منصة استكشاف الفرص العقارية','Opal Real Estate Opportunity Explorer')} · ${esc(fmtDateBilingual(todayStr()))}</span>
     </div>
     <div class="print-letterhead">
       ${branding.logoDataUrl? `<img src="${branding.logoDataUrl}" alt="${esc(branding.companyName||T('شعار الشركة','Company Logo'))}" class="print-letterhead-logo">` : ''}
       <div class="print-letterhead-text">
         <div class="print-letterhead-company">${esc(branding.companyName||'')}</div>
-        <div class="print-letterhead-app">${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')} · Real Estate Opportunity Ledger</div>
+        <div class="print-letterhead-app">${T('منصة استكشاف الفرص العقارية','Opal Real Estate Opportunity Explorer')} · Opal Real Estate Opportunity Explorer</div>
         <div class="print-letterhead-date">${T('تم إنشاؤه في','Generated on')} ${esc(fmtDateBilingual(todayStr()))}</div>
       </div>
     </div>
@@ -3484,8 +3484,8 @@ function renderLogin(){
           <div class="brand" style="justify-content:center; margin-bottom:14px;">
             <div class="mark"><img src="${OPAL_LOGO_MARK}" alt="Opal"></div>
             <div>
-              <h1 style="font-size:17px;">${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')}</h1>
-              <div class="sub">${T('Real Estate Opportunity Ledger','دفتر الفرص العقارية')}</div>
+              <h1 style="font-size:17px;">${T('منصة استكشاف الفرص العقارية','Opal Real Estate Opportunity Explorer')}</h1>
+              <div class="sub">${T('Opal Real Estate Opportunity Explorer','منصة استكشاف الفرص العقارية')}</div>
             </div>
           </div>
           <div class="step-title" style="font-size:16px;">${TEAM_ENTRY? T('تسجيل دخول أعضاء الفريق','Team Member Sign-in') : T('تسجيل الدخول','Sign In')}</div>
@@ -3996,8 +3996,8 @@ function render(){
       <div class="brand">
         <div class="mark"><img src="${OPAL_LOGO_MARK}" alt="Opal"></div>
         <div>
-          <h1>${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')}</h1>
-          <div class="sub">${T('Real Estate Opportunity Ledger — SAR','دفتر الفرص العقارية — ر.س')}</div>
+          <h1>${T('منصة استكشاف الفرص العقارية','Opal Real Estate Opportunity Explorer')}</h1>
+          <div class="sub">${T('Opal Real Estate Opportunity Explorer — SAR','منصة استكشاف الفرص العقارية — ر.س')}</div>
         </div>
       </div>
       <div class="badge-row">
@@ -4364,7 +4364,7 @@ document.addEventListener('click', async (e)=>{
    متعرّج (Zebra)، وتنسيق أرقام حقيقي (فواصل الآلاف/النسب) — بدل خلايا نصّية عادية.
    ========================================================================= */
 const XL = { navy:'FF13343B', teal:'FF1F5F6B', tealLight:'FFDCEEEF', tealPale:'FFF3FAFA',
-  white:'FFFFFFFF', border:'FFC7D6D7', teal2:'FF1F5F6B', font:'Arial' };
+  white:'FFFFFFFF', border:'FFC7D6D7', teal2:'FF1F5F6B', font:'Aptos', arabicFont:'Sakkal Majalla' };
 function xlBorderAll(){ const b={style:'thin',color:{argb:XL.border}}; return {top:b,bottom:b,left:b,right:b}; }
 function xlColLetter(n){ let s=''; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); } return s; }
 function xlRowsBuilder(){
@@ -4394,7 +4394,7 @@ function xlNewSheet(wb, name, rows, kinds, opts={}){
     if(kind==='title'){
       try{ ws.mergeCells(rn,1,rn,span); }catch(e){}
       const cell = excelRow.getCell(1);
-      cell.font = { name:XL.font, bold:true, size:13, color:{argb:XL.white} };
+      cell.font = { name:XL.arabicFont, bold:true, size:13, color:{argb:XL.white} };
       cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:XL.navy} };
       cell.alignment = { horizontal:'center', vertical:'middle', rtl:true, wrapText:true };
       excelRow.height = 28;
@@ -4403,7 +4403,7 @@ function xlNewSheet(wb, name, rows, kinds, opts={}){
     if(kind==='section'){
       try{ ws.mergeCells(rn,1,rn,span); }catch(e){}
       const cell = excelRow.getCell(1);
-      cell.font = { name:XL.font, bold:true, size:11, color:{argb:XL.teal} };
+      cell.font = { name:XL.arabicFont, bold:true, size:11, color:{argb:XL.teal} };
       cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:XL.tealLight} };
       cell.alignment = { horizontal:'right', vertical:'middle', rtl:true, wrapText:true };
       excelRow.height = 20;
@@ -4423,7 +4423,7 @@ function xlNewSheet(wb, name, rows, kinds, opts={}){
     if(kind==='note'){
       for(let c2=1;c2<=span;c2++){
         const cell = excelRow.getCell(c2);
-        cell.font = { name:XL.font, bold:c2===1, size:10, color:{argb: c2===1?XL.teal:'FF1A2E33'} };
+        cell.font = { name:c2===1?XL.arabicFont:XL.font, bold:c2===1, size:10, color:{argb: c2===1?XL.teal:'FF1A2E33'} };
         cell.border = xlBorderAll();
         cell.alignment = { horizontal:c2===1?'right':'center', vertical:'middle', rtl:true, wrapText:true };
       }
@@ -4436,7 +4436,7 @@ function xlNewSheet(wb, name, rows, kinds, opts={}){
     for(let c2=1;c2<=span;c2++){
       const cell = excelRow.getCell(c2);
       const v = r[c2-1];
-      cell.font = { name:XL.font, size:10 };
+      cell.font = { name:c2===1?XL.arabicFont:XL.font, size:10 };
       cell.border = xlBorderAll();
       cell.alignment = { horizontal:c2===1?'right':'center', vertical:'middle', rtl:true, wrapText:true };
       if(zebra) cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:XL.tealPale} };
@@ -4447,7 +4447,7 @@ function xlNewSheet(wb, name, rows, kinds, opts={}){
       }
     }
     if(r[0] && typeof r[0]==='string' && /^🎯|^✅|^❌/.test(r[0])){
-      excelRow.getCell(1).font = { name:XL.font, bold:true, size:10, color:{argb:XL.teal} };
+      excelRow.getCell(1).font = { name:XL.arabicFont, bold:true, size:10, color:{argb:XL.teal} };
     }
   });
   ws.pageSetup.printArea = `A1:${xlColLetter(span)}${rows.length}`;
@@ -4469,13 +4469,13 @@ async function exportOpportunityExcel(id){
   const yrs = c.projectCF.length;
   try{
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'دفتر الفرص العقارية — أوبال';
+    wb.creator = 'منصة استكشاف الفرص العقارية — أوبال';
     wb.calcProperties = { fullCalcOnLoad:true };
 
     // نبني صفوف الملخص مع تتبّع رقم كل صف، عشان نقدر نكتب معادلات Excel حقيقية (مش أرقام جامدة)
     // للبنود اللي هي نتيجة حسابية مباشرة لبنود أخرى في نفس الجدول (هوية جبرية مضمونة الصحة).
     const B1 = xlRowsBuilder();
-    B1.push(['دفتر الفرص العقارية — مذكرة تقييم فرصة',''],'title');
+    B1.push(['منصة استكشاف الفرص العقارية — مذكرة تقييم فرصة',''],'title');
     B1.push(['معرّف الفرصة', rec.id]);
     B1.push(['اسم الفرصة', d.meta.name||'']);
     B1.push(['المدينة / الحي / الفئة', `${d.meta.city} · ${d.meta.neighborhood||'—'} · ${d.meta.tier}`]);
@@ -4852,7 +4852,7 @@ async function exportOpportunityExcel(id){
 async function exportInvestorLedgerExcel(){
   try{
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'دفتر الفرص العقارية — أوبال';
+    wb.creator = 'منصة استكشاف الفرص العقارية — أوبال';
     wb.calcProperties = { fullCalcOnLoad:true };
 
     // ---- شيت المستثمرون (بيانات خام) ----
