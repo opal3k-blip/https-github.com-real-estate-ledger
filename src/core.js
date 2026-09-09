@@ -2942,21 +2942,21 @@ ${T('بدلاً من بيع الأصل في نهاية المدة، يقوم ا�
         <div class="section">
           <h3><span class="n">1</span> ${T('ملخص الأرض والبناء','Land & Building Summary')} (Land & Building Summary)</h3>
           <div class="kv">
-            <div class="k">${T('مساحة الأرض','Land Area')}</div><div class="v">${fmtNum(d.land.area)} ${T('م²','sqm')}</div>
-            <div class="k">${T('سعر الشراء / التكلفة الإجمالية','Purchase Price / Total Cost')}</div><div class="v">${fmtNum(d.land.price)} ${T('ر.س/م²','SAR/sqm')} — ${fmtSAR(c.landCost)}</div>
-            <div class="k">GFA (${T('حق البناء الإجمالي','Gross Floor Area')})</div><div class="v">${fmtNum(c.gfa)} ${T('م²','sqm')}</div>
-            <div class="k">${T('بصمة المبنى / الأدوار اللازمة','Building Footprint / Floors Needed')}</div><div class="v">${fmtNum(c.footprint)} ${T('م²','sqm')} / ${c.floorsNeeded} ${T('دور','floors')}</div>
-            <div class="k">${T('الارتفاع الإجمالي','Total Height')}</div><div class="v">${fmtNum(c.buildingHeight,1)} ${T('م','m')}</div>
-            <div class="k">${T('تكلفة الأرض لكل م² GFA','Land Cost per sqm GFA')}</div><div class="v">${fmtNum(c.landCostPerGFA)} ${T('ر.س/م²','SAR/sqm')}</div>
-            <div class="k">${T('معامل الموقع المجمّع (Site Factor)','Combined Site Factor')}</div><div class="v">×${c.siteFactor.toFixed(3)}</div>
-            <div class="k">${T('المعامل المركّب الكلي (Master Multiplier)','Overall Master Multiplier')}</div><div class="v">×${c.masterMultiplier.toFixed(3)}</div>
+          <div class="k">${T('مساحة الأرض','Land Area')}</div><div class="v"><bdi class="bidi-number" dir="ltr">${fmtNum(d.land.area)} ${T('م²','sqm')}</bdi></div>
+          <div class="k">${T('سعر الشراء / التكلفة الإجمالية','Purchase Price / Total Cost')}</div><div class="v"><bdi class="bidi-number" dir="ltr">${fmtNum(d.land.price)} ${T('ر.س/م²','SAR/sqm')} — ${fmtSAR(c.landCost)}</bdi></div>
+          <div class="k">GFA (${T('حق البناء الإجمالي','Gross Floor Area')})</div><div class="v"><bdi class="bidi-number" dir="ltr">${fmtNum(c.gfa)} ${T('م²','sqm')}</bdi></div>
+          <div class="k">${T('بصمة المبنى / الأدوار اللازمة','Building Footprint / Floors Needed')}</div><div class="v"><bdi class="bidi-number" dir="ltr">${fmtNum(c.footprint)} ${T('م²','sqm')} / ${c.floorsNeeded} ${T('دور','floors')}</bdi></div>
+          <div class="k">${T('الارتفاع الإجمالي','Total Height')}</div><div class="v"><bdi class="bidi-number" dir="ltr">${fmtNum(c.buildingHeight,1)} ${T('م','m')}</bdi></div>
+          <div class="k">${T('تكلفة الأرض لكل م² GFA','Land Cost per sqm GFA')}</div><div class="v"><bdi class="bidi-number" dir="ltr">${fmtNum(c.landCostPerGFA)} ${T('ر.س/م²','SAR/sqm')}</bdi></div>
+          <div class="k">${T('معامل الموقع المجمّع (Site Factor)','Combined Site Factor')}</div><div class="v"><bdi class="bidi-number" dir="ltr">×${c.siteFactor.toFixed(3)}</bdi></div>
+          <div class="k">${T('المعامل المركّب الكلي (Master Multiplier)','Overall Master Multiplier')}</div><div class="v"><bdi class="bidi-number" dir="ltr">×${c.masterMultiplier.toFixed(3)}</bdi></div>
             ${c.scopeType!=='both'? `<div class="k">${T('نطاق التطوير (Development Scope)','Development Scope')}</div><div class="v">${c.scopeType==='infra_only'?T('بنية تحتية فقط (Infrastructure Only)','Infrastructure Only'):T('بنية فوقية فقط (Vertical Only)','Vertical Only')}</div>`:''}
             ${c.isSubdivisionPhased? `<div class="k">${T('نمط بيع تقسيم الأراضي','Land Subdivision Sale Mode')}</div><div class="v">${T('بيع على مراحل — امتصاص تدريجي','Phased Sale — Gradual Absorption')} (${c.absorptionSchedule.length} ${T('شرائح','tranches')})</div>`:''}
             ${c.isOffPlanSale? `<div class="k">${T('نمط البيع','Sale Mode')}</div><div class="v">${T('بيع على الخارطة (وافي)','Off-Plan Sale (WAFI)')} (${c.offPlanSchedule.length} ${T('دفعات','installments')})</div>`:''}
-            ${c.infraCostAmt>0? `<div class="k">${T('تكلفة البنية التحتية','Infrastructure Cost')}</div><div class="v">${fmtSAR(c.infraCostAmt)}</div>`:''}
+            ${c.infraCostAmt>0? `<div class="k">${T('تكلفة البنية التحتية','Infrastructure Cost')}</div><div class="v"><bdi class="bidi-number" dir="ltr">${fmtSAR(c.infraCostAmt)}</bdi></div>`:''}
             ${(c.heightPremiumMult>1 && d.meta.oppType!=='landbank')? `<div class="k">${T('علاوة تكلفة ارتفاع الدور','Floor Height Cost Premium')}</div><div class="v">+${fmtPct(c.heightPremiumMult-1)} ${T('على تكلفة البناء/م²','on build cost/sqm')}</div>`:''}
-            ${c.basementCostAmt>0? `<div class="k">${T('البدرومات — عدد المستويات / المساحة الإجمالية','Basements — Levels / Total Area')}</div><div class="v">${c.basementLevels} ${T('بدروم','levels')} / ${fmtNum(c.basementArea)} ${T('م²','sqm')}</div>
-            <div class="k">${T('علاوة تكلفة البدرومات (متوسطة)','Basement Cost Premium (avg)')}</div><div class="v">+${fmtPct(c.basementPremiumAvgPct)} ${T('— إجمالي','— total')}: ${fmtSAR(c.basementCostAmt)}</div>`:''}
+            ${c.basementCostAmt>0? `<div class="k">${T('البدرومات — عدد المستويات / المساحة الإجمالية','Basements — Levels / Total Area')}</div><div class="v"><bdi class="bidi-number" dir="ltr">${c.basementLevels} ${T('بدروم','levels')} / ${fmtNum(c.basementArea)} ${T('م²','sqm')}</bdi></div>
+            <div class="k">${T('علاوة تكلفة البدرومات (متوسطة)','Basement Cost Premium (avg)')}</div><div class="v"><bdi class="bidi-number" dir="ltr">+${fmtPct(c.basementPremiumAvgPct)} ${T('— إجمالي','— total')}: ${fmtSAR(c.basementCostAmt)}</bdi></div>`:''}
           </div>
           ${(d.land.bonusAreaPct||0)>0? (()=>{
             const bonusArea = c.gfa * d.land.bonusAreaPct;
