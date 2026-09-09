@@ -43,6 +43,46 @@ function median(nums){
   return s.length%2 ? s[mid] : (s[mid-1]+s[mid])/2;
 }
 
+/* ---------------------------------------------------------------------
+   رسوم بيانية داخل Excel — طلب المستخدم صراحة ("ليه البي دي اف والاكسل مش
+   يفهم شارتس"). ExcelJS لا يدعم رسوماً بيانية أصلية (Native Charts) إطلاقاً
+   (مؤكَّد من التوثيق الرسمي لمكتبة exceljs — قسم Images فقط)، فالحل العملي
+   الوحيد هو رسم Chart.js (المكتبة محمَّلة أصلاً عبر CDN في index.html) على
+   canvas منفصل غير مرفق بالـDOM بأبعاد بكسل صريحة، ثم تحويله لصورة PNG
+   وإدراجها كصورة ثابتة في الورقة عبر workbook.addImage/worksheet.addImage —
+   بلا أي تعديل على core.js، وبلا أي تكرار — تُستدعى فقط من هنا.
+   --------------------------------------------------------------------- */
+async function chartToImage(config, width, height){
+  if(typeof Chart==='undefined' || typeof document==='undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = width; canvas.height = height;
+  let chart = null;
+  try{
+    const cfg = Object.assign({}, config, { options: Object.assign({}, config.options, { responsive:false, maintainAspectRatio:false, animation:false, devicePixelRatio:1 }) });
+    chart = new Chart(canvas, cfg);
+    // انتظار إطارَي رسم متتاليَين لضمان اكتمال الرسم فعلياً على الـcanvas قبل التقاطه —
+    // Chart.js يُجدوِل الرسم الأول عبر requestAnimationFrame حتى مع animation:false.
+    await new Promise(resolve=>{
+      const raf = (typeof window!=='undefined' && window.requestAnimationFrame) ? window.requestAnimationFrame : (fn)=>setTimeout(fn,30);
+      raf(()=> raf(resolve));
+    });
+    return canvas.toDataURL('image/png');
+  }catch(e){ console.error('تعذّر رسم الرسم البياني لملف Excel:', e); return null; }
+  finally{ if(chart){ try{ chart.destroy(); }catch(e){} } }
+}
+async function addChartImage(wb, ws, config, width, height, tlCol, tlRow){
+  const dataUrl = await chartToImage(config, width, height);
+  if(!dataUrl) return;
+  try{
+    const imageId = wb.addImage({ base64:dataUrl, extension:'png' });
+    ws.addImage(imageId, { tl:{ col:tlCol, row:tlRow }, ext:{ width, height } });
+  }catch(e){ console.error('تعذّر إدراج صورة الرسم البياني في Excel:', e); }
+}
+const XL_CHART_COLORS = { accent:'#1F5F6B', gold:'#A8823A', good:'#1F7A52', goodSoft:'rgba(31,122,82,0.55)', warn:'#A6741F', warnSoft:'rgba(166,116,31,0.55)', bad:'#B33A2C', badSoft:'rgba(179,58,44,0.55)', ink:'#1B1D22', grid:'rgba(20,22,28,0.12)' };
+const XL_CHART_FONT = { family:'Arial', size:11 };
+const XL_CHART_BASE = { plugins:{ legend:{ labels:{ color:XL_CHART_COLORS.ink, font:XL_CHART_FONT } } },
+  scales:{ x:{ ticks:{ color:XL_CHART_COLORS.ink, font:XL_CHART_FONT }, grid:{ color:XL_CHART_COLORS.grid } }, y:{ ticks:{ color:XL_CHART_COLORS.ink, font:XL_CHART_FONT }, grid:{ color:XL_CHART_COLORS.grid } } } };
+
 export function registerExcelWorkbook(core){
   /* ملاحظة: زر التشغيل الأساسي أصبح زر "Excel — دفتر الاكتتاب الكامل" في رأس مذكرة
      كل فرصة نفسه (renderDetail في core.js، data-action="xlbook-export") — لم يعد
@@ -123,6 +163,25 @@ async function exportUnderwritingWorkbook(core, id){
       const latest = decisions.length? decisions[decisions.length-1] : null;
       push(['قرار اللجنة الأحدث (Latest IC Decision)', latest? core.T(DEC_LABEL[latest.decision][0],DEC_LABEL[latest.decision][1]) : 'لم يُتخَذ بعد']);
       const ws = xlNewSheet(wb, '00_IC Dashboard', B.rows, B.kinds, { colWidths:[52,30] });
+      const dashRow = B.rows.length + 2;
+      await addChartImage(wb, ws, { type:'doughnut',
+        data:{ labels:['Debt','Equity'], datasets:[{ data:[Math.round(c.debt), Math.round(c.equity)], backgroundColor:[XL_CHART_COLORS.gold, XL_CHART_COLORS.accent] }] },
+        options:Object.assign({}, XL_CHART_BASE, { plugins:{ title:{ display:true, text:'Capital Structure — Debt vs Equity', color:XL_CHART_COLORS.ink, font:{ size:13, weight:'bold' } }, legend:{ position:'bottom', labels:{ color:XL_CHART_COLORS.ink, font:XL_CHART_FONT } } } })
+      }, 330, 250, 0, dashRow);
+      const hurdle = (d.criteria && d.criteria.irrMin) || 0.15;
+      const moicMin = (d.criteria && d.criteria.moicMin) || 1.5;
+      const dscrMin = (d.criteria && d.criteria.dscrMin) || 1.2;
+      const rMetrics = [
+        hurdle>0 && isFinite(c.equityIRR)? { label:'Equity IRR', ratio:Math.round((c.equityIRR/hurdle)*100) } : null,
+        moicMin>0 && isFinite(c.MOIC)? { label:'MOIC', ratio:Math.round((c.MOIC/moicMin)*100) } : null,
+        dscrMin>0 && c.dscrMin!=null? { label:'DSCR', ratio:Math.round((c.dscrMin/dscrMin)*100) } : null,
+      ].filter(Boolean);
+      await addChartImage(wb, ws, { type:'bar',
+        data:{ labels:rMetrics.map(m=>m.label), datasets:[{ label:'% of Minimum Required (100% = hurdle)', data:rMetrics.map(m=>m.ratio),
+          backgroundColor:rMetrics.map(m=>m.ratio>=100?XL_CHART_COLORS.goodSoft:XL_CHART_COLORS.badSoft), borderColor:rMetrics.map(m=>m.ratio>=100?XL_CHART_COLORS.good:XL_CHART_COLORS.bad), borderWidth:1.5 }] },
+        options:Object.assign({}, XL_CHART_BASE, { plugins:{ title:{ display:true, text:'Returns vs Minimum Hurdles (%)', color:XL_CHART_COLORS.ink, font:{ size:13, weight:'bold' } }, legend:{ display:false } },
+          scales:{ x:XL_CHART_BASE.scales.x, y:Object.assign({}, XL_CHART_BASE.scales.y, { ticks:{ color:XL_CHART_COLORS.ink, callback:(v)=>v+'%' } }) } })
+      }, 380, 250, 4, dashRow);
     }
 
     /* ===================== 01_Opportunity ===================== */
@@ -232,22 +291,22 @@ async function exportUnderwritingWorkbook(core, id){
     build07Debt(core, wb, d, c);
 
     /* ===================== 08_Project CF / 09_Equity CF ===================== */
-    build0809CashFlows(core, wb, d, c);
+    await build0809CashFlowsWithChart(core, wb, d, c);
 
     /* ===================== 10_Returns ===================== */
     build10Returns(core, wb, d, c);
 
     /* ===================== 11_Sensitivity ===================== */
-    build11Sensitivity(core, wb, d, c);
+    await build11Sensitivity(core, wb, d, c);
 
     /* ===================== 12_Scenarios ===================== */
-    build12Scenarios(core, wb, d, c);
+    await build12Scenarios(core, wb, d, c);
 
     /* ===================== 13_Comparables ===================== */
     build13Comparables(core, wb, d, c);
 
     /* ===================== 14_Risk Register ===================== */
-    build14RiskRegister(core, wb, d, c);
+    await build14RiskRegister(core, wb, d, c);
 
     /* ===================== 15_DD ===================== */
     build15DD(core, wb, d, c);
@@ -390,22 +449,36 @@ function build0809CashFlows(core, wb, d, c){
     const ws = xlNewSheet(wb, '08_Project CF', B.rows, B.kinds, { colWidths:[46,26] });
     xlSetFormula(ws, rIRR, 2, `IRR(B${firstRow}:B${lastRow})`, '0.0%');
     xlSetFormula(ws, rNPV, 2, `B${firstRow}+NPV(${c.WACC},B${firstRow+1}:B${lastRow})`, '#,##0;(#,##0);"-"');
+    return ws;
   }
+}
+
+async function build0809CashFlowsWithChart(core, wb, d, c){
+  const ws08 = build0809CashFlows(core, wb, d, c);
+  const ws09Rows = [];
   // 09_Equity CF
-  {
-    const B = xlRowsBuilder();
-    B.push(['التدفقات النقدية لحقوق الملكية — Equity Cash Flow',''],'title');
-    B.push(['السنة','تدفق حقوق الملكية (ر.س)'],'header');
-    const firstRow = B.rows.length+1;
-    c.equityCF.forEach((v,i)=> B.push([i, Math.round(v)]));
-    const lastRow = B.rows.length;
-    B.push(['','']);
-    const rIRR = B.push(['🔒 Equity IRR (معادلة IRR على الصفوف أعلاه)', null], 'note');
-    const rMOIC = B.push(['🔒 MOIC (مجموع التوزيعات الموجبة ÷ |التدفق الأول|)', null], 'note');
-    const ws = xlNewSheet(wb, '09_Equity CF', B.rows, B.kinds, { colWidths:[46,26] });
-    xlSetFormula(ws, rIRR, 2, `IRR(B${firstRow}:B${lastRow})`, '0.0%');
-    xlSetFormula(ws, rMOIC, 2, `SUMIF(B${firstRow}:B${lastRow},">0")/ABS(B${firstRow})`, '0.00"×"');
-  }
+  const { xlRowsBuilder, xlNewSheet, xlSetFormula } = core;
+  const B = xlRowsBuilder();
+  B.push(['التدفقات النقدية لحقوق الملكية — Equity Cash Flow',''],'title');
+  B.push(['السنة','تدفق حقوق الملكية (ر.س)'],'header');
+  const firstRow = B.rows.length+1;
+  c.equityCF.forEach((v,i)=> B.push([i, Math.round(v)]));
+  const lastRow = B.rows.length;
+  B.push(['','']);
+  const rIRR = B.push(['🔒 Equity IRR (معادلة IRR على الصفوف أعلاه)', null], 'note');
+  const rMOIC = B.push(['🔒 MOIC (مجموع التوزيعات الموجبة ÷ |التدفق الأول|)', null], 'note');
+  const ws09 = xlNewSheet(wb, '09_Equity CF', B.rows, B.kinds, { colWidths:[46,26] });
+  xlSetFormula(ws09, rIRR, 2, `IRR(B${firstRow}:B${lastRow})`, '0.0%');
+  xlSetFormula(ws09, rMOIC, 2, `SUMIF(B${firstRow}:B${lastRow},">0")/ABS(B${firstRow})`, '0.00"×"');
+
+  const years = c.equityCF.map((v,i)=>i);
+  await addChartImage(wb, ws09, { type:'bar',
+    data:{ labels:years, datasets:[
+      { label:'Project CF', data:c.projectCF.map(v=>Math.round(v)), backgroundColor:XL_CHART_COLORS.accent },
+      { label:'Equity CF', data:c.equityCF.map(v=>Math.round(v)), backgroundColor:XL_CHART_COLORS.gold },
+    ] },
+    options:Object.assign({}, XL_CHART_BASE, { plugins:{ title:{ display:true, text:'Project vs Equity Cash Flow by Year', color:XL_CHART_COLORS.ink, font:{ size:13, weight:'bold' } }, legend:{ position:'bottom', labels:{ color:XL_CHART_COLORS.ink, font:XL_CHART_FONT } } } })
+  }, 520, 280, 0, lastRow+3);
 }
 
 function build10Returns(core, wb, d, c){
@@ -429,23 +502,33 @@ function build10Returns(core, wb, d, c){
   colorize(ws, B.kinds, S);
 }
 
-function build11Sensitivity(core, wb, d, c){
+async function build11Sensitivity(core, wb, d, c){
   const { fmtPct, xlRowsBuilder, xlNewSheet } = core;
   const B = xlRowsBuilder();
   B.push(['تحليل الحساسية — Sensitivity (Equity IRR)',''],'title');
   B.push(['المتغيّر','سيناريو منخفض','الأساسي','سيناريو مرتفع'],'header');
-  core.sensitivityRows(d).forEach(r=>{
+  const rows = core.sensitivityRows(d);
+  rows.forEach(r=>{
     B.push([r.label, fmtPct(r.down,2), fmtPct(r.base,2), fmtPct(r.up,2)]);
   });
-  xlNewSheet(wb, '11_Sensitivity', B.rows, B.kinds, { colWidths:[46,18,18,18], landscape:true });
+  const ws = xlNewSheet(wb, '11_Sensitivity', B.rows, B.kinds, { colWidths:[46,18,18,18], landscape:true });
+  const base = rows.length? rows[0].base : c.equityIRR;
+  await addChartImage(wb, ws, { type:'bar',
+    data:{ labels:rows.map(r=>r.label), datasets:[
+      { label:'Downside Δ', data:rows.map(r=>Math.round((r.down-r.base)*1000)/10), backgroundColor:XL_CHART_COLORS.badSoft },
+      { label:'Upside Δ', data:rows.map(r=>Math.round((r.up-r.base)*1000)/10), backgroundColor:XL_CHART_COLORS.goodSoft },
+    ] },
+    options:Object.assign({}, XL_CHART_BASE, { indexAxis:'y', plugins:{ title:{ display:true, text:'Sensitivity — Equity IRR Δ vs Base (pts)', color:XL_CHART_COLORS.ink, font:{ size:13, weight:'bold' } }, legend:{ position:'bottom', labels:{ color:XL_CHART_COLORS.ink, font:XL_CHART_FONT } } } })
+  }, 560, 300, 0, rows.length+4);
 }
 
-function build12Scenarios(core, wb, d, c){
+async function build12Scenarios(core, wb, d, c){
   const { fmtSAR, fmtPct, xlRowsBuilder, xlNewSheet } = core;
   const B = xlRowsBuilder();
   B.push(['تحليل السيناريوهات — Scenario Analysis',''],'title');
   B.push(['السيناريو','Equity IRR','MOIC','NPV','الحكم'],'header');
-  core.scenarioCompareRows(d).forEach(s=>{
+  const scen = core.scenarioCompareRows(d);
+  scen.forEach(s=>{
     B.push([s.label.replace(/[🔴🔵🟢]\s*/g,''), fmtPct(s.irr,2), s.moic.toFixed(2)+'×', Math.round(s.npv||0), s.verdict==='good'?'🟢 جيد':s.verdict==='warn'?'🟡 مراجعة':'🔴 دون المعايير']);
   });
   B.push(['','','','','']);
@@ -456,7 +539,13 @@ function build12Scenarios(core, wb, d, c){
   B.push(['= Equity IRR (قبل الرسوم)', fmtPct(rb.equityIRRGrossOfFees,2)]);
   B.push(['− أثر الرسوم', fmtPct(rb.feeDrag,2)]);
   B.push(['= Equity IRR (الصافي)', fmtPct(rb.equityIRRNet,2)]);
-  xlNewSheet(wb, '12_Scenarios', B.rows, B.kinds, { colWidths:[40,16,16,18,16], landscape:true });
+  const ws = xlNewSheet(wb, '12_Scenarios', B.rows, B.kinds, { colWidths:[40,16,16,18,16], landscape:true });
+  await addChartImage(wb, ws, { type:'bar',
+    data:{ labels:scen.map(s=>s.label.replace(/[🔴🔵🟢]\s*/g,'')), datasets:[{ label:'Equity IRR', data:scen.map(s=>Math.round((s.irr||0)*1000)/10),
+      backgroundColor:scen.map(s=>s.verdict==='good'?XL_CHART_COLORS.goodSoft:s.verdict==='warn'?XL_CHART_COLORS.warnSoft:XL_CHART_COLORS.badSoft) }] },
+    options:Object.assign({}, XL_CHART_BASE, { plugins:{ title:{ display:true, text:'Equity IRR by Scenario (%)', color:XL_CHART_COLORS.ink, font:{ size:13, weight:'bold' } }, legend:{ display:false } },
+      scales:{ x:XL_CHART_BASE.scales.x, y:Object.assign({}, XL_CHART_BASE.scales.y, { ticks:{ color:XL_CHART_COLORS.ink, callback:(v)=>v+'%' } }) } })
+  }, 480, 260, 0, B.rows.length+2);
 }
 
 function build13Comparables(core, wb, d, c){
@@ -487,18 +576,24 @@ function build13Comparables(core, wb, d, c){
   colorize(ws, B.kinds, S);
 }
 
-function build14RiskRegister(core, wb, d, c){
+async function build14RiskRegister(core, wb, d, c){
   const { xlRowsBuilder, xlNewSheet } = core;
   const B = xlRowsBuilder();
   B.push(['سجل المخاطر — Risk Register',''],'title');
   B.push(['الفئة','الاحتمالية','الأثر','الدرجة','التصنيف','إجراء التخفيف','المسؤول'],'header');
   const riskItems = (d.risk && d.risk.items) || defaultRiskItems();
+  const chartLabels = [], chartScores = [], chartColors = [];
   RISK_CATEGORIES.forEach(cat=>{
     const it = riskItems[cat.key] || {probability:1,impact:1,mitigation:'',owner:''};
     const score = riskScoreOf(it), bnd = riskBandOf(score);
     B.push([core.T(cat.ar,cat.en), it.probability||1, it.impact||1, score, core.T(bnd.ar,bnd.en), it.mitigation||'—', it.owner||'—']);
+    chartLabels.push(core.T(cat.ar,cat.en)); chartScores.push(score); chartColors.push(bnd.color);
   });
-  xlNewSheet(wb, '14_Risk Register', B.rows, B.kinds, { colWidths:[22,12,10,10,14,40,18], landscape:true });
+  const ws = xlNewSheet(wb, '14_Risk Register', B.rows, B.kinds, { colWidths:[22,12,10,10,14,40,18], landscape:true });
+  await addChartImage(wb, ws, { type:'bar',
+    data:{ labels:chartLabels, datasets:[{ label:'Risk Score (max 25)', data:chartScores, backgroundColor:chartColors }] },
+    options:Object.assign({}, XL_CHART_BASE, { indexAxis:'y', plugins:{ title:{ display:true, text:'Risk Score by Category', color:XL_CHART_COLORS.ink, font:{ size:13, weight:'bold' } }, legend:{ display:false } } })
+  }, 520, 300, 0, B.rows.length+2);
 }
 
 function build15DD(core, wb, d, c){

@@ -68,16 +68,18 @@ export function registerICBookPrint(core){
       </div>`;
     }
     const d = core.withDefaults(rec.data), c = core.compute(d);
+    scheduleBookCharts(core, d, c); // الحاويات الثلاث الجديدة (رأس المال/العائد/المخاطر) جديدة على DOM بعد هذا الرسم
     return buildICBook(core, rec, d, c);
   });
+  watchForBookCharts(core);
 
   core.registerActionHandler(async (action, el)=>{
     if(action==='icbook-open'){
       core.setCoreState({ openDetailId: el.dataset.id, mainView:'icBook', render:true });
       // طباعة تلقائية عند الفتح من زر "طباعة / PDF" في رأس المذكرة (data-autoprint="1") —
-      // نمهل رسم الكتاب الكامل الجديد (شرائح canvas/الرسوم داخله إن وُجدت) قبل نداء الطباعة
-      // حتى تُطبع نسخة الكتاب المؤسسي فعلياً لا لقطة فارغة/غير مكتملة.
-      if(el.dataset.autoprint){ setTimeout(()=> window.print(), 80); }
+      // نمهل رسم الكتاب الكامل الجديد ورسومه البيانية (canvas/Chart.js) قبل نداء الطباعة
+      // حتى تُطبع نسخة الكتاب المؤسسي كاملة بالرسوم لا لقطة فارغة/غير مكتملة.
+      if(el.dataset.autoprint){ setTimeout(()=> window.print(), 220); }
       return true;
     }
     if(action==='icbook-close'){ core.setCoreState({ mainView:null, render:true }); return true; }
@@ -107,6 +109,83 @@ function tbl(headers, rowsHtml, emptyLabel){
   </table></div>`;
 }
 function pcolor(v){ return v>=0 ? 'var(--good)' : 'var(--bad)'; }
+
+/* ---------------------------------------------------------------------
+   رسوم بيانية إضافية داخل الكتاب المطبوع (Chart.js) — طلب المستخدم صراحة:
+   "أعتقد انه من الأفضل وجود رسوم بيانية" في البي دي إف/الطباعة أيضاً، لا في
+   الشاشة العادية فقط. نُعيد استخدام نفس محرك core.mkChart/CHART_COLORS/
+   CHART_BASE_OPTS بلا أي تكرار منطقي، ونُضيف ٣ رسوم بيانية جديدة غير موجودة
+   أصلاً في initDetailCharts (رأس مال/عائد مقابل الحد الأدنى/مخاطر) — أما
+   التدفقات النقدية والسيناريوهات والحساسية (chart-cashflow/chart-scenarios/
+   chart-sensitivity) فتُستخدَم فيها *نفس* عناصر canvas الموجودة أصلاً في
+   renderDetail، فتُملأ تلقائياً بواسطة initDetailCharts() الحالية في core.js
+   (تُستدعى من render() في كل مرة بلا أي شرط) — صفر كود إضافي لهذه الثلاثة.
+   core.js لا يملك نقطة توسّع "بعد الرسم" عامة (نفس ملاحظة opportunities-map.js)،
+   فنتبع بالضبط نفس نمط MutationObserver المُتَّبع هناك بلا أي لمس لـcore.js. */
+let _bookChartsPending = false;
+function scheduleBookCharts(core, d, c){
+  if(_bookChartsPending) return;
+  _bookChartsPending = true;
+  const raf = (typeof window!=='undefined' && window.requestAnimationFrame) ? window.requestAnimationFrame : (fn)=>setTimeout(fn, 30);
+  raf(()=>{ _bookChartsPending = false; renderBookCharts(core, d, c); });
+}
+function renderBookCharts(core, d, c){
+  const { mkChart, CHART_COLORS, CHART_BASE_OPTS, T, fmtSAR } = core;
+  if(typeof document==='undefined') return;
+
+  if(document.getElementById('chart-book-capital')){
+    mkChart('chart-book-capital', { type:'doughnut',
+      data:{ labels:[T('الدين','Debt'), T('حقوق الملكية','Equity')], datasets:[{ data:[c.debt, c.equity],
+        backgroundColor:[CHART_COLORS.gold, CHART_COLORS.accent], borderColor:'#fff', borderWidth:2 }] },
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ position:'bottom', labels:{ color:CHART_COLORS.inkFaint, font:{ family:'Sakkal Majalla, Amiri, sans-serif', size:11 }, boxWidth:10, padding:8 } },
+          tooltip:{ callbacks:{ label:(ctx)=>ctx.label+': '+fmtSAR(ctx.raw) } } } } });
+  }
+
+  if(document.getElementById('chart-book-returns')){
+    const hurdle = (d.criteria && d.criteria.irrMin) || 0.15;
+    const moicMin = (d.criteria && d.criteria.moicMin) || 1.5;
+    const dscrMin = (d.criteria && d.criteria.dscrMin) || 1.2;
+    const metrics = [
+      hurdle>0 && isFinite(c.equityIRR)? { label:'Equity IRR', ratio:(c.equityIRR/hurdle)*100 } : null,
+      moicMin>0 && isFinite(c.MOIC)? { label:'MOIC', ratio:(c.MOIC/moicMin)*100 } : null,
+      dscrMin>0 && c.dscrMin!=null? { label:'DSCR', ratio:(c.dscrMin/dscrMin)*100 } : null,
+    ].filter(Boolean);
+    mkChart('chart-book-returns', { type:'bar',
+      data:{ labels:metrics.map(m=>m.label), datasets:[{ label:T('% من الحد الأدنى المطلوب (١٠٠٪ = الحد الأدنى)','% of Minimum Required (100% = hurdle)'),
+        data:metrics.map(m=>Math.round(m.ratio)),
+        backgroundColor:metrics.map(m=>m.ratio>=100?CHART_COLORS.goodSoft:CHART_COLORS.badSoft),
+        borderColor:metrics.map(m=>m.ratio>=100?CHART_COLORS.good:CHART_COLORS.bad), borderWidth:1.5, borderRadius:6, maxBarThickness:60 }] },
+      options:Object.assign({}, CHART_BASE_OPTS, { plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:(ctx)=>ctx.raw+'%' } } },
+        scales:{ x:CHART_BASE_OPTS.scales.x, y:Object.assign({}, CHART_BASE_OPTS.scales.y, { ticks:{ color:CHART_COLORS.inkFaint, callback:(v)=>v+'%' } }) } }) });
+  }
+
+  if(document.getElementById('chart-book-risk')){
+    const riskItems = (d.risk && d.risk.items) || defaultRiskItems();
+    const rows = RISK_CATEGORIES.map(cat=>{
+      const it = riskItems[cat.key] || {probability:1,impact:1};
+      const score = riskScoreOf(it);
+      return { label:T(cat.ar,cat.en), score, band:riskBandOf(score) };
+    });
+    mkChart('chart-book-risk', { type:'bar',
+      data:{ labels:rows.map(r=>r.label), datasets:[{ label:T('درجة المخاطرة','Risk Score'), data:rows.map(r=>r.score),
+        backgroundColor:rows.map(r=>r.band.color), borderColor:rows.map(r=>r.band.color), borderWidth:1, borderRadius:6, maxBarThickness:22 }] },
+      options:Object.assign({}, CHART_BASE_OPTS, { indexAxis:'y', plugins:{ legend:{ display:false } } }) });
+  }
+}
+function watchForBookCharts(core){
+  if(typeof document==='undefined' || typeof MutationObserver==='undefined') return;
+  const app = document.getElementById('app');
+  if(!app) return;
+  const obs = new MutationObserver(()=>{
+    const oppId = core.openDetailId;
+    const rec = core.opportunities.find(o=>o.id===oppId);
+    if(!rec) return;
+    const d = core.withDefaults(rec.data), c = core.compute(d);
+    scheduleBookCharts(core, d, c);
+  });
+  obs.observe(app, { childList:true, subtree:true });
+}
 
 /* ---------------------------------------------------------------------
    الجسم الكامل — ٢١ قسماً بالترتيب المطلوب بالضبط.
@@ -262,6 +341,7 @@ function buildICBook(core, rec, d, c){
 
   /* ===================== 8) Sources & Uses ===================== */
   html += sec(core, 8, 'مصادر واستخدامات الأموال', 'Sources & Uses', 'Sources & Uses', `
+    <div style="position:relative; height:190px; max-width:340px; margin:0 auto 14px;"><canvas id="chart-book-capital"></canvas></div>
     <p class="step-sub" style="margin:0 0 6px;">${T('الاستخدامات','Uses')}</p>
     ${kv([
       [T('تكلفة الأرض','Land Cost'), fmtSAR(c.landCost)],
@@ -283,6 +363,7 @@ function buildICBook(core, rec, d, c){
 
   /* ===================== 9) Financial Returns ===================== */
   html += sec(core, 9, 'العوائد المالية', 'Financial Returns', 'Financial Returns', `
+    <div style="position:relative; height:190px; margin-bottom:14px;"><canvas id="chart-book-returns"></canvas></div>
     ${kv([
       ['Equity IRR', isFinite(c.equityIRR)?fmtPct(c.equityIRR):'—'],
       ['Project IRR (Unlevered)', isFinite(c.projectIRR)?fmtPct(c.projectIRR):'—'],
@@ -308,6 +389,7 @@ function buildICBook(core, rec, d, c){
     </tr>`);
   }
   html += sec(core, 10, 'التدفقات النقدية', 'Cash Flow', 'Cash Flow', `
+    <div style="position:relative; height:220px; margin-bottom:14px;"><canvas id="chart-cashflow" data-opp-id="${esc(rec.id)}"></canvas></div>
     ${tbl([T('السنة','Year'), T('تدفق المشروع','Project CF'), T('تدفق حقوق الملكية','Equity CF')], cfRows)}
   `);
 
@@ -339,6 +421,7 @@ function buildICBook(core, rec, d, c){
     <td class="num" style="color:${pcolor(r.up-r.base)};">${fmtPct(r.up)}</td>
   </tr>`);
   html += sec(core, 12, 'تحليل الحساسية', 'Sensitivity', 'Equity IRR — one variable at a time', `
+    <div style="position:relative; height:200px; margin-bottom:14px;"><canvas id="chart-sensitivity" data-opp-id="${esc(rec.id)}"></canvas></div>
     ${tbl([T('المتغيّر','Variable'), T('سيناريو منخفض','Downside'), T('الأساسي','Base'), T('سيناريو مرتفع','Upside')], sensRows)}
   `);
 
@@ -351,6 +434,7 @@ function buildICBook(core, rec, d, c){
   </tr>`);
   const bridge = core.returnBridgeRows(d);
   html += sec(core, 13, 'تحليل السيناريوهات', 'Scenario Analysis', 'Pessimistic / Base / Optimistic', `
+    <div style="position:relative; height:170px; margin-bottom:14px;"><canvas id="chart-scenarios" data-opp-id="${esc(rec.id)}"></canvas></div>
     ${tbl(['', 'Equity IRR', 'MOIC', 'NPV'], scenRows)}
     <p class="step-sub" style="margin:14px 0 6px;">${T('أثر الرافعة المالية والرسوم على العائد','Leverage & Fee Impact on Return')}</p>
     ${kv([
@@ -402,6 +486,7 @@ function buildICBook(core, rec, d, c){
     </tr>`;
   }).sort((a,b)=>0); // الترتيب الثابت حسب RISK_CATEGORIES مقصود (لا إعادة فرز)
   html += sec(core, 15, 'المخاطر والتخفيف', 'Risks & Mitigations', 'Risk Register', `
+    <div style="position:relative; height:220px; margin-bottom:14px;"><canvas id="chart-book-risk"></canvas></div>
     ${tbl([T('الفئة','Category'), T('الاحتمالية × الأثر','Probability × Impact'), T('الدرجة','Band'), T('إجراء التخفيف','Mitigation'), T('المسؤول','Owner')], riskRows)}
   `);
 

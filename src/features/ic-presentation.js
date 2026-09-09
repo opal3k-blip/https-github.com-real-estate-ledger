@@ -158,12 +158,35 @@ async function exportICPresentation(core, id){
         ['MOIC', c.MOIC.toFixed(2)+'×'],
         ['DSCR (أدنى)', c.dscrMin!=null?c.dscrMin.toFixed(2)+'×':'—'],
       ], 2.55);
+      // رسم بياني حقيقي (قابل للتعديل داخل PowerPoint نفسه) — هيكل رأس المال
+      s.addChart(pres.ChartType.doughnut, [{ name:'Capital', labels:['Debt','Equity'], values:[Math.round(c.debt), Math.round(c.equity)] }],
+        { x:0.7, y:3.95, w:5.5, h:3.15, chartColors:[PAL.warn, PAL.green], showLegend:true, legendPos:'b', legendFontSize:11,
+          showValue:false, dataLabelColor:'FFFFFF', title:'Capital Structure — Debt vs Equity', titleFontSize:13, titleColor:PAL.ink });
+      // رسم بياني: نسبة تحقيق الحد الأدنى المطلوب للعوائد الرئيسية
+      const hurdle = (d.criteria && d.criteria.irrMin) || 0.15;
+      const moicMin = (d.criteria && d.criteria.moicMin) || 1.5;
+      const dscrMinReq = (d.criteria && d.criteria.dscrMin) || 1.2;
+      const rMetrics = [
+        hurdle>0 && isFinite(c.equityIRR)? { label:'Equity IRR', ratio:Math.round((c.equityIRR/hurdle)*100) } : null,
+        moicMin>0 && isFinite(c.MOIC)? { label:'MOIC', ratio:Math.round((c.MOIC/moicMin)*100) } : null,
+        dscrMinReq>0 && c.dscrMin!=null? { label:'DSCR', ratio:Math.round((c.dscrMin/dscrMinReq)*100) } : null,
+      ].filter(Boolean);
+      s.addChart(pres.ChartType.bar, [{ name:'% of Minimum Required', labels:rMetrics.map(m=>m.label), values:rMetrics.map(m=>m.ratio) }],
+        { x:6.3, y:3.95, w:6.1, h:3.15, barDir:'col', chartColors:rMetrics.map(m=>m.ratio>=100?PAL.good:PAL.bad), showLegend:false,
+          showValue:true, dataLabelPosition:'outEnd', dataLabelFontSize:10, catAxisLabelFontSize:11, valAxisLabelFormatCode:'0"%"',
+          title:'Returns vs Minimum Hurdles (100% = Hurdle)', titleFontSize:13, titleColor:PAL.ink });
     }
 
     /* ===================== 6) Cash Flow ===================== */
     {
       const s = pres.addSlide();
       H(s, 'التدفقات النقدية — Cash Flow');
+      const years = c.projectCF.map((v,i)=>String(i));
+      s.addChart(pres.ChartType.bar, [
+        { name:'Project CF', labels:years, values:c.projectCF.map(v=>Math.round(v)) },
+        { name:'Equity CF', labels:years, values:c.equityCF.map(v=>Math.round(v)) },
+      ], { x:0.5, y:1.25, w:12.3, h:3.0, barDir:'col', barGrouping:'clustered', chartColors:[PAL.text, PAL.green], showLegend:true, legendPos:'b', legendFontSize:11,
+        catAxisLabelFontSize:10, valAxisLabelFontSize:10, title:'Project vs Equity Cash Flow by Year', titleFontSize:13, titleColor:PAL.ink });
       const rows = [[
         {text:'السنة', options:{bold:true, fill:{color:PAL.card}}},
         {text:'تدفق المشروع', options:{bold:true, fill:{color:PAL.card}}},
@@ -172,7 +195,7 @@ async function exportICPresentation(core, id){
       for(let i=0;i<c.projectCF.length;i++){
         rows.push([ String(i), fmtSAR(c.projectCF[i]), fmtSAR(c.equityCF[i]) ]);
       }
-      s.addTable(rows, { x:0.5,y:1.3,w:12.3, fontSize:12, autoPage:true, border:{type:'solid',color:PAL.border,pt:0.5}, align:'center' });
+      s.addTable(rows, { x:0.5,y:4.45,w:12.3,h:2.7, fontSize:10.5, autoPage:true, border:{type:'solid',color:PAL.border,pt:0.5}, align:'center' });
     }
 
     /* ===================== 7) Sensitivity ===================== */
@@ -180,6 +203,11 @@ async function exportICPresentation(core, id){
       const s = pres.addSlide();
       H(s, 'تحليل الحساسية — Sensitivity');
       const sensRows = core.sensitivityRows(d).slice(0,6);
+      s.addChart(pres.ChartType.bar, [
+        { name:'Downside Δ (pts)', labels:sensRows.map(r=>r.label), values:sensRows.map(r=>Math.round((r.down-r.base)*1000)/10) },
+        { name:'Upside Δ (pts)', labels:sensRows.map(r=>r.label), values:sensRows.map(r=>Math.round((r.up-r.base)*1000)/10) },
+      ], { x:0.5, y:1.25, w:12.3, h:3.2, barDir:'bar', barGrouping:'clustered', chartColors:[PAL.bad, PAL.good], showLegend:true, legendPos:'b', legendFontSize:11,
+        catAxisLabelFontSize:10, valAxisLabelFontSize:10, valAxisLabelFormatCode:'0.0', title:'Equity IRR Sensitivity — Δ vs Base (pts)', titleFontSize:13, titleColor:PAL.ink });
       const rows = [[
         {text:'المتغيّر', options:{bold:true, fill:{color:PAL.card}}},
         {text:'منخفض', options:{bold:true, fill:{color:PAL.card}}},
@@ -187,7 +215,7 @@ async function exportICPresentation(core, id){
         {text:'مرتفع', options:{bold:true, fill:{color:PAL.card}}},
       ]];
       sensRows.forEach(r=> rows.push([ r.label, fmtPct(r.down,1), fmtPct(r.base,1), fmtPct(r.up,1) ]));
-      s.addTable(rows, { x:0.5,y:1.3,w:12.3, fontSize:12, border:{type:'solid',color:PAL.border,pt:0.5}, align:'center' });
+      s.addTable(rows, { x:0.5,y:4.65,w:12.3,h:2.5, fontSize:10.5, border:{type:'solid',color:PAL.border,pt:0.5}, align:'center' });
     }
 
     /* ===================== 8) Risk Matrix ===================== */
@@ -200,6 +228,10 @@ async function exportICPresentation(core, id){
         const score = riskScoreOf(it), band = riskBandOf(score);
         return { label: core.T(cat.ar,cat.en), p:it.probability||1, i:it.impact||1, score, band, mitigation: it.mitigation||'—' };
       }).sort((a,b)=>b.score-a.score).slice(0,7);
+      s.addChart(pres.ChartType.bar, [{ name:'Risk Score (max 25)', labels:ranked.map(r=>r.label), values:ranked.map(r=>r.score) }],
+        { x:0.5, y:1.25, w:12.3, h:2.75, barDir:'bar', chartColors:ranked.map(r=>(r.band.color||'333333').replace('#','')), showLegend:false,
+          showValue:true, dataLabelPosition:'outEnd', dataLabelFontSize:10, catAxisLabelFontSize:10.5, valAxisLabelFontSize:10,
+          title:'Risk Score by Category', titleFontSize:13, titleColor:PAL.ink });
       const rows = [[
         {text:'المخاطرة', options:{bold:true, fill:{color:PAL.card}}},
         {text:'الاحتمالية×الأثر', options:{bold:true, fill:{color:PAL.card}}},
@@ -207,7 +239,7 @@ async function exportICPresentation(core, id){
         {text:'التخفيف', options:{bold:true, fill:{color:PAL.card}}},
       ]];
       ranked.forEach(r=> rows.push([ r.label, `${r.p} × ${r.i}`, {text:core.T(r.band.ar,r.band.en), options:{color:'#'+(r.band.color||'#333').replace('#','')}}, r.mitigation ]));
-      s.addTable(rows, { x:0.5,y:1.3,w:12.3, fontSize:11.5, border:{type:'solid',color:PAL.border,pt:0.5}, align:'center' });
+      s.addTable(rows, { x:0.5,y:4.15,w:12.3,h:3.0, fontSize:10.5, border:{type:'solid',color:PAL.border,pt:0.5}, align:'center' });
     }
 
     /* ===================== 9) Market Evidence ===================== */
@@ -224,7 +256,10 @@ async function exportICPresentation(core, id){
         ['سعر الفرصة الحالي/م²', fmtSAR(d.land.price)],
         ['Cap Rate المرجعي', bench&&bench.capRateMin!=null?`${fmtPct(bench.capRateMin)}–${bench.capRateMax!=null?fmtPct(bench.capRateMax):'—'}`:'—'],
         ['عدد المقارنات المسجَّلة', String(comps.length)],
-      ], 1.6);
+      ], 1.3);
+      s.addChart(pres.ChartType.bar, [{ name:'Price/m² (Land)', labels:['وسيط المقارنات','سعر الفرصة الحالي'], values:[med!=null?Math.round(med):0, Math.round(d.land.price)] }],
+        { x:0.7, y:2.55, w:5.4, h:2.55, barDir:'col', chartColors:[PAL.text, PAL.green], showLegend:false, showValue:true, dataLabelPosition:'outEnd', dataLabelFontSize:11,
+          catAxisLabelFontSize:11, valAxisLabelFontSize:10, title:'Opportunity Price vs Comparables Median (SAR/m²)', titleFontSize:12, titleColor:PAL.ink });
       if(comps.length){
         const rows = [[
           {text:'الحي', options:{bold:true, fill:{color:PAL.card}}},
@@ -233,7 +268,7 @@ async function exportICPresentation(core, id){
           {text:'التاريخ', options:{bold:true, fill:{color:PAL.card}}},
         ]];
         comps.slice(0,6).forEach(cm=> rows.push([ cm.neighborhood||'—', cm.propertyType||'—', cm.landSize>0?fmtSAR(cm.price/cm.landSize):'—', cm.date||'—' ]));
-        s.addTable(rows, { x:0.5,y:3.1,w:12.3, fontSize:11, border:{type:'solid',color:PAL.border,pt:0.5}, align:'center' });
+        s.addTable(rows, { x:6.4,y:2.55,w:6.4, fontSize:10.5, border:{type:'solid',color:PAL.border,pt:0.5}, align:'center' });
       }
     }
 
