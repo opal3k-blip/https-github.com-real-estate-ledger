@@ -41,8 +41,8 @@ function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
 function financialSubScore(d, c){
   const irrMin = d.criteria.irrMin || 0.12;
   const moicMin = d.criteria.moicMin || 1.3;
-  const irrScore = clamp(70 + (c.equityIRR - irrMin) * 1000, 0, 100);
-  const moicScore = clamp(70 + (c.MOIC - moicMin) * 50, 0, 100);
+  const irrScore = isFinite(c.equityIRR) ? clamp(70 + (c.equityIRR - irrMin) * 1000, 0, 100) : 0;
+  const moicScore = isFinite(c.MOIC) ? clamp(70 + (c.MOIC - moicMin) * 50, 0, 100) : 0;
   return (irrScore + moicScore) / 2;
 }
 function riskSubScore(d){
@@ -78,7 +78,7 @@ function computeInvestmentScore(core, d, c){
     liquidityExit: manual.liquidityExit,
   };
   let composite = 0;
-  Object.keys(WEIGHTS).forEach(k=>{ composite += sub[k]*WEIGHTS[k]; });
+  Object.keys(WEIGHTS).forEach(k=>{ composite += (isFinite(sub[k]) ? sub[k] : 0) * WEIGHTS[k]; });
   return { composite: clamp(composite,0,100), sub, manual };
 }
 function scoreBand(composite){

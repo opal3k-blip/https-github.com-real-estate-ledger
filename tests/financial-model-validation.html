@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Financial Model Validation Suite</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:24px;background:#f6f8fb;color:#17202a}
+    h1{margin:0 0 8px;font-size:28px}
+    .note{margin:0 0 16px;color:#51606f}
+    .summary{padding:12px 14px;border-radius:10px;background:#fff;border:1px solid #d7dee7;margin-bottom:16px;font-weight:700}
+    .pass{color:#157347}
+    .fail{color:#b42318}
+    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #d7dee7;border-radius:10px;overflow:hidden}
+    th,td{padding:10px 12px;border-bottom:1px solid #e7ecf2;text-align:left;vertical-align:top}
+    th{background:#eef3f8}
+    tr:last-child td{border-bottom:none}
+    code{font-family:Consolas,monospace}
+  </style>
+</head>
+<body>
+  <h1>Financial Model Validation Suite</h1>
+  <p class="note">Targeted browser-executed validation for TEST-001..014.</p>
+  <div id="summary" class="summary">Running…</div>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Result</th><th>Description</th><th>Notes</th></tr>
+    </thead>
+    <tbody id="results"></tbody>
+  </table>
+  <script type="module" src="./financial-model-validation.mjs"></script>
+</body>
+</html>

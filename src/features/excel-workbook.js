@@ -28,6 +28,8 @@ import { ddStats, defaultItemsDict, DD_CATEGORIES } from './due-diligence.js';
 import { RISK_CATEGORIES, defaultRiskItems, scoreOf as riskScoreOf, bandOf as riskBandOf } from './risk-engine.js';
 import { matchBenchmarks, aggregateBench } from './benchmark-engine.js';
 import { maxAcquisitionPrice } from './max-acquisition-price.js';
+import { computeInvestmentScore, scoreBand } from './investment-score.js';
+import { computeDecisionConfidence } from './decision-confidence.js';
 // دقة التدفقات النقدية (شهري/ربع سنوي) + ذروة الاحتياج + صافي النقدي من المستثمرين النقديين
 // (المرحلة الثامنة) — إعادة استخدام مباشرة لنفس دوال cash-flow-timing.js المستخدَمة في واجهة
 // المذكرة الحية، حتى لا يتكرر منطق منحنى S/التوزيع الشهري في أكثر من مكان (يبقى مصدراً واحداً).
@@ -140,6 +142,10 @@ export async function exportUnderwritingWorkbook(core, id){
   const rec = core.opportunities.find(o=>o.id===id);
   if(!rec) return;
   const d = core.withDefaults(rec.data), c = core.compute(d);
+  const reportDates = core.reportDateMeta(d);
+  const scoreRes = computeInvestmentScore(core, d, c);
+  const scoreResBand = scoreBand(scoreRes.composite);
+  const decisionConfidence = computeDecisionConfidence(core, d);
   const { fmtSAR, fmtPct, fmtNum, XL, xlRowsBuilder, xlNewSheet, xlSetFormula, xlColLetter } = core;
 
   try{
@@ -154,7 +160,8 @@ export async function exportUnderwritingWorkbook(core, id){
       push(['دفتر الاكتتاب الاستثماري الكامل — Investment Underwriting Workbook',''],'title');
       push(['الفرصة (Opportunity)', d.meta.name||'—']);
       push(['المعرّف (ID)', rec.id]);
-      push(['تاريخ الإصدار (Generated)', core.fmtDateBilingual(core.todayStr())]);
+      push(['تاريخ سريان البيانات (As-of Date)', reportDates.asOfText]);
+      push(['تاريخ إنشاء الملف (Generated on)', reportDates.generatedText]);
       push(['', '']);
       push(['دليل الألوان — من أين أتى كل رقم (Color Legend — Where Every Number Comes From)', ''],'section');
       push(['🔵 أزرق — مُدخل يدوي (Hardcoded Input)', 'يُدخله المحلل مباشرة — عدّله بحذر'], 'header');
@@ -165,6 +172,8 @@ export async function exportUnderwritingWorkbook(core, id){
       push(['لوحة القرار (Decision Dashboard)', ''],'section');
       push(['المؤشر (Metric)', 'القيمة (Value)'],'header');
       push(['TPC', Math.round(c.TPC)]);
+      push(['Composite Investment Score', `${scoreRes.composite.toFixed(0)}/100 (${core.T(scoreResBand.ar,scoreResBand.en)})`]);
+      push(['Decision Confidence', `${decisionConfidence.score.toFixed(0)}/100 (${core.T(decisionConfidence.band.ar,decisionConfidence.band.en)})`]);
       push(['Equity IRR', fmtPct(c.equityIRR,2)]);
       push(['Project IRR', fmtPct(c.projectIRR,2)]);
       push(['MOIC', c.MOIC.toFixed(2)+'×']);
@@ -174,6 +183,7 @@ export async function exportUnderwritingWorkbook(core, id){
       const decisions = (d.ic && d.ic.decisions) || [];
       const latest = decisions.length? decisions[decisions.length-1] : null;
       push(['قرار اللجنة الأحدث (Latest IC Decision)', latest? core.T(DEC_LABEL[latest.decision][0],DEC_LABEL[latest.decision][1]) : 'لم يُتخَذ بعد']);
+      push(['ملاحظة الحوكمة (Interpretation)', core.T('Investment Score = جاذبية الصفقة، وDecision Confidence = قوة التوثيق والتحقق الداعمَين للقرار.','Investment Score = deal attractiveness; Decision Confidence = strength of the supporting documentation and verification.')]);
       const ws = xlNewSheet(wb, '00_IC Dashboard', B.rows, B.kinds, { colWidths:[52,30] });
       const dashRow = B.rows.length + 2;
       await addChartImage(wb, ws, { type:'doughnut',
@@ -210,6 +220,7 @@ export async function exportUnderwritingWorkbook(core, id){
       push(['نوع الفرصة (Type)', core.T(core.OPP_TYPE_INFO[d.meta.oppType].t, core.OPP_TYPE_INFO[d.meta.oppType].en)]);
       push(['نوع الاستخدام (Use Type)', d.meta.useType||'—'], 'data', 'input');
       push(['المحلل (Analyst)', d.meta.analyst||'—'], 'data', 'input');
+      push(['تاريخ سريان البيانات (As-of Date)', reportDates.asOfText]);
       push(['تاريخ الإنشاء (Created)', d.meta.createdAt||'—']);
       push(['آخر تحديث (Updated)', d.meta.updatedAt||'—']);
       xlNewSheet(wb, '01_Opportunity', B.rows, B.kinds, { colWidths:[36,30] });

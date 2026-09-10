@@ -344,6 +344,18 @@ function fmtDateBilingual(dateStr){
   const h = fmtHijri(dateStr);
   return h? `${dateStr} ${T('م','CE')} — ${h} ${T('هـ','AH')}` : dateStr;
 }
+function reportDateMeta(d){
+  const meta = (d && d.meta) || {};
+  const rawAsOf = meta.updatedAt || meta.createdAt || todayStr();
+  const asOfDate = String(rawAsOf || todayStr()).slice(0,10) || todayStr();
+  const generatedDate = todayStr();
+  return {
+    asOfDate,
+    asOfText: fmtDateBilingual(asOfDate),
+    generatedDate,
+    generatedText: fmtDateBilingual(generatedDate),
+  };
+}
 
 /* ---------------- reference tables ---------------- */
 const CITIES = ["الرياض","جدة","مكة المكرمة","المدينة المنورة","الدمام","الخبر","الأحساء","أخرى"];
@@ -2813,21 +2825,22 @@ function renderDetail(id){
   if(!rec) return '';
   const d = withDefaults(rec.data), c = compute(d);
   const ti = OPP_TYPE_INFO[d.meta.oppType];
+  const reportDates = reportDateMeta(d);
   const vcls = c.verdict==='good'?'verdict-good':c.verdict==='warn'?'verdict-warn':'verdict-bad';
   const vlbl = c.verdict==='good'?'🟢 '+T('التوصية: قابلة للعرض على لجنة الاستثمار','Recommendation: Ready to present to the Investment Committee'):c.verdict==='warn'?'🟡 '+T('التوصية: تحت المراجعة — تحتاج تحسين مؤشرات محددة','Recommendation: Under review — specific metrics need improvement'):'🔴 '+T('التوصية: دون معايير القبول — تحتاج إعادة هيكلة','Recommendation: Below acceptance standards — needs restructuring');
 
   return `
-  <div class="memo" data-print-date="${esc(fmtDateBilingual(todayStr()))}">
+  <div class="memo" data-print-date="${esc(reportDates.asOfText)}">
     <div class="print-run-header">
       <span>${esc(branding.companyName||T('أوبال القابضة','Opal Holding'))} — ${esc(d.meta.name||T('بدون اسم','Unnamed'))}</span>
-      <span>${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')} · ${esc(fmtDateBilingual(todayStr()))}</span>
+      <span>${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')} · ${T('تاريخ سريان البيانات','As-of Date')}: ${esc(reportDates.asOfText)}</span>
     </div>
     <div class="print-letterhead">
       ${branding.logoDataUrl? `<img src="${branding.logoDataUrl}" alt="${esc(branding.companyName||T('شعار الشركة','Company Logo'))}" class="print-letterhead-logo">` : ''}
       <div class="print-letterhead-text">
         <div class="print-letterhead-company">${esc(branding.companyName||'')}</div>
         <div class="print-letterhead-app">${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')} · Real Estate Opportunity Ledger</div>
-        <div class="print-letterhead-date">${T('تم إنشاؤه في','Generated on')} ${esc(fmtDateBilingual(todayStr()))}</div>
+        <div class="print-letterhead-date">${T('تاريخ سريان البيانات','As-of Date')} ${esc(reportDates.asOfText)} · ${T('تم إنشاؤه في','Generated on')} ${esc(reportDates.generatedText)}</div>
       </div>
     </div>
     <div class="memo-hero">
@@ -2838,7 +2851,7 @@ function renderDetail(id){
           <div class="meta">
             <span>📍 ${esc(d.meta.city)} · ${esc(d.meta.neighborhood||'—')} · ${esc(d.meta.tier)}</span>
             <span>${ti.ic} ${T(ti.t,ti.en)}</span>
-            <span>🗓️ ${esc(fmtDateBilingual(d.meta.updatedAt||d.meta.createdAt||todayStr()))}</span>
+            <span>🗓️ ${T('تاريخ سريان البيانات','As-of Date')}: ${esc(reportDates.asOfText)}</span>
             ${d.meta.updatedBy? `<span>👤 ${T('آخر تعديل','Last edited by')}: ${esc(d.meta.updatedBy)}</span>` : (d.meta.createdBy? `<span>👤 ${T('أضافها','Added by')}: ${esc(d.meta.createdBy)}</span>` : '')}
           </div>
         </div>
@@ -4548,6 +4561,7 @@ async function exportOpportunityExcel(id){
   const rec = opportunities.find(o=>o.id===id);
   if(!rec) return;
   const d = withDefaults(rec.data), c = compute(d);
+  const reportDates = reportDateMeta(d);
   const yrs = c.projectCF.length;
   try{
     const wb = new ExcelJS.Workbook();
@@ -4562,8 +4576,8 @@ async function exportOpportunityExcel(id){
     B1.push(['اسم الفرصة', d.meta.name||'']);
     B1.push(['المدينة / الحي / الفئة', `${d.meta.city} · ${d.meta.neighborhood||'—'} · ${d.meta.tier}`]);
     B1.push(['نوع الفرصة', OPP_TYPE_INFO[d.meta.oppType].t]);
-    B1.push(['تاريخ آخر تحديث', fmtDateBilingual(d.meta.updatedAt||d.meta.createdAt||todayStr())]);
-    B1.push(['تاريخ إصدار هذا التقرير', fmtDateBilingual(todayStr())]);
+    B1.push(['تاريخ سريان البيانات (As-of Date)', reportDates.asOfText]);
+    B1.push(['تاريخ إنشاء الملف (Generated on)', reportDates.generatedText]);
     B1.push(['', '']);
     B1.push(['المؤشر', 'القيمة'],'header');
     B1.push(['Equity IRR', fmtPct(c.equityIRR,2)]);
@@ -5034,6 +5048,7 @@ function exportOpportunityPptx(id){
   const rec = opportunities.find(o=>o.id===id);
   if(!rec) return;
   const d = withDefaults(rec.data), c = compute(d);
+  const reportDates = reportDateMeta(d);
   try{
     const Ctor = window.PptxGenJS || (window.pptxgenjs && window.pptxgenjs.default);
     const pres = new Ctor();
@@ -5043,8 +5058,10 @@ function exportOpportunityPptx(id){
     const s1 = pres.addSlide();
     s1.addText(d.meta.name||'فرصة استثمارية', { x:0.5,y:0.5,w:12.3,h:1, fontSize:28, bold:true, color:'0E6B4C', align:'right' });
     s1.addText(`${d.meta.city} · ${d.meta.neighborhood||'—'} · ${d.meta.tier}  |  ${rec.id}`, { x:0.5,y:1.4,w:12.3,h:0.5, fontSize:14, color:'4C5850', align:'right' });
+    s1.addText(`${T('تاريخ سريان البيانات','As-of Date')}: ${reportDates.asOfText}  |  ${T('تم إنشاؤه في','Generated on')}: ${reportDates.generatedText}`,
+      { x:0.5,y:1.85,w:12.3,h:0.4, fontSize:10.5, color:'4C5850', align:'right' });
     const vlbl = c.verdict==='good'?'التوصية: قابلة للعرض على لجنة الاستثمار':c.verdict==='warn'?'التوصية: تحت المراجعة':'التوصية: دون معايير القبول';
-    s1.addText(vlbl, { x:0.5,y:2.0,w:12.3,h:0.5, fontSize:16, bold:true, color: c.verdict==='good'?'1E8A56':c.verdict==='warn'?'9C6A0A':'AE2E22', align:'right' });
+    s1.addText(vlbl, { x:0.5,y:2.25,w:12.3,h:0.5, fontSize:16, bold:true, color: c.verdict==='good'?'1E8A56':c.verdict==='warn'?'9C6A0A':'AE2E22', align:'right' });
 
     const kpis = [
       ['Equity IRR', fmtPct(c.equityIRR,2)],
@@ -5057,7 +5074,7 @@ function exportOpportunityPptx(id){
     let kx = 0.5;
     kpis.forEach(([l,v])=>{
       s1.addText([{text:v+'\n',options:{fontSize:20,bold:true,color:'0E6B4C'}},{text:l,options:{fontSize:11,color:'4C5850'}}],
-        { x:kx,y:2.8,w:1.95,h:1.1, align:'center', valign:'middle', fill:{color:'F3F4F0'}, line:{color:'D6DACF',width:1} });
+        { x:kx,y:3.05,w:1.95,h:1.1, align:'center', valign:'middle', fill:{color:'F3F4F0'}, line:{color:'D6DACF',width:1} });
       kx += 2.0;
     });
 
@@ -5066,7 +5083,7 @@ function exportOpportunityPptx(id){
       {text:'التكلفة الإنشائية: ', options:{bold:true}}, {text:fmtSAR(c.hardCost)+'\n'},
       {text:'إجمالي تكلفة المشروع: ', options:{bold:true}}, {text:fmtSAR(c.TPC)+'\n'},
       {text:'صافي الدخل التشغيلي: ', options:{bold:true}}, {text:fmtSAR(c.stabilizedNOIyr1)},
-    ], { x:0.5,y:4.2,w:12.3,h:2, fontSize:14, align:'right', color:'152019' });
+    ], { x:0.5,y:4.45,w:12.3,h:2, fontSize:14, align:'right', color:'152019' });
 
     const s2 = pres.addSlide();
     s2.addText('التدفقات النقدية السنوية', { x:0.5,y:0.4,w:12.3,h:0.6, fontSize:22, bold:true, color:'0E6B4C', align:'right' });
@@ -5242,6 +5259,7 @@ export {
   todayStr,
   fmtHijri,
   fmtDateBilingual,
+  reportDateMeta,
   CITIES,
   TIERS,
   isResidentialUseType,

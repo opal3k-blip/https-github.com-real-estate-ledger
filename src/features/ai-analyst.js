@@ -21,6 +21,7 @@ import { dataQualityStats } from './data-quality.js';
 import { ddStats, defaultItemsDict } from './due-diligence.js';
 import { RISK_CATEGORIES, defaultRiskItems, scoreOf as riskScoreOf, bandOf as riskBandOf } from './risk-engine.js';
 import { matchBenchmarks, aggregateBench } from './benchmark-engine.js';
+import { computeDecisionConfidence } from './decision-confidence.js';
 
 const expandedIds = new Set(); // حالة واجهة محلية فقط (مفتوح/مغلق) — لا علاقة لها ببيانات الفرصة
 
@@ -28,6 +29,7 @@ const expandedIds = new Set(); // حالة واجهة محلية فقط (مفت�
 function generateAnalystNarrative(core, d, c){
   const scoreRes = computeInvestmentScore(core, d, c);
   const band = scoreBand(scoreRes.composite);
+  const decisionConfidence = computeDecisionConfidence(core, d);
   const dq = dataQualityStats(core, d);
   const dd = ddStats((d.dd && d.dd.items) || defaultItemsDict());
   const riskItems = (d.risk && d.risk.items) || defaultRiskItems();
@@ -42,16 +44,26 @@ function generateAnalystNarrative(core, d, c){
 
   const paras = [];
   paras.push(core.T(
-    `الدرجة الاستثمارية المركّبة لهذه الفرصة ${scoreRes.composite.toFixed(0)}/100 (${core.T(band.ar,band.en)}).`,
-    `This opportunity's composite Investment Score is ${scoreRes.composite.toFixed(0)}/100 (${band.en}).`
+    `الدرجة الاستثمارية المركّبة لهذه الفرصة ${scoreRes.composite.toFixed(0)}/100 (${core.T(band.ar,band.en)}). هذه الدرجة تعبّر عن جاذبية الفرصة وفق الافتراضات الحالية، وليست مقياساً لثقة القرار.`,
+    `This opportunity's composite Investment Score is ${scoreRes.composite.toFixed(0)}/100 (${band.en}). This score reflects relative attractiveness under the current underwriting inputs; it is not a confidence measure.`
   ));
+  paras.push(core.T(
+    `ثقة القرار الحالية ${decisionConfidence.score.toFixed(0)}/100 (${core.T(decisionConfidence.band.ar,decisionConfidence.band.en)}). وهي مقياس منفصل لمدى اكتمال المدخلات وتوثيق المصادر والتحقق المؤسسي وتقدّم العناية الواجبة.`,
+    `Current Decision Confidence is ${decisionConfidence.score.toFixed(0)}/100 (${decisionConfidence.band.en}). It is a separate measure of input completeness, source coverage, institutional verification, and due-diligence progress.`
+  ));
+  if(decisionConfidence.blockers.length){
+    paras.push(core.T(
+      `⚠️ يجب قراءة أي توصية بحذر في هذه المرحلة لأن ثقة القرار ما تزال محدودة بسبب: ${decisionConfidence.blockers.map(b=>b.ar).join('، ')}.`,
+      `⚠️ Any recommendation should be read cautiously at this stage because Decision Confidence remains constrained by: ${decisionConfidence.blockers.map(b=>b.en).join(', ')}.`
+    ));
+  }
   if(dq.criticalMissing.length || dd.criticalPending){
     paras.push(core.T(
       `⚠️ الجاهزية للعرض على اللجنة غير مكتملة: ${dq.criticalMissing.length? dq.criticalMissing.length+' مُدخل حرج مفقود في جودة البيانات' : ''}${dq.criticalMissing.length&&dd.criticalPending? '، و':''}${dd.criticalPending? dd.criticalPending+' بند حرج معلّق في العناية الواجبة' : ''}.`,
       `⚠️ Not yet IC-ready: ${dq.criticalMissing.length? dq.criticalMissing.length+' critical data-quality input(s) missing' : ''}${dq.criticalMissing.length&&dd.criticalPending? ', and ':''}${dd.criticalPending? dd.criticalPending+' critical DD item(s) pending' : ''}.`
     ));
   } else {
-    paras.push(core.T('✅ جودة البيانات والعناية الواجبة الحرجة مكتملتان — الفرصة جاهزة من ناحية التوثيق للعرض على اللجنة.','✅ Critical data quality and due diligence are complete — the opportunity is documentation-ready for IC presentation.'));
+    paras.push(core.T('✅ جودة البيانات والعناية الواجبة الحرجة مكتملتان — وتبدو الفرصة جاهزة توثيقياً للعرض على اللجنة بحسب السجلات الحالية.','✅ Critical data quality and due diligence are complete — the opportunity appears documentation-ready for IC presentation based on the current records.'));
   }
   if(topRisks.length){
     paras.push(core.T(
@@ -65,7 +77,7 @@ function generateAnalystNarrative(core, d, c){
       `Criteria not yet met: ${icRecs.map(r=>r.k).join(', ')} — see the "IC Recommendations" section of the memo for detail and suggested action per criterion.`
     ));
   } else {
-    paras.push(core.T('جميع معايير القبول المالية الأساسية مستوفاة حسب آخر حساب.','All core financial acceptance criteria are currently met.'));
+    paras.push(core.T('جميع معايير القبول المالية الأساسية مستوفاة حسب آخر حساب وبناءً على الافتراضات المُدخلة حالياً.','All core financial acceptance criteria are currently met on the present underwriting assumptions.'));
   }
   if(strengths.length){
     paras.push(core.T(`نقاط قوة قابلة للعرض: ${strengths.length} نقطة موثَّقة (التفاصيل في قسم "نقاط القوة والتفاوض").`, `${strengths.length} presentable strength(s) documented (see "Strengths & Negotiation Points").`));
@@ -76,18 +88,18 @@ function generateAnalystNarrative(core, d, c){
   if(bench){
     const irrOk = bench.irrMin==null || (isFinite(c.equityIRR) && c.equityIRR>=bench.irrMin);
     paras.push(core.T(
-      `مقابل المعيار المرجعي (${benchScope==='exact'?'مدينة ونوع مطابقان':'نوع الفرصة فقط، بلا مدينة مطابقة'}): Equity IRR ${irrOk? 'ضمن النطاق المرجعي أو أعلى منه':'دون النطاق المرجعي'}${bench.irrMin!=null?` (${core.fmtPct(bench.irrMin)}–${bench.irrMax!=null?core.fmtPct(bench.irrMax):'—'})`:''}.`,
-      `Against the benchmark (${benchScope==='exact'?'matching city & type':'type-only, no matching city'}): Equity IRR is ${irrOk? 'within or above':'below'} the benchmark range${bench.irrMin!=null?` (${core.fmtPct(bench.irrMin)}–${bench.irrMax!=null?core.fmtPct(bench.irrMax):'—'})`:''}.`
+      `مقابل المعيار المرجعي الحالي (${benchScope==='exact'?'مدينة ونوع مطابقان':'نوع الفرصة فقط، بلا مدينة مطابقة'}): يبدو Equity IRR ${irrOk? 'ضمن النطاق المرجعي أو أعلى منه':'دون النطاق المرجعي'}${bench.irrMin!=null?` (${core.fmtPct(bench.irrMin)}–${bench.irrMax!=null?core.fmtPct(bench.irrMax):'—'})`:''}.`,
+      `Against the current benchmark (${benchScope==='exact'?'matching city & type':'type-only, no matching city'}): Equity IRR currently screens ${irrOk? 'within or above':'below'} the benchmark range${bench.irrMin!=null?` (${core.fmtPct(bench.irrMin)}–${bench.irrMax!=null?core.fmtPct(bench.irrMax):'—'})`:''}.`
     ));
   } else {
     paras.push(core.T('لا يوجد معيار مرجعي مسجَّل بعد لمقارنة هذه الفرصة به.','No benchmark recorded yet to compare this opportunity against.'));
   }
 
   const verdictIcon = c.verdict==='good'?'🟢':c.verdict==='warn'?'🟡':'🔴';
-  paras.push(core.T(`الخلاصة: ${verdictIcon} ${c.verdict==='good'?'الفرصة تستوفي معايير القبول الأساسية وجاهزة نسبياً للمضي قدماً.':c.verdict==='warn'?'الفرصة تحت المراجعة — تحتاج تحسين معايير محددة قبل العرض النهائي.':'الفرصة دون معايير القبول حالياً وتحتاج إعادة هيكلة جوهرية.'}`,
-    `Bottom line: ${verdictIcon} ${c.verdict==='good'?'The opportunity meets core acceptance criteria and is relatively ready to proceed.':c.verdict==='warn'?'Under review — specific criteria need improvement before final presentation.':'Currently below acceptance standards and needs substantial restructuring.'}`));
+  paras.push(core.T(`الخلاصة: ${verdictIcon} ${c.verdict==='good'?'استناداً إلى الافتراضات الحالية والبيانات الموثَّقة المتاحة، تبدو الفرصة جاهزة نسبياً للانتقال إلى الخطوة التالية مع بقاء الحاجة إلى تحقق مستقل قبل أي التزام نهائي.':c.verdict==='warn'?'استناداً إلى الافتراضات الحالية، ما تزال الفرصة تحت المراجعة وتحتاج تحسين عناصر محددة قبل العرض النهائي أو الالتزام.':'استناداً إلى النموذج الحالي، تبقى الفرصة دون معايير القبول وتحتاج إعادة هيكلة جوهرية قبل التقدّم.'}`,
+    `Bottom line: ${verdictIcon} ${c.verdict==='good'?'Based on the current underwriting and documented support, the opportunity appears relatively ready for the next step, while still requiring independent validation before any final commitment.':c.verdict==='warn'?'Based on the current assumptions, the opportunity remains under review and needs specific improvements before final presentation or commitment.':'On the current model, the opportunity remains below acceptance standards and needs substantial restructuring before proceeding.'}`));
 
-  return { paras, scoreRes, band, dq, dd, topRisks, icRecs, strengths, negotiations, bench, benchScope };
+  return { paras, scoreRes, band, decisionConfidence, dq, dd, topRisks, icRecs, strengths, negotiations, bench, benchScope };
 }
 
 export function registerAIAnalyst(core){
@@ -110,7 +122,7 @@ export function registerAIAnalyst(core){
         <h3 style="margin:0;">🧠 ${core.T('تحليل محلل الاستثمار الآلي','AI Investment Analyst')}</h3>
         <button type="button" class="btn btn-sm btn-ghost" data-action="ai-toggle" data-id="${oppId}">✖ ${core.T('إغلاق','Close')}</button>
       </div>
-      <p class="note" style="margin:0 0 10px;">${core.T('تركيب آلي (Rule-based) من بيانات موثَّقة داخل التطبيق فقط — ليس استدعاءً لنموذج ذكاء اصطناعي خارجي، ولا يضيف أي رقم أو افتراض غير موجود مسبقاً في الأنظمة الأخرى.','Rule-based synthesis of data verified inside the app only — not a call to an external AI model, and adds no number or assumption not already present in the other systems.')}</p>
+      <p class="note" style="margin:0 0 10px;">${core.T('تركيب آلي (Rule-based) من البيانات الحالية والمسارات التوثيقية داخل التطبيق فقط — ليس استدعاءً لنموذج ذكاء اصطناعي خارجي، ولا يضيف أي رقم جديد، كما أنه لا يُجري تحققاً مستقلاً أو تدقيقاً بديلاً عن المراجعة المؤسسية.','Rule-based synthesis of the current app data and tracked evidence only — not a call to an external AI model, adds no new number, and does not independently validate or audit the underlying inputs.')}</p>
       <div style="display:flex; flex-direction:column; gap:8px;">
         ${paras.map(p=>`<p style="margin:0; font-size:12.5px; line-height:1.9;">${core.esc(p)}</p>`).join('')}
       </div>

@@ -205,6 +205,7 @@ function watchForBookCharts(core){
    --------------------------------------------------------------------- */
 export function buildICBook(core, rec, d, c){
   const { T, esc, fmtSAR, fmtPct, fmtNum } = core;
+  const reportDates = core.reportDateMeta(d);
   const ti = core.OPP_TYPE_INFO[d.meta.oppType];
   const vcls = c.verdict==='good'?'verdict-good':c.verdict==='warn'?'verdict-warn':'verdict-bad';
   const vlbl = c.verdict==='good'? '🟢 '+T('التوصية: قابلة للعرض على لجنة الاستثمار','Recommendation: Ready to present to the Investment Committee')
@@ -219,17 +220,17 @@ export function buildICBook(core, rec, d, c){
 
   /* ===================== 1) Cover Page ===================== */
   html += `
-  <div class="memo" data-print-date="${esc(core.fmtDateBilingual(core.todayStr()))}">
+  <div class="memo" data-print-date="${esc(reportDates.asOfText)}">
     <div class="print-run-header">
       <span>${esc(core.branding.companyName||T('أوبال القابضة','Opal Holding'))} — ${esc(d.meta.name||T('بدون اسم','Unnamed'))}</span>
-      <span>${T('كتاب لجنة الاستثمار','Investment Committee Book')} · ${esc(core.fmtDateBilingual(core.todayStr()))}</span>
+      <span>${T('كتاب لجنة الاستثمار','Investment Committee Book')} · ${T('تاريخ سريان البيانات','As-of Date')}: ${esc(reportDates.asOfText)}</span>
     </div>
     <div class="print-letterhead">
       ${core.branding.logoDataUrl? `<img src="${core.branding.logoDataUrl}" alt="${esc(core.branding.companyName||T('شعار الشركة','Company Logo'))}" class="print-letterhead-logo">` : ''}
       <div class="print-letterhead-text">
         <div class="print-letterhead-company">${esc(core.branding.companyName||'')}</div>
         <div class="print-letterhead-app">${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')} · Real Estate Opportunity Ledger</div>
-        <div class="print-letterhead-date">${T('تم إنشاؤه في','Generated on')} ${esc(core.fmtDateBilingual(core.todayStr()))}</div>
+        <div class="print-letterhead-date">${T('تاريخ سريان البيانات','As-of Date')} ${esc(reportDates.asOfText)} · ${T('تم إنشاؤه في','Generated on')} ${esc(reportDates.generatedText)}</div>
       </div>
     </div>
     <div class="memo-hero" style="text-align:center; padding:40px 4px 30px;">
@@ -238,7 +239,7 @@ export function buildICBook(core, rec, d, c){
       <div class="meta" style="justify-content:center;">
         <span>📍 ${esc(d.meta.city)} · ${esc(d.meta.neighborhood||'—')} · ${esc(d.meta.tier)}</span>
         <span>${ti.ic} ${T(ti.t,ti.en)}</span>
-        <span>🗓️ ${esc(core.fmtDateBilingual(core.todayStr()))}</span>
+        <span>🗓️ ${T('تاريخ سريان البيانات','As-of Date')}: ${esc(reportDates.asOfText)}</span>
         <span>👤 ${T('أُعِدَّ بواسطة','Prepared by')}: ${esc(core.currentUser? core.currentUser.email : (d.meta.analyst||'—'))}</span>
       </div>
       <div class="verdict-banner ${vcls}" style="margin:22px auto 0; max-width:640px;">${vlbl}</div>
@@ -275,17 +276,21 @@ export function buildICBook(core, rec, d, c){
       [T('نوع الاستخدام','Use Type'), esc(d.meta.useType||'—')],
       [T('مرحلة خط الأنابيب','Pipeline Stage'), stg? T(stg.ar,stg.en) : '—'],
       [T('المحلل','Analyst'), esc(d.meta.analyst||'—')],
+      [T('تاريخ سريان البيانات','As-of Date'), esc(reportDates.asOfText)],
+      [T('تاريخ إنشاء الملف','Generated on'), esc(reportDates.generatedText)],
       [T('تاريخ الإنشاء','Created'), d.meta.createdAt? esc(core.fmtDateBilingual(d.meta.createdAt)) : '—'],
       [T('آخر تحديث','Last Updated'), d.meta.updatedAt? esc(core.fmtDateBilingual(d.meta.updatedAt)) : '—'],
     ])}
   `);
 
   /* ===================== 4) Investment Thesis ===================== */
-  const scoreRes = narrative.scoreRes, band = narrative.band;
+  const scoreRes = narrative.scoreRes, band = narrative.band, decisionConfidence = narrative.decisionConfidence;
   html += sec(core, 4, 'الأطروحة الاستثمارية', 'Investment Thesis', 'Investment Thesis', `
     ${kv([
       [T('الدرجة الاستثمارية المركّبة','Composite Investment Score'), `<b>${scoreRes.composite.toFixed(0)}/100</b> (${T(band.ar,band.en)})`],
+      [T('ثقة القرار','Decision Confidence'), `<b style="color:${decisionConfidence.band.color};">${decisionConfidence.score.toFixed(0)}/100</b> (${T(decisionConfidence.band.ar,decisionConfidence.band.en)})`],
     ])}
+    <p class="note" style="margin:0 0 10px;">${T('التمييز مقصود: Investment Score يعبّر عن جاذبية الصفقة وفق الافتراضات الحالية، بينما Decision Confidence يعبّر عن قوة التوثيق والتحقق والعناية الواجبة الداعمة للقرار.','The distinction is intentional: Investment Score reflects deal attractiveness under current assumptions, while Decision Confidence reflects the strength of the documentation, verification, and due diligence supporting the decision.')}</p>
     <p class="step-sub" style="margin:10px 0 6px;">${T('لماذا الاستثمار — نقاط القوة الموثَّقة','Why Invest — Documented Strengths')}</p>
     ${narrative.strengths.length? `<ul style="margin:0; padding-inline-start:20px; font-size:12px; line-height:1.9;">${narrative.strengths.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`
       : `<p class="note">${T('لا توجد نقاط قوة بارزة مسجَّلة بعد وفق المعايير الآلية.','No standout strengths flagged yet by the automated criteria.')}</p>`}
@@ -601,7 +606,8 @@ export function buildICBook(core, rec, d, c){
   html += sec(core, 21, 'المصادر والأدلة وإخلاء المسؤولية', 'Sources / Evidence / Disclaimer', 'Sources / Evidence / Disclaimer', `
     ${kv([
       [T('عدد الحقول الموثَّقة بمصدر','Fields with a documented source'), fmtNum(evidenceCount)],
-      [T('تاريخ إصدار هذا الكتاب','This book generated on'), esc(core.fmtDateBilingual(core.todayStr()))],
+      [T('تاريخ سريان البيانات','As-of Date'), esc(reportDates.asOfText)],
+      [T('تاريخ إنشاء الملف','Generated on'), esc(reportDates.generatedText)],
     ])}
     <p style="margin:12px 0 0; font-size:11px; line-height:1.8; color:var(--ink-faint);">
       ${T('هذا الكتاب أُعِدَّ آلياً من بيانات مُدخَلة داخل تطبيق دفتر الفرص العقارية، ويستند إلى الافتراضات المُدخَلة من المحلل المسؤول وقت الإعداد. الأرقام هنا تقديرية ولا تُغني عن تقييم مستقل معتمد أو مراجعة قانونية/ضريبية/شرعية متخصصة قبل اتخاذ أي قرار استثماري نهائي. جميع الحقوق محفوظة.',

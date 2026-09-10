@@ -65,6 +65,8 @@ export async function exportICPresentation(core, id){
     pres.layout = 'WIDE';
 
     const narrative = generateAnalystNarrative(core, d, c);
+    const reportDates = core.reportDateMeta(d);
+    const decisionConfidence = narrative.decisionConfidence;
     const decisions = (d.ic && d.ic.decisions) || [];
     const latest = decisions.length? decisions[decisions.length-1] : null;
     const ti = core.OPP_TYPE_INFO[d.meta.oppType];
@@ -86,29 +88,33 @@ export async function exportICPresentation(core, id){
       const s = pres.addSlide();
       s.addText(d.meta.name||'فرصة استثمارية', { x:0.5,y:0.5,w:12.3,h:1, fontSize:30, bold:true, color:PAL.green, align:'right' });
       s.addText(`${d.meta.city} · ${d.meta.neighborhood||'—'} · ${d.meta.tier}  |  ${ti.ic} ${core.T(ti.t,ti.en)}  |  ${rec.id}`, { x:0.5,y:1.5,w:12.3,h:0.5, fontSize:14, color:PAL.text, align:'right' });
-      s.addText('التوصية: ' + vlbl, { x:0.5,y:2.1,w:12.3,h:0.5, fontSize:18, bold:true, color:vcolor, align:'right' });
+      s.addText(`${core.T('تاريخ سريان البيانات','As-of Date')}: ${reportDates.asOfText}  |  ${core.T('تم إنشاؤه في','Generated on')}: ${reportDates.generatedText}`,
+        { x:0.5, y:1.95, w:12.3, h:0.35, fontSize:10.5, color:PAL.text, align:'right' });
+      s.addText('التوصية: ' + vlbl, { x:0.5,y:2.3,w:12.3,h:0.45, fontSize:18, bold:true, color:vcolor, align:'right' });
+      s.addText(`${core.T('الدرجة الاستثمارية المركّبة','Composite Investment Score')}: ${narrative.scoreRes.composite.toFixed(0)}/100 (${core.T(narrative.band.ar,narrative.band.en)})  |  ${core.T('ثقة القرار','Decision Confidence')}: ${decisionConfidence.score.toFixed(0)}/100 (${core.T(decisionConfidence.band.ar,decisionConfidence.band.en)})`,
+        { x:0.5, y:2.7, w:12.3, h:0.35, fontSize:11, color:PAL.ink, align:'right' });
       kpiRow(s, [
         ['حجم الاستثمار (TPC)', fmtSAR(c.TPC)],
         ['حقوق الملكية المطلوبة', fmtSAR(c.equity)],
         ['Equity IRR', fmtPct(c.equityIRR,1)],
         ['MOIC', c.MOIC.toFixed(2)+'×'],
-      ], 3.0);
+      ], 3.15);
     }
 
     /* ===================== 2) Executive Investment Case ===================== */
     {
       const s = pres.addSlide();
       H(s, 'الحالة الاستثمارية التنفيذية — Executive Investment Case');
-      const whyInvest = narrative.strengths.length? narrative.strengths[0] : 'المؤشرات المالية الأساسية ضمن أو قريبة من معايير القبول المعتمدة.';
+      const whyInvest = narrative.strengths.length? narrative.strengths[0] : 'المؤشرات المالية الأساسية تبدو ضمن أو قريبة من معايير القبول المعتمدة وفق الافتراضات الحالية.';
       const bench = (()=>{ const {rows} = matchBenchmarks(core, d.meta.city, d.meta.oppType); return rows.length? aggregateBench(rows) : null; })();
       const whyNow = bench && bench.irrMin!=null
-        ? `عائد الفرصة (${fmtPct(c.equityIRR,1)}) ${c.equityIRR>=bench.irrMin?'ضمن أو أعلى من':'قريب من'} نطاق السوق المرجعي الحالي (${fmtPct(bench.irrMin)}${bench.irrMax!=null?'–'+fmtPct(bench.irrMax):''}).`
+        ? `عائد الفرصة (${fmtPct(c.equityIRR,1)}) يبدو ${c.equityIRR>=bench.irrMin?'ضمن أو أعلى من':'قريباً من'} نطاق السوق المرجعي الحالي (${fmtPct(bench.irrMin)}${bench.irrMax!=null?'–'+fmtPct(bench.irrMax):''}).`
         : 'التوقيت مبني على جاهزية الفرصة وتوفر التمويل حالياً — لا يوجد معيار سوقي مسجَّل بعد للمقارنة.';
       const targetIRR = d.criteria.irrMin || 0.15;
       const mapRes = maxAcquisitionPrice(core, d, targetIRR);
       const whyPrice = mapRes.infeasible
         ? 'السعر الحالي يحتاج مراجعة جوهرية — لا يوجد سعر أرض يحقق العائد المستهدف عند الافتراضات الحالية.'
-        : `السعر المُدخَل (${fmtSAR(d.land.price)}/م²) ${d.land.price<=mapRes.maxPrice?'ضمن':'أعلى من'} الحد الأقصى المحسوب لتحقيق ${fmtPct(targetIRR)} (${fmtSAR(mapRes.maxPrice)}/م²).`;
+        : `السعر المُدخَل (${fmtSAR(d.land.price)}/م²) يبدو ${d.land.price<=mapRes.maxPrice?'ضمن':'أعلى من'} الحد الأقصى المحسوب لتحقيق ${fmtPct(targetIRR)} (${fmtSAR(mapRes.maxPrice)}/م²).`;
       const boxes = [
         ['لماذا الاستثمار؟ (Why Invest?)', whyInvest],
         ['لماذا الآن؟ (Why Now?)', whyNow],
@@ -341,7 +347,7 @@ export async function exportICPresentation(core, id){
         {text:'ROI: ', options:{bold:true}}, {text:fmtPct(c.ROI)+'    '},
         {text:'فترة الاسترداد: ', options:{bold:true}}, {text:(c.paybackPeriod!=null?c.paybackPeriod.toFixed(1)+' سنة':'—')+'\n'},
       ], { x:0.5,y:1.4,w:12.3,h:3, fontSize:14, align:'right', color:PAL.ink, lineSpacing:34 });
-      s.addText('هذا العرض أُعِدَّ آلياً من بيانات دفتر الفرص العقارية. الأرقام تقديرية ولا تُغني عن تقييم مستقل معتمد قبل أي قرار استثماري نهائي.',
+      s.addText(`هذا العرض أُعِدَّ آلياً من بيانات دفتر الفرص العقارية كما هي في تاريخ سريان البيانات ${reportDates.asOfText}. الأرقام تقديرية/قائمة على النموذج الحالي ولا تُغني عن تقييم مستقل معتمد أو مراجعة متخصصة قبل أي قرار استثماري نهائي.`,
         { x:0.5,y:5.0,w:12.3,h:1, fontSize:10, color:PAL.text, align:'right', italic:true });
     }
 
