@@ -135,6 +135,34 @@ function rowLabel(core, row){
   const base = core.T(row.productAr, row.productFull.replace(/^.*\(([^)]*)\)\s*$/, '$1') || row.productFull);
   return row.variant? `${base} — ${row.variant}` : row.productFull;
 }
+function isOptionalAddition(row){ return /^ADD-/.test(row.id||''); }
+function executionType(core, row){
+  return isOptionalAddition(row)
+    ? core.T('إضافة اختيارية','Optional addition')
+    : core.T('برنامج/مرجع أساسي','Core programme / baseline');
+}
+function gfaTreatment(core, row){
+  const text = `${row.id||''} ${row.productAr||''} ${row.productFull||''} ${row.allowedLevel||''}`.toLowerCase();
+  const externalOrParking = /(?:outdoor|terrace|حدائق|حديقة|جلسات خارجية|ممرات|أرصفة|أسوار|بوابات|مظلات|نافورة|ملعب|مسار|واجهة إعلانية|مواقف|parking|قبو)/.test(text);
+  if(externalOrParking){
+    return { key:'excluded', label:core.T('لا يدخل GFA التنظيمي عادةً','Usually excluded from planning GFA'),
+      tip:core.T('مساحة موقع/خارجية أو مواقف: تُدرج في التكلفة وBUA عند الحاجة، لكن لا تُفترض ضمن GFA التنظيمي قبل مراجعة اشتراطات الجهة المختصة.','Site/external or parking area: include in cost and BUA where applicable, but do not assume it is planning GFA before authority confirmation.') };
+  }
+  if(row.effIcon==='🟢'){
+    return { key:'included-income', label:core.T('يدخل GFA — مساحة إيرادية','Counts in GFA — income area'),
+      tip:core.T('مساحة مبنية تُحتسب ضمن GFA وتدعم الإيراد مباشرة.','Built area counted in GFA and directly supports revenue.') };
+  }
+  if(row.effIcon==='🔴'){
+    return { key:'included-non-income', label:core.T('يدخل GFA — غير إيرادي','Counts in GFA — non-income'),
+      tip:core.T('مساحة داخلية مبنية تُحتسب عادةً ضمن GFA/BUA لكنها Non‑GLA: تكلفة لازمة بلا إيراد مباشر.','Internal built area typically counted in GFA/BUA but non-GLA: necessary cost with no direct income.') };
+  }
+  if(row.effIcon==='🟡'){
+    return { key:'conditional', label:core.T('مشروط — تحقق تنظيمياً','Conditional — verify code'),
+      tip:core.T('قد تُحتسب المساحة الداخلية ضمن GFA بينما المرفق الخارجي لا يُحتسب؛ يلزم التحقق من اشتراطات البلدية ورخصة المشروع.','Indoor amenity space may count toward GFA while external amenity does not; verify municipality requirements and the project permit.') };
+  }
+  return { key:'reference', label:core.T('معيار فقط — ليس مساحة','Reference only — not an area'),
+    tip:core.T('هذا معيار/مؤشر وليس مساحة قابلة للإضافة إلى GFA.','This is a design parameter, not an area to add to GFA.') };
+}
 
 /* أهم صفوف قطاع مُعيَّن — الأكثر تمثيلاً لقرارات الكفاءة (نرتّب: GLA أولاً كي
    يرى مدخل البيانات فرص الإيراد أولاً، ثم Amenity، ثم Non-GLA). limit افتراضي
@@ -173,13 +201,14 @@ function indicatorBoxHtml(core, d){
     </p>
     <div class="tablewrap"><table class="db" style="font-size:11px;">
       <thead><tr>
-        <th>${core.T('البند','Item')}</th><th>${core.T('النطاق','Range')}</th><th>${core.T('التصنيف','Class')}</th><th>${core.T('تكلفة/م² مرجعية','Ref. cost/m²')}</th>
+        <th>${core.T('البند','Item')}</th><th>${core.T('النطاق','Range')}</th><th>${core.T('التصنيف','Class')}</th><th>${core.T('معالجة GFA','GFA treatment')}</th><th>${core.T('تكلفة/م² مرجعية','Ref. cost/m²')}</th>
       </tr></thead>
       <tbody>
         ${rows.map(r=>`<tr>
           <td style="font-size:10.5px;" title="${core.esc(r.logic)}">${core.esc(rowLabel(core,r))}</td>
           <td class="num mono" style="font-size:10.5px;">${core.esc(fmtRange(r))} <span style="color:var(--ink-faint);">${core.esc(r.unit)}</span></td>
           <td style="text-align:center;" title="${core.esc(classificationTip(core, r.effIcon))}">${r.effIcon||'—'}</td>
+          <td style="font-size:10px;" title="${core.esc(gfaTreatment(core,r).tip)}">${core.esc(gfaTreatment(core,r).label)}</td>
           <td class="num mono" style="font-size:10.5px;">${r.avgCostNum!=null? core.fmtSAR(r.avgCostNum)+'/'+core.esc(r.costUnit) : '—'}</td>
         </tr>`).join('')}
       </tbody>
@@ -191,6 +220,7 @@ function indicatorBoxHtml(core, d){
 
 export function registerSpaceEfficiencyLibrary(core){
   core.registerDataCollection(OVERRIDES_COLLECTION);
+  core.registerOpportunitySchemaExtender(()=>({ architecture: { selectedAdditions:{} } }));
   let currentSectorFilter = null; // فلتر عرض محلي (module state) — لا يُخزَّن في core state، بنفس منطق أزرار الإجراءات النقرية (انظر ملاحظة roles-permissions.js حول عدم الاعتماد على أحداث change).
 
   core.registerTopbarButton(()=>{
@@ -201,12 +231,15 @@ export function registerSpaceEfficiencyLibrary(core){
   core.registerWizardStepExtra(3, (d)=> indicatorBoxHtml(core, d));
 
   /* (ب) صفحة الفرصة المحفوظة — نفس المؤشر + خلاصة القطاع المهنية الكاملة */
-  core.registerDetailSection((d)=>{
+  core.registerDetailSection((d, _c, rec)=>{
     const useType = d.meta.useType;
     const sectors = sectorsForUseType(useType);
     if(!sectors.length) return '';
     const primary = sectors[0];
     const knowledge = SECTOR_KNOWLEDGE[primary];
+    const additions = ROWS.filter(r=>isOptionalAddition(r) && sectors.includes(r.sector));
+    const selected = (d.architecture && d.architecture.selectedAdditions) || {};
+    const canEdit = rec && core.canEditOpp(rec);
     return `
     <div class="section">
       <h3>🏗️ ${core.T('الكفاءة المعمارية والتكلفة المرجعية','Architectural Efficiency & Cost Reference')} — ${sectorLabel(core, primary)}</h3>
@@ -215,6 +248,23 @@ export function registerSpaceEfficiencyLibrary(core){
       <div class="section" style="margin-top:10px; background:var(--surface-2);">
         <p class="step-sub" style="margin:0 0 6px;">💡 ${core.T('خلاصة مهنية للقطاع','Sector professional brief')}</p>
         <p class="note" style="line-height:1.8;">${core.T(knowledge.ar, knowledge.en)}</p>
+      </div>` : ''}
+      ${additions.length? `
+      <div class="section" style="margin-top:10px; background:var(--surface-2);">
+        <p class="step-sub" style="margin:0 0 6px;">✅ ${core.T('نقاط تنفيذ الإضافات الاختيارية','Optional-addition execution checkpoints')} <span class="tag" style="background:var(--surface); color:var(--ink-faint); font-size:10px;">${Object.keys(selected).filter(id=>selected[id]).length} ${core.T('مفعّلة','enabled')}</span></p>
+        <p class="note" style="margin:0 0 10px; font-size:11px;">${core.T('ليست حزمة مفروضة: فعّل فقط ما تقرر تنفيذه، واترك غير الملائم غير مفعّل. الاختيار محفوظ مع الفرصة ويُستخدم كقائمة قرار/تنسيق؛ لا يغيّر التكلفة أو GFA المالي تلقائياً قبل إدخال المساحة والتكلفة في نموذج الاكتتاب.','This is not a mandatory bundle: enable only items approved for delivery. Selections are saved with the opportunity as a decision/coordination checklist; they do not automatically change financial cost or GFA until area and cost are entered in underwriting.')}</p>
+        <div class="tablewrap"><table class="db" style="font-size:11px;">
+          <thead><tr><th>${core.T('تنفيذ','Deliver')}</th><th>${core.T('الكود والبند','Code & item')}</th><th>${core.T('GFA','GFA')}</th><th>${core.T('التكلفة المرجعية','Reference cost')}</th></tr></thead>
+          <tbody>${additions.map(row=>{
+            const gfa = gfaTreatment(core,row);
+            return `<tr>
+              <td style="text-align:center;">${canEdit?`<input type="checkbox" data-action="seff-toggle-addition" data-opp-id="${core.esc(rec.id)}" data-row-id="${core.esc(row.id)}" ${selected[row.id]?'checked':''} aria-label="${core.esc(rowLabel(core,row))}">`:(selected[row.id]?'✅':'—')}</td>
+              <td><span class="mono" style="font-size:10px;">${core.esc(row.id)}</span> — ${core.esc(rowLabel(core,row))}</td>
+              <td title="${core.esc(gfa.tip)}">${core.esc(gfa.label)}</td>
+              <td class="num mono">${row.avgCostNum!=null?core.fmtSAR(row.avgCostNum)+'/'+core.esc(row.costUnit):'—'}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table></div>
       </div>` : ''}
     </div>`;
   });
@@ -253,8 +303,8 @@ export function registerSpaceEfficiencyLibrary(core){
       <thead><tr>
         <th>${core.T('الكود','ID')}</th><th>${core.T('البند','Item')}</th><th>${core.T('القطاع','Sector')}</th>
         <th>${core.T('النطاق','Range')}</th><th>${core.T('المنطق المعماري','Architectural logic')}</th>
-        <th>${core.T('التصنيف','Class')}</th><th>${core.T('عبء المواقف','Parking load')}</th>
-        <th>${core.T('تكلفة/م² مرجعية','Ref. cost/m²')}</th><th></th>
+        <th>${core.T('التصنيف','Class')}</th><th>${core.T('معالجة GFA','GFA treatment')}</th><th>${core.T('نوع التنفيذ','Execution type')}</th>
+        <th>${core.T('عبء المواقف','Parking load')}</th><th>${core.T('تكلفة/م² مرجعية','Ref. cost/m²')}</th><th></th>
       </tr></thead>
       <tbody>
         ${visibleRows.map(r=>`<tr>
@@ -264,9 +314,11 @@ export function registerSpaceEfficiencyLibrary(core){
           <td class="num mono" style="font-size:10.5px;">${core.esc(fmtRange(r))} <span style="color:var(--ink-faint);">${core.esc(r.unit)}</span></td>
           <td style="font-size:10px; color:var(--ink-faint);">${core.esc(r.logic)}</td>
           <td style="text-align:center;" title="${core.esc(classificationTip(core, r.effIcon))}">${r.effIcon||'—'} <span style="font-size:9px;">${core.esc(r.effText)}</span></td>
+          <td style="font-size:10px;" title="${core.esc(gfaTreatment(core,r).tip)}">${core.esc(gfaTreatment(core,r).label)}</td>
+          <td><span class="tag" style="background:${isOptionalAddition(r)?'#A6741F18':'var(--surface-2)'}; color:${isOptionalAddition(r)?'#A6741F':'var(--ink-faint)'}; font-size:10px;">${isOptionalAddition(r)?'➕':'📘'} ${core.esc(executionType(core,r))}</span></td>
           <td style="font-size:10px;">${core.esc(r.parkingLoad||'—')}</td>
           <td class="num mono" style="font-size:10.5px;">${r.avgCostNum!=null? core.fmtSAR(r.avgCostNum)+'/'+core.esc(r.costUnit) : '—'}</td>
-          <td><span class="tag" style="background:var(--surface-2); color:var(--ink-faint); font-size:10px;">📘 ${core.T('أساسي','Baseline')}</span></td>
+          <td><span class="tag" style="background:var(--surface-2); color:var(--ink-faint); font-size:10px;">📘 ${core.T('مرجع أساسي','Baseline reference')}</span></td>
         </tr>`).join('')}
         ${visibleOverrides.map(rec=>{
           const o = rec.data;
@@ -277,6 +329,8 @@ export function registerSpaceEfficiencyLibrary(core){
             <td class="num mono" style="font-size:10.5px;">${core.esc(o.min!=null?String(o.min):'—')}–${core.esc(o.max!=null?String(o.max):'—')} <span style="color:var(--ink-faint);">${core.esc(o.unit||'')}</span></td>
             <td style="font-size:10px; color:var(--ink-faint);">${core.esc(o.note||'—')}</td>
             <td style="text-align:center;">${core.esc(o.effIcon||'—')}</td>
+            <td style="font-size:10px;" title="${core.esc(gfaTreatment(core,o).tip)}">${core.esc(gfaTreatment(core,o).label)}</td>
+            <td><span class="tag" style="background:#A6741F18; color:#A6741F; font-size:10px;">➕ ${core.T('إضافة فريق','Team addition')}</span></td>
             <td style="font-size:10px;">${core.esc(o.parkingLoad||'—')}</td>
             <td class="num mono" style="font-size:10.5px;">${o.avgCost!=null? core.fmtSAR(o.avgCost) : '—'}</td>
             <td>
@@ -326,6 +380,20 @@ export function registerSpaceEfficiencyLibrary(core){
     if(action==='seff-close'){ core.setCoreState({ mainView:null, render:true }); return true; }
     if(action==='seff-filter-sector'){
       currentSectorFilter = el.dataset.sector || null;
+      core.render();
+      return true;
+    }
+    if(action==='seff-toggle-addition'){
+      const rec = core.opportunities.find(o=>o.id===el.dataset.oppId);
+      if(!rec || !core.canEditOpp(rec)) return true;
+      const draft = core.withDefaults(rec.data);
+      const selected = draft.architecture.selectedAdditions || (draft.architecture.selectedAdditions={});
+      if(el.checked) selected[el.dataset.rowId] = true;
+      else delete selected[el.dataset.rowId];
+      draft.meta.updatedAt = core.todayStr();
+      draft.meta.updatedBy = core.currentUser?core.currentUser.email:(draft.meta.updatedBy||null);
+      await core.persistOpportunity({ id:rec.id, data:draft });
+      await core.loadAll();
       core.render();
       return true;
     }

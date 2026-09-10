@@ -56,7 +56,7 @@ function registerDetailSection(fn){ _detailSectionHooks.push(fn); }
 function registerActionHandler(fn){ _actionHandlerHooks.push(fn); }
 function renderTopbarExtensions(){ return _topbarButtonHooks.map(fn=>{ try{ return fn()||''; }catch(e){ console.error('topbar extension error:', e); return ''; } }).join(''); }
 function renderBodyExtensions(){ return _bodyViewHooks.map(fn=>{ try{ return fn()||''; }catch(e){ console.error('body view extension error:', e); return ''; } }).join(''); }
-function renderDetailExtensions(d,c){ return _detailSectionHooks.map(fn=>{ try{ return fn(d,c)||''; }catch(e){ console.error('detail section extension error:', e); return ''; } }).join(''); }
+function renderDetailExtensions(d,c,rec){ return _detailSectionHooks.map(fn=>{ try{ return fn(d,c,rec)||''; }catch(e){ console.error('detail section extension error:', e); return ''; } }).join(''); }
 async function runExternalActionHandlers(action, el, e){
   for(const fn of _actionHandlerHooks){
     try{ if(await fn(action, el, e)) return true; }catch(err){ console.error('action extension error:', err); }
@@ -3295,7 +3295,7 @@ ${T('بدلاً من بيع الأصل في نهاية المدة، يقوم ا�
         </div>
       </div>
     </div>
-    ${renderDetailExtensions(d,c)}
+    ${renderDetailExtensions(d,c,rec)}
   </div>`;
 }
 
