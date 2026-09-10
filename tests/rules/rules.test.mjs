@@ -195,6 +195,79 @@ for(const coll of LEDGER_COLLECTIONS){
   assert(true, '🔒 حتى الأدمن لا يقدر يعدّل نسخة تسعير محفوظة — أي تصحيح ينشئ نسخة جديدة، للحفاظ على سجل append-only');
 }
 
+// ==================== ٨) إعداد Monday.com (mondayConfig) — الأدمن فقط للكتابة ====================
+{
+  const db = ctxFor(ANALYST_OWNER).firestore();
+  await assertFails(setDoc(doc(db,'mondayConfig','settings'), { tasksBoardId:'1', permissionsBoardId:'2', taskOwnerEmail:'saeed@opalco.sa' }));
+  assert(true, '🔒 محلل عادي لا يقدر يكتب إعداد Monday.com (مثل settings تماماً)');
+}
+{
+  const db = ctxFor(FUND_MANAGER).firestore();
+  await assertFails(setDoc(doc(db,'mondayConfig','settings'), { tasksBoardId:'1', permissionsBoardId:'2', taskOwnerEmail:'saeed@opalco.sa' }));
+  assert(true, '🔒 مدير صندوق أيضاً لا يقدر يكتب إعداد Monday.com — هذه اللوحة أدمن فقط، ليست مثل دفتر الصندوق');
+}
+{
+  const db = ctxFor(ADMIN).firestore();
+  await assertSucceeds(setDoc(doc(db,'mondayConfig','settings'), { tasksBoardId:'1', permissionsBoardId:'2', taskOwnerEmail:'saeed@opalco.sa' }));
+  assert(true, '✅ الأدمن يقدر يكتب/يعدّل إعداد Monday.com بنجاح');
+}
+{
+  const db = ctxFor(ANALYST_OWNER).firestore();
+  await assertSucceeds(getDoc(doc(db,'mondayConfig','settings')));
+  assert(true, '✅ القراءة في mondayConfig تبقى متاحة لأي عضو مصرَّح له (لعرض معرّفات اللوحات في قسم الفرصة)');
+}
+
+// ==================== ٩) قائمة انتظار مزامنة Monday (mondayTaskQueue) — إنشاء فقط، مدير صندوق فأعلى، بنزاهة ناشر ====================
+{
+  const db = ctxFor(ANALYST_OWNER).firestore();
+  await assertFails(setDoc(doc(db,'mondayTaskQueue','Q1'), { oppId:'OPP-1', queuedBy:ANALYST_OWNER, status:'pending' }));
+  assert(true, '🔒 محلل عادي (حتى لو مالك الفرصة) لا يقدر يُنشئ طلب مزامنة Monday — يتطلب مدير صندوق فأعلى، مطابقاً لصلاحية زر الواجهة (canManageLibraries)');
+}
+{
+  const db = ctxFor(SENIOR_IC).firestore();
+  await assertFails(setDoc(doc(db,'mondayTaskQueue','Q2'), { oppId:'OPP-1', queuedBy:SENIOR_IC, status:'pending' }));
+  assert(true, '🔒 عضو لجنة استثمار أول أيضاً لا يقدر يُنشئ طلب مزامنة Monday (دون دور مدير صندوق)');
+}
+{
+  const db = ctxFor(FUND_MANAGER).firestore();
+  await assertFails(setDoc(doc(db,'mondayTaskQueue','Q3'), { oppId:'OPP-1', queuedBy:ANALYST_OWNER, status:'pending' }));
+  assert(true, '🔒 مدير صندوق لا يقدر ينتحل بريداً آخر في queuedBy (نزاهة الناشر attributionHonest-style) — حتى لو كان دوره كافياً');
+}
+{
+  const db = ctxFor(FUND_MANAGER).firestore();
+  await assertFails(setDoc(doc(db,'mondayTaskQueue','Q4'), { oppId:'OPP-1', queuedBy:FUND_MANAGER, status:'synced' }));
+  assert(true, '🔒 مدير صندوق لا يقدر يُنشئ طلباً بحالة غير pending مباشرة (مثل synced) — الحالة الأولية يجب أن تكون pending فقط، والدالة السحابية وحدها تُحدِّثها لاحقاً');
+}
+{
+  const db = ctxFor(FUND_MANAGER).firestore();
+  await assertSucceeds(setDoc(doc(db,'mondayTaskQueue','Q5'), { oppId:'OPP-1', queuedBy:FUND_MANAGER, status:'pending' }));
+  assert(true, '✅ مدير صندوق يقدر يُنشئ طلب مزامنة Monday بنجاح (queuedBy = بريده الحقيقي + status: pending)');
+}
+{
+  const db = ctxFor(FUND_MANAGER).firestore();
+  await assertFails(updateDoc(doc(db,'mondayTaskQueue','Q5'), { status:'synced' }));
+  assert(true, '🔒 حتى مُنشئ الطلب نفسه لا يقدر يعدّل حالته لاحقاً (append-only حقيقي) — التحديث الوحيد عبر Cloud Function بصلاحيات Admin SDK');
+}
+{
+  const db = ctxFor(ADMIN).firestore();
+  await assertFails(updateDoc(doc(db,'mondayTaskQueue','Q5'), { status:'synced' }));
+  assert(true, '🔒 حتى الأدمن لا يقدر يعدّل حالة طلب مزامنة موجود — allow update: if false مطلقة بلا استثناء، مطابقة لفلسفة oppAuditLog');
+}
+{
+  const db = ctxFor(ADMIN).firestore();
+  await assertFails(deleteDoc(doc(db,'mondayTaskQueue','Q5')));
+  assert(true, '🔒 حتى الأدمن لا يقدر يحذف طلب مزامنة من قائمة الانتظار — لا حذف من العميل إطلاقاً');
+}
+{
+  const db = ctxFor(ANALYST_OWNER).firestore();
+  await assertSucceeds(getDoc(doc(db,'mondayTaskQueue','Q5')));
+  assert(true, '✅ القراءة في mondayTaskQueue تبقى متاحة لأي عضو مصرَّح له (لعرض حالة الطلبات في لوحة 🔗 Monday.com)');
+}
+{
+  const db = ctxFor(OUTSIDER).firestore();
+  await assertFails(getDoc(doc(db,'mondayConfig','settings')));
+  assert(true, '🔒 بريد غير مصرَّح له إطلاقاً لا يقدر حتى يقرأ إعداد Monday.com');
+}
 console.log(failures? `\n${failures} FAILURE(S)` : '\nALL PASSED (against a real Firestore emulator, not a mock)');
 await testEnv.cleanup();
 process.exit(failures?1:0);

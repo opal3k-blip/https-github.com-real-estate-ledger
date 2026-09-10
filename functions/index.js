@@ -156,3 +156,11 @@ exports.mirrorOpportunityAuditLog = onDocumentWritten('opportunities/{oppId}', a
 
 // مُصدَّرة للاختبار البنيوي المباشر (test_functions.mjs) بلا الحاجة لمحاكي Functions كامل.
 exports._internal = { deepDiff, fieldLabel, FIELD_LABELS, IGNORE_PATHS, actorFromData };
+
+// ==================== المرحلة التاسعة — تكامل Monday.com ====================
+// دالة منفصلة تماماً في ./monday-sync.js (راجع رأسها لتفاصيل السبب الكامل والقيود الأمنية:
+// لا رمز API مُخترَع أو مُخزَّن هنا، تتطلب ضبط السر MONDAY_API_TOKEN عبر
+// `firebase functions:secrets:set MONDAY_API_TOKEN` من مالك مشروع Firebase الحقيقي قبل أي
+// اتصال فعلي بـMonday.com). تُصدَّر هنا فقط لتنضم لنفس codebase الدوال المنشورة (functions/
+// واحد لكل المشروع، بلا حاجة لإعداد codebase ثانٍ في firebase.json).
+exports.processMondayTaskQueue = require('./monday-sync').processMondayTaskQueue;

@@ -248,5 +248,35 @@ service cloud.firestore {
       allow read, create: if isAuthorized();
       allow update, delete: if false;
     }
+
+    // ==================== تكامل Monday.com (src/features/monday-integration.js، المرحلة التاسعة) ====================
+    // إعداد جانب التطبيق فقط — لا رمز API مُخزَّن في أي مكان هنا (لا في هذه القواعد، ولا في أي
+    // مستند Firestore). القراءة العامة (isAuthorized) ضرورية لكل عضو فريق ليرى حالة أي مهمة أرسلها
+    // فريقه لقائمة الانتظار، والكتابة مقيَّدة بدقة كما يلي.
+
+    // إعدادات التكامل غير السرّية (معرّفات لوحات Monday، بريد مالك المهام الافتراضي) — نفس نمط
+    // مجموعة settings تماماً: قراءة لأي عضو مصرَّح له، كتابة/تعديل للأدمن فقط.
+    match /mondayConfig/{id} {
+      allow read: if isAuthorized();
+      allow write: if isAdminEmail();
+    }
+
+    // قائمة انتظار مزامنة المهام — العميل يقدر فقط *يُنشئ* طلب مزامنة جديد (لا يعدّل ولا يحذف أي
+    // طلب قائم، حتى الأدمن)، بنفس فلسفة oppAuditLog: append-only حقيقي، والحالة الوحيدة المسموح
+    // للعميل بإنشائها هي 'pending' — أي تحديث لاحق لحالة الطلب (synced/failed/blocked_missing_secret)
+    // يأتي فقط من دالة سحابية موثوقة (functions/monday-sync.js) بصلاحيات Admin SDK التي تتجاوز هذه
+    // القواعد تصميماً (لا حاجة لقاعدة "allow update" مقابلة لها هنا، تماماً كما في oppAuditLog).
+    // الإنشاء مقصور على مدير صندوق فأعلى (isFundManagerOrAbove) — نفس مستوى الصلاحية المطلوب في
+    // واجهة العميل (canManageLibraries في roles-permissions.js) لزر "إرسال إلى قائمة انتظار Monday"،
+    // ونفرض أيضاً نزاهة الناشر (queuedBy يطابق بريد المستخدم المصادَق عليه فعلياً) بنفس منطق
+    // attributionHonest أعلاه على opportunities.
+    match /mondayTaskQueue/{id} {
+      allow read: if isAuthorized();
+      allow create: if isFundManagerOrAbove()
+        && request.resource.data.queuedBy != null
+        && request.resource.data.queuedBy.lower() == request.auth.token.email.lower()
+        && request.resource.data.status == 'pending';
+      allow update, delete: if false;
+    }
   }
 }

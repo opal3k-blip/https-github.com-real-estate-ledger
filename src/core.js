@@ -998,11 +998,14 @@ function compute(o, scenarioKey){
     constructionYears = o.development.constructionYears;
     // تقسيم الأراضي على مراحل: مدة "التشغيل" = مدة جدول الامتصاص نفسه (كل شريحة تُباع في سنة مختلفة)،
     // بدل قيمة operationYears العادية التي لا معنى لها هنا (لا يوجد تشغيل تأجيري، فقط بيع تدريجي).
-    // البيع على الخارطة: كل الوحدات تُباع وتُسلَّم بنهاية الإنشاء نفسه (100% مُباعة عبر الشرائح) — لا توجد
-    // مدة تشغيل تأجيري لاحقة إطلاقاً، فمدة الصندوق الكلية = مدة الإنشاء فقط.
+    // البيع على الخارطة: كل الوحدات تُباع خلال مدة الإنشاء نفسها، لكن تحرير آخر دفعة من حساب الضمان قد
+    // يقع بعد نهاية الإنشاء بمقدار "تأخير الضمان" (escrowLagYears) — فمدة الصندوق الكلية يجب أن تمتد
+    // لتشمل هذا التأخير، وإلا فإن أي دفعة تُحصَّل بعد نهاية الإنشاء تُقتَطع خطأً إلى آخر سنة إنشاء بدل أن
+    // تُحتسَب في توقيتها الفعلي (إصلاح: كانت التدفقات تُضغَط زمنياً وتُخفي فائدة/رسوماً مستحقة فعلياً خلال
+    // فترة التأخير قبل الإصلاح).
     operationYears = (scopeType==='infra_only' && o.subdivision && o.subdivision.phasedAbsorption)
       ? Math.max(1, o.subdivision.absorptionYears||4)
-      : (scopeType!=='infra_only' && strat.offPlanSale && strat.offPlanSale.enabled) ? 0
+      : (scopeType!=='infra_only' && strat.offPlanSale && strat.offPlanSale.enabled) ? Math.round(strat.offPlanSale.escrowLagYears||0)
       : o.development.operationYears;
   } else { // income
     verticalCost = scopeType==='infra_only' ? 0 : gfa * ((o.development.buildCost||3500)*costMult) * useInfo.mult * siteFactor * heightPremiumMult;
@@ -1119,12 +1122,15 @@ function compute(o, scenarioKey){
     const escAnnualOP = strat.offPlanSale.priceEscalationAnnual||0;
     const exitCostPctOP = o.exitCosts.broker + o.exitCosts.legal + o.exitCosts.rett + o.exitCosts.exitFee + o.fees.disposition;
     const lag = Math.round(strat.offPlanSale.escrowLagYears||0);
-    // نجمع كل شريحة "نظرية" (مرتبطة بنسبة إنجاز الإنشاء) في سنة "التحصيل الفعلي" بعد تطبيق تأخير الضمان،
-    // مع تجميع أي شرائح تتقارب على نفس سنة التحصيل بدل معاملتها كإدخالات منفصلة (تفادياً لتكرار السنة).
+    // نجمع كل شريحة "نظرية" (مرتبطة بنسبة إنجاز الإنشاء) في سنة "التحصيل الفعلي" بعد تطبيق تأخير الضمان —
+    // إصلاح: كانت سنة التحصيل تُقتَطع خطأً إلى مدة الإنشاء فقط (nYears)، ما يضغط أي دفعة متأخرة إلى آخر
+    // سنة إنشاء بدل تمديد أفق الاستثمار الفعلي. الآن تُقتَطع فقط عند الحد الأقصى الحقيقي لمدة الصندوق
+    // (totalYears، والتي تمتد فعلياً بمقدار lag — انظر تعديل operationYears أعلاه)، مع تجميع أي شرائح
+    // تتقارب على نفس سنة التحصيل بدل معاملتها كإدخالات منفصلة (تفادياً لتكرار السنة).
     const buckets = {};
     pcts.forEach((pct,i)=>{
       const nominalYear = i+1;
-      const collectionYear = Math.min(nYears, Math.max(1, nominalYear + lag));
+      const collectionYear = Math.min(totalYears, Math.max(1, nominalYear + lag));
       const trancheRevenue = totalSaleValueBaseOP * pct * Math.pow(1+escAnnualOP, i);
       const trancheCosts = trancheRevenue * exitCostPctOP;
       const tranchePrincipalPay = pct * debt;
@@ -1145,6 +1151,11 @@ function compute(o, scenarioKey){
   function noiForYear(){
     if(type==='landbank') return 0;
     if(type==='development' && scopeType==='infra_only') return 0; // serviced-plot sale: no interim rental income
+    // بيع على الخارطة (وافي): 100% من الوحدات تُباع عبر الشرائح — لا يوجد إيجار تشغيلي في أي سنة إطلاقاً
+    // (بما فيها سنوات ما بعد الإنشاء أثناء تأخير تحرير الضمان)؛ إيراد كل سنة يأتي فقط من جدول الشرائح
+    // (offPlanSchedule) لا من noiForYear(). بدون هذا الحارس، أي سنة تمتد بعد نهاية الإنشاء (بسبب تأخير
+    // الضمان) كانت ستُحتسَب خطأً كسنة إيجارية عادية.
+    if(isOffPlanSale) return 0;
     if(assetClass==='hospitality'){
       const hosp = o.income.hospitality||{};
       const revPAR = (hosp.adr||0) * occupancy; // occupancy reused as hotel occupancy rate
@@ -1190,6 +1201,7 @@ function compute(o, scenarioKey){
   function revenueBreakdownForYear(){
     if(type==='landbank') return { revenue:0, vacancyLoss:0, egi:0, opexAmt:0, propMgmtFeeAmt:0 };
     if(type==='development' && scopeType==='infra_only') return { revenue:0, vacancyLoss:0, egi:0, opexAmt:0, propMgmtFeeAmt:0 };
+    if(isOffPlanSale) return { revenue:0, vacancyLoss:0, egi:0, opexAmt:0, propMgmtFeeAmt:0 }; // انظر ملاحظة الحارس المطابقة في noiForYear()
     if(assetClass==='hospitality'){
       const hosp = o.income.hospitality||{};
       const revPAR = (hosp.adr||0) * occupancy;
@@ -1271,7 +1283,12 @@ function compute(o, scenarioKey){
     const capitalizeInterest = inConstruction && type!=='landbank' && (o.financing.interestDuringConstruction==='capitalized');
     const cashInterest = capitalizeInterest ? 0 : interest;
     const capitalizedInterestThisYear = capitalizeInterest ? interest : 0;
-    const debtService = (type!=='landbank' && remainingDebt>0) ? cashInterest+principalPay : 0;
+    // إصلاح P0: كانت فائدة الدين لبنك الأراضي (landbank) تُحسَب (interest أعلاه) لكن تُستبعَد بالكامل من
+    // debtService، فلا تصل أبداً إلى تدفق حقوق الملكية طوال مدة الاحتفاظ (لا تُدفَع نقداً ولا تُرسمَل على
+    // رصيد الدين، لأن capitalizeInterest يستبعد landbank أيضاً) — الفائدة كانت تُحتسَب فعلياً ثم "تختفي".
+    // الآن تُدفَع نقداً سنوياً من حقوق الملكية مثل أي فرصة أخرى (السلوك الافتراضي الواقعي: قرض بنك أراضٍ
+    // بفائدة فقط، بلا استهلاك أصل خلال مدة الاحتفاظ، والأصل يُسدَّد بالكامل عند البيع في نهاية المدة).
+    const debtService = (remainingDebt>0) ? cashInterest+principalPay : 0;
     const isLast = (yr===totalYears);
     const yearsIntoOperation = yr - constructionYears;
     const isRefiYear = (holdStrategy==='perpetual_hold' && !inConstruction && !isLast && yearsIntoOperation>0
@@ -1301,7 +1318,11 @@ function compute(o, scenarioKey){
       } else if(type==='development'){
         const sellableArea = scopeType==='infra_only' ? land.area : gfa*efficiency;
         const saleValue = sellableArea * salePriceEff * salePct;
-        const rentedValue = (1-salePct)>0 ? (gla*rentAnnual*occupancy*(1-opexPct)*(1-o.fees.propMgmt))/exitCapRateEff : 0;
+        // إصلاح P0: كانت قيمة الجزء المُبقى مؤجَّراً تُحتسَب على كامل GLA (gla) بدل الجزء المتبقي فقط
+        // (1-salePct)×gla — ما يجعل القيمة المؤجَّرة مضخَّمة تقريباً بنفس نسبة الجزء المُباع مضاعفاً (مثلاً
+        // مع salePct=50%، كانت تُحتسَب قيمة إيجارية لـ100% من GLA رغم بيع نصفها فعلياً وتحصيل ثمنها في
+        // saleValue أعلاه — ازدواج جزئي في القيمة). الآن (1-salePct) مضروبة صراحة في gla قبل الترسيم.
+        const rentedValue = (1-salePct)>0 ? (gla*(1-salePct)*rentAnnual*occupancy*(1-opexPct)*(1-o.fees.propMgmt))/exitCapRateEff : 0;
         exitValue = saleValue + (scopeType==='infra_only' ? 0 : rentedValue);
         saleValueAtExit = saleValue; // الجزء المُباع فعلياً (لو تطوير مختلط) — يلزم لاحقاً لو الاستراتيجية "إعادة تمويل" بدل بيع الجزء المُبقى
       } else if(applySalePctToIncome){
@@ -1455,7 +1476,12 @@ function compute(o, scenarioKey){
   const npvEquity = npvAt(Ke, equityCF);
   const npvProject = npvAt(WACC, projectCF);
   const totalDistrib = equityCF.slice(1).reduce((a,b)=>a+Math.max(0,b),0);
-  const MOIC = equity>0 ? totalDistrib/equity : 0;
+  // إصلاح P1: رأس المال الفعلي الذي يدفعه المستثمر ليس equity فقط، بل equity + رسوم الاشتراك (subscriptionFee)
+  // التي تُخصَم منه فوراً عند الدخول (انظر initialEquityOutlay أعلاه = -equity - subscriptionFee×equity).
+  // كان المقام هنا equity الخام فقط، فيبدو MOIC للمستثمر أعلى مما يحصل عليه فعلياً (نفس التدفقات النقدية،
+  // لكن رأس المال المُستثمَر الحقيقي المُقارَن به كان أقل من المبلغ الذي دفعه المستثمر فعلياً).
+  const investorPaidInCapital = equity>0 ? equity + o.subscription.subscriptionFee*equity : equity;
+  const MOIC = investorPaidInCapital>0 ? totalDistrib/investorPaidInCapital : 0;
   const DPI = MOIC; const RVPI = 0; const TVPI = DPI+RVPI;
 
   // ---- فترة استرداد رأس المال (Payback Period) ----
@@ -1483,7 +1509,7 @@ function compute(o, scenarioKey){
 
   const equityIRRCashOnly = holdStrategy==='perpetual_hold' ? irr(equityCFCashOnly) : equityIRR;
   const totalDistribCashOnly = equityCFCashOnly.slice(1).reduce((a,b)=>a+Math.max(0,b),0);
-  const MOICCashOnly = holdStrategy==='perpetual_hold' ? (equity>0 ? totalDistribCashOnly/equity : 0) : MOIC;
+  const MOICCashOnly = holdStrategy==='perpetual_hold' ? (investorPaidInCapital>0 ? totalDistribCashOnly/investorPaidInCapital : 0) : MOIC;
 
   const stabilizedNOIyr1 = type!=='landbank' ? noiForYear() : 0;
   const yieldOnCost = TPC>0 ? stabilizedNOIyr1/TPC : 0;
@@ -1493,8 +1519,9 @@ function compute(o, scenarioKey){
   // ناقص الدين المتبقي وقتها — بدون خصم تكاليف بيع افتراضية (لأن NAV تقييم "ماسك للأصل"، مش عملية بيع فعلية).
   const NAV = navGrossValue - navDebt;
   // ROI بسيط (Cash-on-Cash على مدى العمر) = صافي الربح / رأس المال المستثمر — مقياس مبسّط يكمّل MOIC وIRR،
-  // بدون تسوية بالقيمة الزمنية للنقود (على عكس IRR).
-  const ROI = equity>0 ? (totalDistrib - equity)/equity : 0;
+  // بدون تسوية بالقيمة الزمنية للنقود (على عكس IRR). المقام هو رأس المال الفعلي المدفوع من المستثمر
+  // (investorPaidInCapital، يشمل رسوم الاشتراك) بنفس منطق إصلاح MOIC أعلاه.
+  const ROI = investorPaidInCapital>0 ? (totalDistrib - investorPaidInCapital)/investorPaidInCapital : 0;
 
   // ---- Fees rollups ----
   const mgmtFeeTotal = o.fees.mgmt * (equity+debt)/2 * totalYears; // approx on avg NAV proxy
@@ -1566,7 +1593,7 @@ function compute(o, scenarioKey){
     amortType, assetClass, holdStrategy, scopeType, infraCostAmt, verticalCost, balloonBalanceAtExit,
     gla, totalYears, constructionYears, operationYears,
     equityIRR, projectIRR, npvEquity, npvProject, totalDistrib, MOIC, DPI, RVPI, TVPI, paybackPeriod, dscrMin, dscrAvg,
-    equityIRRCashOnly, MOICCashOnly, totalDistribCashOnly,
+    equityIRRCashOnly, MOICCashOnly, totalDistribCashOnly, investorPaidInCapital,
     stabilizedNOIyr1, yieldOnCost, NAV, ROI,
     mgmtFeeTotal, assetMgmtTotal, regAuditCustodianTotal, fundSideFees, investorSideFees, feesPctOfTPC,
     PIC, roc, pref, catchup, lpStandard, carryPool, lpBonus, gpManager, devPromote, lpTotal, gpTotal, devTotal,

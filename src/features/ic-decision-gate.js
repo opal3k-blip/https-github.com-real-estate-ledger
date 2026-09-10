@@ -44,6 +44,12 @@ export function icReadiness(core, d, c){
       detail: `${isFinite(c.MOIC)?c.MOIC.toFixed(2)+'×':'—'} / min ${crit.moicMin!=null?crit.moicMin.toFixed(2)+'×':'—'}` },
     { label:'DSCR', ok: (c.dscrMin==null) || (crit.dscrMin==null) || (isFinite(c.dscrMin) && c.dscrMin >= crit.dscrMin),
       detail: c.dscrMin==null? 'n/a' : `${isFinite(c.dscrMin)?c.dscrMin.toFixed(2)+'×':'—'} / min ${crit.dscrMin!=null?crit.dscrMin.toFixed(2)+'×':'—'}` },
+    // إصلاح P0: بوابة IC كانت تتجاهل Project IRR تماماً رغم وجود معيار crit.projIrrMin ورقم projectIRR
+    // فعلياً في core.compute() (ضمن checks الداخلية هناك بلا أي شرط استثناء) — ما يعني أن فرصة يمكن أن
+    // تجتاز بوابة IC نظرياً رغم فشلها في معيار Project IRR الخاص بها. الآن تُضاف كفحص رابع، بنفس نمط DSCR
+    // (تتعامل مع crit.projIrrMin==null كـ"لا ينطبق" لو لم يُحدَّد معيار له في هذه الفرصة).
+    { label:'Project IRR', ok: (crit.projIrrMin==null) || (isFinite(c.projectIRR) && c.projectIRR >= crit.projIrrMin),
+      detail: crit.projIrrMin==null? 'n/a' : `${core.fmtPct?core.fmtPct(c.projectIRR):c.projectIRR} / min ${core.fmtPct?core.fmtPct(crit.projIrrMin):crit.projIrrMin}` },
   ];
   const financialOk = finChecks.every(x=>x.ok);
   finChecks.forEach(x=>{ if(!x.ok) reasons.push({ gate:'financial', ar:`${x.label} دون الحد الأدنى (${x.detail})`, en:`${x.label} below minimum (${x.detail})` }); });

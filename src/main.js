@@ -246,5 +246,16 @@ registerUnderwritingVersions(core);
 import { registerCashFlowTiming } from './features/cash-flow-timing.js';
 registerCashFlowTiming(core);
 
+/* ---------------- المرحلة التاسعة (تكامل Monday.com — إعداد آمن جانب التطبيق) ---------------- */
+// طلب المستخدم: ربط Monday.com بحيث تتركّز ملكية/إسناد المهام على saeed@opalco.sa، مع مساحة
+// عمل Monday نفسها (opal3ks-team-company) مرتبطة بحساب opal3k@gmail.com (أدمن هذا التطبيق
+// أصلاً)، بالإضافة إلى "لوحة صلاحيات" تعكس roles-permissions.js. لا اتصال فعلي بـMonday.com
+// API ممكن هنا (يتطلب رمز API/تسجيل OAuth من حساب Monday نفسه — لا يُختَرع أو يُخزَّن في
+// العميل أبداً) — راجع رأس monday-integration.js وfunctions/README.md للتفاصيل الكاملة.
+// يستورد canManageRoles/canManageLibraries من roles-permissions.js (مُسجَّلة أعلاه في
+// المرحلة ٤) — لا يؤثر على ترتيب الاستيراد الفعلي، فقط على وضوح الاعتماد المنطقي بينهما.
+import { registerMondayIntegration } from './features/monday-integration.js';
+registerMondayIntegration(core);
+
 /* ---------------- التهيئة ---------------- */
 core.initDb();
