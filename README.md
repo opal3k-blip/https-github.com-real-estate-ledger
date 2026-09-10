@@ -143,7 +143,7 @@ Firebase لا يسمح بتفعيل "طرق تسجيل الدخول" أو إضا
    ```bash
    git init
    git add .
-   git commit -m "النسخة السحابية — دفتر الفرص العقارية مع تسجيل الدخول"
+   git commit -m "النسخة السحابية — مستكشف الفرص العقارية مع تسجيل الدخول"
    git branch -M main
    git remote add origin https://github.com/USERNAME/real-estate-ledger.git
    git push -u origin main
