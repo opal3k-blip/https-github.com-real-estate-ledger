@@ -1,0 +1,15 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // صور الرندرات والملفات الفنية الخاصة بالفرص. الوصول يتطلب مستخدماً مسجلاً
+    // دخوله؛ Firestore يبقى مصدر بيانات وصفية الفرصة وصلاحيات الفريق التفصيلية.
+    match /opportunity-media/{opportunityId}/{fileName} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.resource.size < 10 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*')
+          || request.resource.contentType == 'application/pdf');
+      allow delete: if request.auth != null;
+    }
+  }
+}

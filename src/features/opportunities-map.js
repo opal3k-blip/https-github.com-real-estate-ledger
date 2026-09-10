@@ -46,6 +46,7 @@ import { MEGAPROJECTS } from './macro-context.js';
    الدوال النقية أعلاه، ومحمياً بفحوصات وجود قبل أي استخدام.
    ========================================================================= */
 let _mapInstance = null;
+let _mapCanvas = null;
 let _markersLayer = null;
 let _megaLayer = null;
 let _showMega = false; // مطفأة افتراضياً — طبقة إضافية اختيارية لا تُثقل الخريطة الأساسية
@@ -61,7 +62,7 @@ function scheduleMapCheck(core){
 
 function destroyMap(){
   if(_mapInstance){ try{ _mapInstance.remove(); }catch(e){ /* عنصر مُزال أصلاً من الـDOM أحياناً — لا خطر */ } }
-  _mapInstance = null; _markersLayer = null; _megaLayer = null;
+  _mapInstance = null; _mapCanvas = null; _markersLayer = null; _megaLayer = null;
 }
 
 /* طبقة مشاريع رؤية ٢٠٣٠ الكبرى (اختيارية، مطفأة افتراضياً) — بيانات
@@ -110,6 +111,7 @@ function plotMarkers(core){
         <span style="font-size:11.5px; color:#666;">${city} · ${useType}</span><br>
         <span style="font-size:10.5px; color:#888;">${precisionNote}</span><br>
         <button class="btn btn-sm btn-primary" style="margin-top:6px;" data-action="oppmap-view-detail" data-id="${core.esc(rec.id)}">📂 ${core.esc(core.T('عرض التفاصيل الكاملة','Open full details'))}</button>
+        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc.lat+','+loc.lng)}" target="_blank" rel="noopener" style="display:inline-block; margin:6px 0 0 6px; font-size:11px; color:#1F5F6B;">Google Maps ↗</a>
       </div>`);
     marker.addTo(_markersLayer);
   });
@@ -123,10 +125,18 @@ function ensureMap(core){
     canvas.innerHTML = `<div class="note" style="padding:24px; text-align:center;">⚠️ ${core.esc(core.T('تعذّر تحميل مكتبة الخريطة (Leaflet) — تحقّق من الاتصال بالإنترنت.','Could not load the map library (Leaflet) — check your internet connection.'))}</div>`;
     return;
   }
+  // مراقب DOM يلتقط كذلك تغييرات Leaflet الداخلية (البلاطات والدبابيس). لا نعيد
+  // إنشاء الخريطة إذا كانت مرتبطة بالفعل بحاوية الرسم الحالية؛ هذا يمنع حلقة
+  // destroy/create التي كانت تجعل الخريطة تبدو فارغة أو تومض باستمرار.
+  if(_mapInstance && _mapCanvas===canvas){
+    _mapInstance.invalidateSize();
+    return;
+  }
   // canvas دائماً عنصر DOM جديد كلياً بعد أي render() (innerHTML كامل لـ#app) —
   // لا يمكن إعادة استخدام خريطة Leaflet سابقة مربوطة بعقدة قديمة معلَّقة.
   destroyMap();
   _mapInstance = window.L.map(canvas, { scrollWheelZoom:true }).setView(_lastView.center, _lastView.zoom);
+  _mapCanvas = canvas;
   window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors', maxZoom: 18,
   }).addTo(_mapInstance);
@@ -143,7 +153,16 @@ function watchForMapContainer(core){
   if(typeof document==='undefined' || typeof MutationObserver==='undefined') return;
   const app = document.getElementById('app');
   if(!app) return;
-  const obs = new MutationObserver(()=> scheduleMapCheck(core));
+  const obs = new MutationObserver((mutations)=>{
+    // نراقب استبدال صفحة التطبيق فقط، لا عناصر Leaflet التي تضيفها الخريطة تحت
+    // حاويتها؛ Leaflet يغيّر subtree أثناء التحميل، وإعادة التهيئة وقتها خطأ.
+    const mapContainerAdded = mutations.some(m=>Array.from(m.addedNodes).some(n=>
+      n.nodeType===1 && (n.id==='opp-map-canvas' || (n.querySelector && n.querySelector('#opp-map-canvas')))
+    ));
+    if(mapContainerAdded || (!document.getElementById('opp-map-canvas') && _mapInstance)){
+      scheduleMapCheck(core);
+    }
+  });
   obs.observe(app, { childList:true, subtree:true });
 }
 
