@@ -63,6 +63,12 @@ const MONDAY_WORKSPACE_URL = 'https://opal3ks-team-company.monday.com';
 const MONDAY_ACCOUNT_OWNER_EMAIL = 'opal3k@gmail.com'; // حساب تسجيل الدخول المالك لمساحة عمل Monday (نفس core.ADMIN_EMAILS[0])
 const MONDAY_LINKED_USER_PROFILE_URL = 'https://opal3ks-team-company.monday.com/users/115387628'; // ملف مستخدم Monday المرتبط (saeed@opalco.sa بحسب طلب المستخدم)
 const DEFAULT_TASK_OWNER_EMAIL = 'saeed@opalco.sa'; // مالك/مُسنَد إليه المهام الافتراضي في Monday
+const DEFAULT_TEAM_EMAILS = [
+  'saeed@opalco.sa',
+  'ggocss@gmail.com',
+  'opal3k@gmail.com',
+  'faj@opalco.sa',
+];
 
 const STATUS_META = {
   pending:                 { ar: 'قيد الانتظار — لم تُرسَل بعد',        en: 'Pending — not sent yet',              color: 'var(--warn)' },
@@ -83,6 +89,7 @@ function defaultConfig(){
     tasksBoardId: '',
     permissionsBoardId: '',
     taskOwnerEmail: DEFAULT_TASK_OWNER_EMAIL,
+    teamEmails: DEFAULT_TEAM_EMAILS.slice(),
     notes: '',
   };
 }
@@ -125,8 +132,10 @@ export function registerMondayIntegration(core){
           <tr><td>${core.T('حساب تسجيل الدخول المالك لمساحة العمل', 'Workspace login/owner account')}</td><td class="mono">${core.esc(MONDAY_ACCOUNT_OWNER_EMAIL)}</td></tr>
           <tr><td>${core.T('ملف مستخدم Monday المرتبط', 'Linked Monday user profile')}</td><td><a href="${MONDAY_LINKED_USER_PROFILE_URL}" target="_blank" rel="noopener">${MONDAY_LINKED_USER_PROFILE_URL}</a></td></tr>
           <tr><td>${core.T('مالك المهام الافتراضي', 'Default task owner')}</td><td class="mono">${core.esc(DEFAULT_TASK_OWNER_EMAIL)}</td></tr>
+          <tr><td>${core.T('دليل أعضاء فريق Monday المبدئي', 'Initial Monday team directory')}</td><td class="mono">${core.esc((cfg.teamEmails || DEFAULT_TEAM_EMAILS).join(' · '))}</td></tr>
         </tbody>
       </table></div>
+      <p class="note" style="margin:8px 0 0;">${core.T('هذه قائمة تنظيمية داخل التطبيق وليست دعوات Monday فعلية. الدعوة الفعلية تتم من Monday أو بعد ضبط رمز API آمن في Secret Manager.', 'This is an in-app directory, not a live Monday invitation. Actual invitations must be sent from Monday or after configuring a secure API token in Secret Manager.')}</p>
     </div>
 
     <div class="section" style="margin-bottom:14px; background:var(--warn-soft); border:1px solid var(--warn);">
@@ -155,6 +164,11 @@ export function registerMondayIntegration(core){
         <label style="display:flex; align-items:center; gap:8px; font-size:12.5px;">
           <input type="checkbox" ${cfg.enabled ? 'checked' : ''} disabled title="${core.T('لا يمكن تفعيلها من هنا — تصبح فعلية فقط بعد نشر دالة monday-sync الخلفية مع رمز API صالح، راجع functions/README.md', 'Cannot be turned on here \u2014 only becomes real once the backend monday-sync function is deployed with a valid API token, see functions/README.md')}">
           ${core.T('تفعيل المزامنة الفعلية (يتطلب دالة خادم + رمز API)', 'Enable live sync (requires backend function + API token)')}
+        </label>
+        <label style="display:flex; flex-direction:column; gap:4px; font-size:12.5px; grid-column:1 / -1;">
+          ${core.T('أعضاء فريق Monday (بريد واحد في كل سطر)', 'Monday team members (one email per line)')}
+          <textarea id="monday-cfg-team-emails" rows="4" style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-family:inherit;">${core.esc((cfg.teamEmails || DEFAULT_TEAM_EMAILS).join('\n'))}</textarea>
+          <span class="hint">${core.T('استخدم هذه القائمة لتوثيق الأشخاص المراد دعوتهم أو إسناد المهام لهم مستقبلاً.', 'Use this list to document people to invite or assign tasks to in the future.')}</span>
         </label>
         <label style="display:flex; flex-direction:column; gap:4px; font-size:12.5px; grid-column:1 / -1;">
           ${core.T('ملاحظات', 'Notes')}
@@ -233,12 +247,22 @@ export function registerMondayIntegration(core){
       const tasksBoardEl = document.getElementById('monday-cfg-tasks-board');
       const permissionsBoardEl = document.getElementById('monday-cfg-permissions-board');
       const ownerEmailEl = document.getElementById('monday-cfg-owner-email');
+      const teamEmailsEl = document.getElementById('monday-cfg-team-emails');
       const notesEl = document.getElementById('monday-cfg-notes');
+      const teamEmails = (teamEmailsEl ? teamEmailsEl.value : '')
+        .split(/[\n,;]+/)
+        .map(email => email.trim().toLowerCase())
+        .filter(Boolean);
+      if(teamEmails.some(email => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))){
+        alert(core.T('يوجد بريد إلكتروني غير صالح في قائمة فريق Monday.', 'The Monday team list contains an invalid email address.'));
+        return true;
+      }
       const rec = { id: CONFIG_DOC_ID, data: {
         enabled: false, // لا تُفعَّل أبداً من الواجهة — تصبح ذات معنى فقط بعد نشر دالة الخادم بنجاح
         tasksBoardId: tasksBoardEl ? tasksBoardEl.value.trim() : '',
         permissionsBoardId: permissionsBoardEl ? permissionsBoardEl.value.trim() : '',
         taskOwnerEmail: (ownerEmailEl && ownerEmailEl.value.trim()) || DEFAULT_TASK_OWNER_EMAIL,
+        teamEmails: [...new Set(teamEmails)],
         notes: notesEl ? notesEl.value.trim() : '',
         updatedBy: core.currentUser ? core.currentUser.email : '\u0645\u062D\u0644\u064A',
         updatedAt: new Date().toISOString(),
@@ -274,4 +298,4 @@ export function registerMondayIntegration(core){
   });
 }
 
-export { CONFIG_COLLECTION, QUEUE_COLLECTION, DEFAULT_TASK_OWNER_EMAIL, MONDAY_ACCOUNT_OWNER_EMAIL, MONDAY_WORKSPACE_URL, MONDAY_LINKED_USER_PROFILE_URL };
+export { CONFIG_COLLECTION, QUEUE_COLLECTION, DEFAULT_TASK_OWNER_EMAIL, DEFAULT_TEAM_EMAILS, MONDAY_ACCOUNT_OWNER_EMAIL, MONDAY_WORKSPACE_URL, MONDAY_LINKED_USER_PROFILE_URL };
