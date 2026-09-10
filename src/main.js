@@ -127,12 +127,13 @@ import { registerICBookPrint } from './features/ic-book-print.js';
 registerICBookPrint(core);
 
 // دفتر الاكتتاب الاستثماري الكامل (٢١ ورقة Excel) — تصدير مستقل عن exportOpportunityExcel
-// الحالية في core.js (تبقى كما هي، لا تزال متاحة كتصدير سريع من زر "⬇️ Excel" الأصلي).
+// القديمة في core.js؛ أزيلت أزرار التصدير القديمة من رأس مذكرة الفرصة حتى لا تختلط
+// النسخة القديمة بالدفتر المؤسسي الجديد.
 import { registerExcelWorkbook } from './features/excel-workbook.js';
 registerExcelWorkbook(core);
 
 // عرض لجنة الاستثمار (١٢ شريحة PowerPoint) — تصدير مستقل عن exportOpportunityPptx
-// الحالية في core.js (تبقى كما هي، لا تزال متاحة كتصدير سريع من زر "⬇️ PowerPoint" الأصلي).
+// القديمة في core.js؛ أصبح هذا هو مسار العرض الرسمي من داخل قسم تفاصيل الفرصة.
 import { registerICPresentation } from './features/ic-presentation.js';
 registerICPresentation(core);
 

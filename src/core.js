@@ -2856,9 +2856,6 @@ function renderDetail(id){
           </div>
         </div>
         <div class="small-btns">
-          <button class="btn btn-sm" data-action="print-memo">🖨️ ${T('طباعة / PDF','Print / PDF')}</button>
-          <button class="btn btn-sm" data-action="export-excel" data-id="${rec.id}">⬇️ Excel</button>
-          <button class="btn btn-sm" data-action="export-pptx" data-id="${rec.id}">⬇️ PowerPoint</button>
           ${canEditOpp(rec)? `
           <button class="btn btn-sm" data-action="edit-opp" data-id="${rec.id}">✎ ${T('تعديل','Edit')}</button>
           <button class="btn btn-sm btn-danger" data-action="delete-opp" data-id="${rec.id}">🗑️ ${T('حذف','Delete')}</button>` : `
