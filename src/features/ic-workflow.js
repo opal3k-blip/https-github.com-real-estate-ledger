@@ -168,10 +168,6 @@ export function registerICWorkflow(core){
         // يمنع الحفظ كلياً (بلا أي أثر جانبي).
         const gate = icReadiness(core, draft);
         if(!gate.ready){
-          if(gate.absoluteBlockers && gate.absoluteBlockers.length){
-            alert(core.T('لا يمكن اعتماد الفرصة: يوجد مانع مطلق متعلق بالملكية أو القيود القانونية. يجب إكماله أولاً.','Approval blocked: an absolute title or legal-encumbrance blocker must be completed first.'));
-            return true;
-          }
           if(!overrideChecked || !reasons.length) return true;
           overridden = true;
           gateReasonsAtDecision = gate.reasons;

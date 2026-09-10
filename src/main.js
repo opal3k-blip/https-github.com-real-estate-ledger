@@ -1,5 +1,5 @@
 /* =========================================================================
-   نقطة الدخول — Opal Real Estate Opportunity Explorer
+   نقطة الدخول — Opal Real Estate Intelligence Platform
    ---------------------------------------------------------------------------
    core.js يبقى المحرك الأساسي (الفرص/التمويل/المستثمرين والصناديق) دون أي
    تغيير في منطقه الداخلي. أي نظام جديد (Investment Pipeline، Due Diligence،
@@ -240,6 +240,11 @@ registerICDecisionGate(core);
 // حفظ فرصة (registerBeforeOpportunitySave) لاكتشاف قرار لجنة اعتماد جديد.
 import { registerUnderwritingVersions } from './features/underwriting-versions.js';
 registerUnderwritingVersions(core);
+
+// دقة زمنية للتدفقات النقدية (شهري/ربع سنوي/سنوي) + ذروة الاحتياج النقدي الفعلي + صافي
+// النقدي المطلوب من المستثمرين النقديين بعد خصم المساهمات العينية (المرحلة الثامنة)
+import { registerCashFlowTiming } from './features/cash-flow-timing.js';
+registerCashFlowTiming(core);
 
 /* ---------------- التهيئة ---------------- */
 core.initDb();

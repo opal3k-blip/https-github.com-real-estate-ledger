@@ -33,6 +33,10 @@ import { RISK_CATEGORIES, defaultRiskItems, scoreOf as riskScoreOf, bandOf as ri
 import { matchBenchmarks, aggregateBench } from './benchmark-engine.js';
 import { maxAcquisitionPrice } from './max-acquisition-price.js';
 import { stageLabel } from './pipeline.js';
+// دقة التدفقات النقدية (شهري/ربع سنوي) + ذروة الاحتياج + صافي النقدي من المستثمرين النقديين
+// (المرحلة الثامنة) — نفس مصدر الحساب المستخدَم في واجهة المذكرة الحية وفي دفتر الاكتتاب
+// الكامل (excel-workbook.js)، حتى لا يتكرر منطق منحنى S/التوزيع الشهري في أكثر من مكان.
+import { cashFlowTimingAnalysis } from './cash-flow-timing.js';
 
 const COMPARABLES_COLLECTION = 'comparables';
 const DEC_LABEL = {
@@ -54,9 +58,18 @@ function median(nums){
 export function registerICBookPrint(core){
   const { T, esc, fmtSAR, fmtPct, fmtNum } = core;
 
-  /* ملاحظة: زر التشغيل الأساسي أصبح زر "طباعة / PDF" في رأس مذكرة كل فرصة نفسه
-     (renderDetail في core.js، data-action="icbook-open" مع data-autoprint="1") —
-     لم يعد هناك زر ترويجي منفصل هنا لتفادي ازدواجية الأزرار لنفس الوظيفة. */
+  /* زر التشغيل — يظهر داخل تفاصيل كل فرصة (مثل زر الطباعة العادي)، لا يستبدله. */
+  core.registerDetailSection((d, c)=>{
+    const oppId = core.openDetailId;
+    const rec = core.opportunities.find(o=>o.id===oppId);
+    if(!rec) return '';
+    return `
+    <div class="section" style="text-align:center; background:var(--surface-2); border:1px dashed var(--border);">
+      <button type="button" class="btn btn-sm btn-primary" data-action="icbook-open" data-id="${rec.id}">📘 ${core.T('طباعة كتاب اللجنة الكامل (٢١ قسماً)','Print Full IC Book (21 Sections)')}</button>
+      <p class="note" style="margin:8px 0 0;">${core.T('نسخة كاملة بمستوى لجنة استثمار — من صفحة الغلاف حتى المصادر والإخلاء، بالترتيب المؤسسي القياسي، قابلة للطباعة/PDF مباشرة.','A full IC-level book — from the cover page through sources & disclaimer, in standard institutional order, printable/exportable to PDF directly.')}</p>
+    </div>`;
+  });
+
   core.registerMainView('icBook', ()=>{
     const oppId = core.openDetailId;
     const rec = core.opportunities.find(o=>o.id===oppId);
@@ -190,7 +203,7 @@ function watchForBookCharts(core){
 /* ---------------------------------------------------------------------
    الجسم الكامل — ٢١ قسماً بالترتيب المطلوب بالضبط.
    --------------------------------------------------------------------- */
-function buildICBook(core, rec, d, c){
+export function buildICBook(core, rec, d, c){
   const { T, esc, fmtSAR, fmtPct, fmtNum } = core;
   const ti = core.OPP_TYPE_INFO[d.meta.oppType];
   const vcls = c.verdict==='good'?'verdict-good':c.verdict==='warn'?'verdict-warn':'verdict-bad';
@@ -215,7 +228,7 @@ function buildICBook(core, rec, d, c){
       ${core.branding.logoDataUrl? `<img src="${core.branding.logoDataUrl}" alt="${esc(core.branding.companyName||T('شعار الشركة','Company Logo'))}" class="print-letterhead-logo">` : ''}
       <div class="print-letterhead-text">
         <div class="print-letterhead-company">${esc(core.branding.companyName||'')}</div>
-        <div class="print-letterhead-app">${T('منصة استكشاف الفرص العقارية','Opal Real Estate Opportunity Explorer')} · Opal Real Estate Opportunity Explorer</div>
+        <div class="print-letterhead-app">${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')} · Real Estate Opportunity Ledger</div>
         <div class="print-letterhead-date">${T('تم إنشاؤه في','Generated on')} ${esc(core.fmtDateBilingual(core.todayStr()))}</div>
       </div>
     </div>
@@ -393,6 +406,33 @@ function buildICBook(core, rec, d, c){
     ${tbl([T('السنة','Year'), T('تدفق المشروع','Project CF'), T('تدفق حقوق الملكية','Equity CF')], cfRows)}
   `);
 
+  /* ===================== 10b) Cash Flow Timing — دقة شهرية/ربع سنوية + ذروة الاحتياج
+     النقدي الفعلي + صافي النقدي المطلوب من المستثمرين النقديين (المرحلة الثامنة، طلب
+     المستخدم الأول). إضافة بعد القسم ١٠ دون إعادة ترقيم الأقسام ١١-٢١ القائمة (نفس نمط
+     08b في excel-workbook.js) — مُشتقّة من نفس صفوف c.projectCF/c.equityCF أعلاه دون أي
+     تعديل عليها. ===================== */
+  {
+    const a = cashFlowTimingAnalysis(core, d, c, rec.id);
+    const peakLabel = a.peakCashNeed.yearIndex===0 ? T('بداية المشروع (Day 0)','Project Start (Day 0)')
+      : T('سنة '+a.peakCashNeed.yearIndex+' — شهر '+a.peakCashNeed.monthInYear, 'Year '+a.peakCashNeed.yearIndex+' — Month '+a.peakCashNeed.monthInYear);
+    const qRows = a.equityQuarterly.map(q=>{
+      const label = q.yearIndex===0 ? T('بداية المشروع (Day 0)','Project Start (Day 0)') : T('سنة '+q.yearIndex+' — ربع '+q.quarter, 'Year '+q.yearIndex+' — Q'+q.quarter);
+      return `<tr><td>${label}</td><td class="num" style="color:${pcolor(q.amount)};">${fmtSAR(q.amount)}</td><td class="num" style="color:${pcolor(q.cumulative)};">${fmtSAR(q.cumulative)}</td></tr>`;
+    });
+    html += sec(core, '10b', T('دقة التدفقات النقدية — شهري / ربع سنوي','Cash Flow Timing Precision — Monthly / Quarterly'), 'Cash Flow Timing', 'Cash Flow Timing', `
+      ${kv([
+        ['🔴 '+T('ذروة الاحتياج النقدي الفعلي','Actual Peak Cash Need'), `<b style="color:${a.peakCashNeed.amount>0?'var(--bad)':'var(--good)'};">${fmtSAR(a.peakCashNeed.amount)}</b>`],
+        [T('متى يحدث','When it occurs'), peakLabel],
+        [T('إجمالي المساهمات العينية المرتبطة','Total linked in-kind contributions'), '🏗️ '+fmtSAR(a.totalInKind)],
+        [T('إجمالي المساهمات النقدية المرتبطة','Total linked cash contributions'), '💵 '+fmtSAR(a.totalCash)],
+        [T('صافي النقدي المطلوب فعلياً من المستثمرين النقديين','Net cash actually required from cash investors'), `<b>${fmtSAR(a.netCashRequiredFromCashInvestors)}</b>`],
+      ])}
+      ${a.linkedFunds.length===0? `<p class="note" style="margin:6px 0 10px; color:var(--bad);">⚠️ ${T('لا يوجد صندوق مرتبط بهذه الفرصة بعد — الرقم أعلاه يفترض تغطية عينية صفرية.','No fund is linked to this opportunity yet — the figure above assumes zero in-kind coverage.')}</p>` : ''}
+      <p class="note" style="margin:0 0 8px; font-size:11px;">${T('التفصيل ربع السنوي أدناه (لحقوق الملكية) — التفصيل الشهري الكامل متوفر في مذكرة الفرصة الحية ودفتر الاكتتاب الكامل (Excel).','Quarterly detail below (equity) — full monthly detail is available in the live opportunity memo and the full underwriting workbook (Excel).')}</p>
+      ${tbl([T('الفترة','Period'), T('تدفق حقوق الملكية','Equity CF'), T('التراكمي','Cumulative')], qRows)}
+    `);
+  }
+
   /* ===================== 11) Debt & Financing ===================== */
   const debtRows = (c.pnlRows||[]).filter(r=>r.debtService>0).map(r=>`<tr>
     <td class="num">${r.yr}</td>
@@ -564,8 +604,8 @@ function buildICBook(core, rec, d, c){
       [T('تاريخ إصدار هذا الكتاب','This book generated on'), esc(core.fmtDateBilingual(core.todayStr()))],
     ])}
     <p style="margin:12px 0 0; font-size:11px; line-height:1.8; color:var(--ink-faint);">
-      ${T('هذا الكتاب أُعِدَّ آلياً من بيانات مُدخَلة داخل منصة استكشاف الفرص العقارية، ويستند إلى الافتراضات المُدخَلة من المحلل المسؤول وقت الإعداد. الأرقام هنا تقديرية ولا تُغني عن تقييم مستقل معتمد أو مراجعة قانونية/ضريبية/شرعية متخصصة قبل اتخاذ أي قرار استثماري نهائي. جميع الحقوق محفوظة.',
-        'This book was automatically compiled from data entered into the Opal Real Estate Opportunity Explorer, and is based on assumptions entered by the responsible analyst at the time of preparation. Figures here are estimates and do not substitute for an accredited independent valuation or specialized legal/tax/Sharia review before any final investment decision. All rights reserved.')}
+      ${T('هذا الكتاب أُعِدَّ آلياً من بيانات مُدخَلة داخل تطبيق دفتر الفرص العقارية، ويستند إلى الافتراضات المُدخَلة من المحلل المسؤول وقت الإعداد. الأرقام هنا تقديرية ولا تُغني عن تقييم مستقل معتمد أو مراجعة قانونية/ضريبية/شرعية متخصصة قبل اتخاذ أي قرار استثماري نهائي. جميع الحقوق محفوظة.',
+        'This book was automatically compiled from data entered into the Real Estate Opportunity Ledger, and is based on assumptions entered by the responsible analyst at the time of preparation. Figures here are estimates and do not substitute for an accredited independent valuation or specialized legal/tax/Sharia review before any final investment decision. All rights reserved.')}
     </p>
   `);
 

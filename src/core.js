@@ -1,5 +1,5 @@
 /* =========================================================================
-   منصة استكشاف الفرص العقارية — Opal Real Estate Opportunity Explorer
+   دفتر الفرص العقارية — Real Estate Opportunity Ledger
    Single-file interactive intake + underwriting engine + database.
    ========================================================================= */
 
@@ -32,7 +32,7 @@ let unsubscribeBranding = null;
 
 /* =========================================================================
    نقاط توسّع معمارية (Extension Points) — بداية الانتقال إلى بنية متعددة
-   الملفات (Opal Real Estate Opportunity Explorer). core.js يبقى المحرك
+   الملفات (Opal Real Estate Intelligence Platform). core.js يبقى المحرك
    الأساسي كما هو (محرك الفرص/التمويل/المستثمرين والصناديق) بدون أي تعديل
    على منطقه الداخلي، وكل نظام جديد (Pipeline، Investment Score، Risk Engine،
    Due Diligence، IC Workflow، Data Quality، Audit Trail...) يُبنى في ملف
@@ -113,11 +113,11 @@ try{ document.documentElement.lang = LANG; }catch(e){}
 function T(ar, en){ return LANG==='en' ? (en!=null? en : ar) : ar; }
 function updateDocMeta(){
   try{
-    document.title = LANG==='en' ? 'Opal Real Estate Opportunity Explorer' : 'منصة استكشاف الفرص العقارية — أوبال';
+    document.title = LANG==='en' ? 'Real Estate Opportunity Ledger — Opal' : 'دفتر الفرص العقارية — Opal';
     const metaDesc = document.querySelector('meta[name="description"]');
     if(metaDesc) metaDesc.setAttribute('content', LANG==='en'
-      ? 'Opal Real Estate Opportunity Explorer — real-estate underwriting and feasibility platform'
-      : 'منصة استكشاف الفرص العقارية — أداة تقييم وتحليل جدوى الفرص العقارية من شركة أوبال القابضة (Opal Holding)');
+      ? 'Real Estate Opportunity Ledger — a real-estate investment underwriting and feasibility tool by Opal'
+      : 'دفتر الفرص العقارية — أداة تقييم وتحليل جدوى الفرص الاستثمارية العقارية من شركة أوبال القابضة (Opal Holding)');
   }catch(e){}
 }
 function setLang(l){
@@ -383,45 +383,12 @@ const USE_TYPES = {
 };
 const ASSET_CLASSES = {
   "عام":            { t:'عام (دخل قياسي)', en:'Standard income' },
-  "apartment":      { t:'شقق سكنية', en:'Residential apartments' },
-  "villa":          { t:'فلل مستقلة', en:'Standalone villas' },
-  "townhouse":      { t:'تاون هاوس / توين هاوس', en:'Townhouse / Twin house' },
-  "duplex":         { t:'دوبلكس', en:'Duplex' },
-  "serviced_apartment": { t:'شقق مخدومة', en:'Serviced apartments' },
-  "mixed_building": { t:'مبنى متعدد الاستخدامات', en:'Mixed-use building' },
-  "retail_center":  { t:'مركز تجاري / تجزئة', en:'Retail center' },
-  "office_building": { t:'مبنى مكاتب', en:'Office building' },
   "gas_station":     { t:'محطة وقود (NNN)', en:'Gas station — NNN' },
   "qsr_pharmacy":    { t:'مطعم / صيدلية (NNN)', en:'QSR / Pharmacy — NNN' },
   "hospitality":     { t:'فندقي', en:'Hospitality' },
   "logistics":       { t:'لوجستي / مستودعات', en:'Logistics / Warehouse' },
   "data_center":     { t:'مركز بيانات', en:'Data center' },
 };
-// تصنيف الفئة الفرعية تابع للاستخدام الرئيسي؛ لا نعرض خيارات لا تنتمي إلى
-// الاستخدام المختار، مع إبقاء الفئات التشغيلية المتخصصة متاحة عند الحاجة.
-const ASSET_CLASS_GROUPS = {
-  residential: ['عام','apartment','villa','townhouse','duplex','serviced_apartment'],
-  mixed: ['عام','mixed_building','apartment','villa','townhouse','duplex','retail_center','office_building','serviced_apartment'],
-  compound: ['عام','villa','townhouse','apartment','duplex','serviced_apartment'],
-  retail: ['عام','retail_center','gas_station','qsr_pharmacy'],
-  office: ['عام','office_building'],
-  hospitality: ['عام','hospitality','serviced_apartment'],
-  logistics: ['عام','logistics'],
-  data_center: ['عام','data_center'],
-  all: Object.keys(ASSET_CLASSES),
-};
-function assetClassOptionsForUseType(useType){
-  const group = useType==='سكني (Residential)' ? 'residential'
-    : useType==='مختلط سكني+تجاري (Mixed Use)' ? 'mixed'
-    : useType==='سكني - كمبوند مغلق ومسوّر (Gated Compound)' ? 'compound'
-    : useType==='تجاري - تجزئة (Retail)' ? 'retail'
-    : useType==='مكاتب (Office)' ? 'office'
-    : useType==='فندقي (Hospitality)' ? 'hospitality'
-    : useType==='مستودعات ولوجستيات (Logistics)' ? 'logistics'
-    : useType==='مركز بيانات (Data Center)' ? 'data_center'
-    : 'all';
-  return ASSET_CLASS_GROUPS[group].map(k=>[`${ASSET_CLASSES[k].t} — ${ASSET_CLASSES[k].en}`, k]);
-}
 const CREDIT_TIERS = {
   "استثماري (Investment Grade)": '6.0%–7.0%',
   "وطني (National)":            '7.0%–8.5%',
@@ -771,11 +738,22 @@ const CAPITAL_CALL_STATUS_LABEL = Object.fromEntries(CAPITAL_CALL_STATUS.map(([l
 const DISTRIBUTION_TYPES = ["عائد رأس المال (Return of Capital)","عائد مفضَّل (Preferred Return)","حصة أرباح/كاري (Profit Share / Carry)","أخرى (Other)"];
 const DISTRIBUTION_STATUS = [["🟡 مُعلَنة (لم تُصرَف بعد)","declared"],["🟢 مصروفة","paid"]];
 const DISTRIBUTION_STATUS_LABEL = Object.fromEntries(DISTRIBUTION_STATUS.map(([l,v])=>[v,l]));
+// نوع مساهمة الالتزام — استثناء ضيّق ومقصود على قاعدة "عدم لمس core.js" (المرحلة الثامنة،
+// بموافقة صريحة من المستخدم): مستثمر نقدي (Cash) يسدّد التزامه عبر نداءات رأسمال عادية، أو
+// مستثمر عيني (In-Kind — الحالة النموذجية: مالك الأرض يُدخل الأرض نفسها كحصته في الصندوق بدل
+// نقد). القيمة المتفَق عليها للحصة العينية تُخزَّن في نفس حقل commitmentAmount الموجود أصلاً
+// (لا حقل مبلغ منفصل) حتى تبقى كل حسابات الالتزام الإجمالي (committed) تجمع الاثنين معاً
+// بلا أي تمييز خاص مطلوب في أي مكان آخر. سبب اللمس هنا تحديداً: نماذج CRUD الالتزامات
+// (commitments) مبنية بالكامل داخل core.js نفسه بلا أي نقطة توسّع تسمح لملف ميزة خارجي
+// بالتقاطها (نفس القيد المُوثَّق في تعليق investors/funds/... في firestore.rules، المرحلة
+// السابعة) — إضافة حقلين لسجل بيانات + حقل بنموذجه المبني هنا فعلاً هي أضيق تدخّل ممكن.
+const CONTRIBUTION_TYPES = [["💵 نقدي (Cash)",'cash'],["🏗️ عيني (In-Kind — مثال: أرض)",'in_kind']];
+const CONTRIBUTION_TYPE_LABEL = Object.fromEntries(CONTRIBUTION_TYPES.map(([l,v])=>[v,l]));
 
 function blankInvestor(){ return { name:'', investorClass:INVESTOR_CLASSES[0], email:'', phone:'', notes:'', createdAt:null, updatedAt:null }; }
 function blankFund(){ return { name:'', fundType:FUND_TYPES[0], vintageYear:new Date().getFullYear(), targetSize:0, status:'forming', assetIds:[], notes:'', createdAt:null, updatedAt:null }; }
-function blankCommitment(fundId){ return { fundId:fundId||'', investorId:'', commitmentAmount:0, dateCommitted:todayStr() }; }
-function blankCapitalCall(fundId){ return { fundId:fundId||'', investorId:'', callNumber:1, callDate:todayStr(), amount:0, status:'pending', notes:'' }; }
+function blankCommitment(fundId){ return { fundId:fundId||'', investorId:'', commitmentAmount:0, dateCommitted:todayStr(), contributionType:'cash', inKindDescription:'' }; }
+function blankCapitalCall(fundId){ return { fundId:fundId||'', investorId:'', callNumber:1, callDate:todayStr(), amount:0, status:'pending', notes:'', linkedCommitmentId:null }; }
 function blankDistribution(fundId){ return { fundId:fundId||'', investorId:'', distDate:todayStr(), amount:0, type:DISTRIBUTION_TYPES[0], status:'declared', notes:'' }; }
 
 function ifCollFor(kind){ return {investor:'investors', fund:'funds', commitment:'commitments', capitalCall:'capitalCalls', distribution:'distributions'}[kind]; }
@@ -2053,7 +2031,7 @@ function renderStepFieldsCore(idx, d){
       ${d.meta.oppType==='income'? `
       <p class="step-sub" style="margin-top:16px;">${T('الفئة الفرعية للأصل (اختياري) — تُظهر مدخلات متخصصة حسب طبيعة النشاط','Asset sub-class (optional) — shows specialized inputs based on the activity type')}</p>
       <div class="grid2">
-        ${F.select('income.assetClass','الفئة الفرعية للأصل','Asset sub-class', assetClassOptionsForUseType(d.meta.useType).some(([,k])=>k===d.income.assetClass)?d.income.assetClass:'عام', assetClassOptionsForUseType(d.meta.useType), {rerender:true, span2:true})}
+        ${F.select('income.assetClass','الفئة الفرعية للأصل','Asset sub-class', d.income.assetClass, Object.entries(ASSET_CLASSES).map(([k,v])=>[`${v.t} — ${v.en}`,k]), {rerender:true, span2:true})}
       </div>`:''}`;
     case 4: {
       const cb = d.development.costBreakdown;
@@ -2822,13 +2800,13 @@ function renderDetail(id){
   <div class="memo" data-print-date="${esc(fmtDateBilingual(todayStr()))}">
     <div class="print-run-header">
       <span>${esc(branding.companyName||T('أوبال القابضة','Opal Holding'))} — ${esc(d.meta.name||T('بدون اسم','Unnamed'))}</span>
-      <span>${T('منصة استكشاف الفرص العقارية','Opal Real Estate Opportunity Explorer')} · ${esc(fmtDateBilingual(todayStr()))}</span>
+      <span>${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')} · ${esc(fmtDateBilingual(todayStr()))}</span>
     </div>
     <div class="print-letterhead">
       ${branding.logoDataUrl? `<img src="${branding.logoDataUrl}" alt="${esc(branding.companyName||T('شعار الشركة','Company Logo'))}" class="print-letterhead-logo">` : ''}
       <div class="print-letterhead-text">
         <div class="print-letterhead-company">${esc(branding.companyName||'')}</div>
-        <div class="print-letterhead-app">${T('منصة استكشاف الفرص العقارية','Opal Real Estate Opportunity Explorer')} · Opal Real Estate Opportunity Explorer</div>
+        <div class="print-letterhead-app">${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')} · Real Estate Opportunity Ledger</div>
         <div class="print-letterhead-date">${T('تم إنشاؤه في','Generated on')} ${esc(fmtDateBilingual(todayStr()))}</div>
       </div>
     </div>
@@ -2845,9 +2823,9 @@ function renderDetail(id){
           </div>
         </div>
         <div class="small-btns">
-          <button class="btn btn-sm btn-primary" data-action="icbook-open" data-id="${rec.id}" data-autoprint="1">📘 ${T('طباعة / PDF — الكتاب الكامل','Print / PDF — Full Book')}</button>
-          <button class="btn btn-sm btn-primary" data-action="xlbook-export" data-id="${rec.id}">📊 ${T('تنزيل Excel — دفتر الاكتتاب الكامل','Download Excel — Full Underwriting Workbook')}</button>
-          <button class="btn btn-sm btn-primary" data-action="icppt-export" data-id="${rec.id}">🖥️ ${T('تنزيل PowerPoint — عرض اللجنة','Download PowerPoint — IC Deck')}</button>
+          <button class="btn btn-sm" data-action="print-memo">🖨️ ${T('طباعة / PDF','Print / PDF')}</button>
+          <button class="btn btn-sm" data-action="export-excel" data-id="${rec.id}">⬇️ Excel</button>
+          <button class="btn btn-sm" data-action="export-pptx" data-id="${rec.id}">⬇️ PowerPoint</button>
           ${canEditOpp(rec)? `
           <button class="btn btn-sm" data-action="edit-opp" data-id="${rec.id}">✎ ${T('تعديل','Edit')}</button>
           <button class="btn btn-sm btn-danger" data-action="delete-opp" data-id="${rec.id}">🗑️ ${T('حذف','Delete')}</button>` : `
@@ -2942,21 +2920,21 @@ ${T('بدلاً من بيع الأصل في نهاية المدة، يقوم ا�
         <div class="section">
           <h3><span class="n">1</span> ${T('ملخص الأرض والبناء','Land & Building Summary')} (Land & Building Summary)</h3>
           <div class="kv">
-          <div class="k">${T('مساحة الأرض','Land Area')}</div><div class="v"><bdi class="bidi-number" dir="ltr">${fmtNum(d.land.area)} ${T('م²','sqm')}</bdi></div>
-          <div class="k">${T('سعر الشراء / التكلفة الإجمالية','Purchase Price / Total Cost')}</div><div class="v"><bdi class="bidi-number" dir="ltr">${fmtNum(d.land.price)} ${T('ر.س/م²','SAR/sqm')} — ${fmtSAR(c.landCost)}</bdi></div>
-          <div class="k">GFA (${T('حق البناء الإجمالي','Gross Floor Area')})</div><div class="v"><bdi class="bidi-number" dir="ltr">${fmtNum(c.gfa)} ${T('م²','sqm')}</bdi></div>
-          <div class="k">${T('بصمة المبنى / الأدوار اللازمة','Building Footprint / Floors Needed')}</div><div class="v"><bdi class="bidi-number" dir="ltr">${fmtNum(c.footprint)} ${T('م²','sqm')} / ${c.floorsNeeded} ${T('دور','floors')}</bdi></div>
-          <div class="k">${T('الارتفاع الإجمالي','Total Height')}</div><div class="v"><bdi class="bidi-number" dir="ltr">${fmtNum(c.buildingHeight,1)} ${T('م','m')}</bdi></div>
-          <div class="k">${T('تكلفة الأرض لكل م² GFA','Land Cost per sqm GFA')}</div><div class="v"><bdi class="bidi-number" dir="ltr">${fmtNum(c.landCostPerGFA)} ${T('ر.س/م²','SAR/sqm')}</bdi></div>
-          <div class="k">${T('معامل الموقع المجمّع (Site Factor)','Combined Site Factor')}</div><div class="v"><bdi class="bidi-number" dir="ltr">×${c.siteFactor.toFixed(3)}</bdi></div>
-          <div class="k">${T('المعامل المركّب الكلي (Master Multiplier)','Overall Master Multiplier')}</div><div class="v"><bdi class="bidi-number" dir="ltr">×${c.masterMultiplier.toFixed(3)}</bdi></div>
+            <div class="k">${T('مساحة الأرض','Land Area')}</div><div class="v">${fmtNum(d.land.area)} ${T('م²','sqm')}</div>
+            <div class="k">${T('سعر الشراء / التكلفة الإجمالية','Purchase Price / Total Cost')}</div><div class="v">${fmtNum(d.land.price)} ${T('ر.س/م²','SAR/sqm')} — ${fmtSAR(c.landCost)}</div>
+            <div class="k">GFA (${T('حق البناء الإجمالي','Gross Floor Area')})</div><div class="v">${fmtNum(c.gfa)} ${T('م²','sqm')}</div>
+            <div class="k">${T('بصمة المبنى / الأدوار اللازمة','Building Footprint / Floors Needed')}</div><div class="v">${fmtNum(c.footprint)} ${T('م²','sqm')} / ${c.floorsNeeded} ${T('دور','floors')}</div>
+            <div class="k">${T('الارتفاع الإجمالي','Total Height')}</div><div class="v">${fmtNum(c.buildingHeight,1)} ${T('م','m')}</div>
+            <div class="k">${T('تكلفة الأرض لكل م² GFA','Land Cost per sqm GFA')}</div><div class="v">${fmtNum(c.landCostPerGFA)} ${T('ر.س/م²','SAR/sqm')}</div>
+            <div class="k">${T('معامل الموقع المجمّع (Site Factor)','Combined Site Factor')}</div><div class="v">×${c.siteFactor.toFixed(3)}</div>
+            <div class="k">${T('المعامل المركّب الكلي (Master Multiplier)','Overall Master Multiplier')}</div><div class="v">×${c.masterMultiplier.toFixed(3)}</div>
             ${c.scopeType!=='both'? `<div class="k">${T('نطاق التطوير (Development Scope)','Development Scope')}</div><div class="v">${c.scopeType==='infra_only'?T('بنية تحتية فقط (Infrastructure Only)','Infrastructure Only'):T('بنية فوقية فقط (Vertical Only)','Vertical Only')}</div>`:''}
             ${c.isSubdivisionPhased? `<div class="k">${T('نمط بيع تقسيم الأراضي','Land Subdivision Sale Mode')}</div><div class="v">${T('بيع على مراحل — امتصاص تدريجي','Phased Sale — Gradual Absorption')} (${c.absorptionSchedule.length} ${T('شرائح','tranches')})</div>`:''}
             ${c.isOffPlanSale? `<div class="k">${T('نمط البيع','Sale Mode')}</div><div class="v">${T('بيع على الخارطة (وافي)','Off-Plan Sale (WAFI)')} (${c.offPlanSchedule.length} ${T('دفعات','installments')})</div>`:''}
-            ${c.infraCostAmt>0? `<div class="k">${T('تكلفة البنية التحتية','Infrastructure Cost')}</div><div class="v"><bdi class="bidi-number" dir="ltr">${fmtSAR(c.infraCostAmt)}</bdi></div>`:''}
+            ${c.infraCostAmt>0? `<div class="k">${T('تكلفة البنية التحتية','Infrastructure Cost')}</div><div class="v">${fmtSAR(c.infraCostAmt)}</div>`:''}
             ${(c.heightPremiumMult>1 && d.meta.oppType!=='landbank')? `<div class="k">${T('علاوة تكلفة ارتفاع الدور','Floor Height Cost Premium')}</div><div class="v">+${fmtPct(c.heightPremiumMult-1)} ${T('على تكلفة البناء/م²','on build cost/sqm')}</div>`:''}
-            ${c.basementCostAmt>0? `<div class="k">${T('البدرومات — عدد المستويات / المساحة الإجمالية','Basements — Levels / Total Area')}</div><div class="v"><bdi class="bidi-number" dir="ltr">${c.basementLevels} ${T('بدروم','levels')} / ${fmtNum(c.basementArea)} ${T('م²','sqm')}</bdi></div>
-            <div class="k">${T('علاوة تكلفة البدرومات (متوسطة)','Basement Cost Premium (avg)')}</div><div class="v"><bdi class="bidi-number" dir="ltr">+${fmtPct(c.basementPremiumAvgPct)} ${T('— إجمالي','— total')}: ${fmtSAR(c.basementCostAmt)}</bdi></div>`:''}
+            ${c.basementCostAmt>0? `<div class="k">${T('البدرومات — عدد المستويات / المساحة الإجمالية','Basements — Levels / Total Area')}</div><div class="v">${c.basementLevels} ${T('بدروم','levels')} / ${fmtNum(c.basementArea)} ${T('م²','sqm')}</div>
+            <div class="k">${T('علاوة تكلفة البدرومات (متوسطة)','Basement Cost Premium (avg)')}</div><div class="v">+${fmtPct(c.basementPremiumAvgPct)} ${T('— إجمالي','— total')}: ${fmtSAR(c.basementCostAmt)}</div>`:''}
           </div>
           ${(d.land.bonusAreaPct||0)>0? (()=>{
             const bonusArea = c.gfa * d.land.bonusAreaPct;
@@ -3385,7 +3363,7 @@ function mkChart(id, config){
   destroyChart(id);
   try{ chartInstances[id] = new Chart(canvas, config); }catch(e){ console.error('chart render failed:', id, e); }
 }
-const CHART_BASE_OPTS = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:CHART_COLORS.inkFaint, font:{ family:'Sakkal Majalla, Amiri, sans-serif', size:11 } } } },
+const CHART_BASE_OPTS = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:CHART_COLORS.inkFaint, font:{ family:'IBM Plex Sans Arabic, sans-serif', size:11 } } } },
   scales:{ x:{ ticks:{ color:CHART_COLORS.inkFaint, font:{ size:10 } }, grid:{ color:CHART_COLORS.grid } }, y:{ ticks:{ color:CHART_COLORS.inkFaint, font:{ size:10 } }, grid:{ color:CHART_COLORS.grid } } } };
 
 function initPortfolioCharts(){
@@ -3394,7 +3372,7 @@ function initPortfolioCharts(){
   const typeLabels = Object.keys(k.byType);
   mkChart('chart-portfolio-type', { type:'doughnut',
     data:{ labels:typeLabels, datasets:[{ data:typeLabels.map(t=>k.byType[t]), backgroundColor:[CHART_COLORS.accent, CHART_COLORS.gold, CHART_COLORS.inkFaint, CHART_COLORS.good, CHART_COLORS.warn], borderColor:'var(--surface)', borderWidth:2 }] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:CHART_COLORS.inkFaint, font:{ family:'Sakkal Majalla, Amiri, sans-serif', size:10 }, boxWidth:10, padding:8 } } } } });
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:CHART_COLORS.inkFaint, font:{ family:'IBM Plex Sans Arabic, sans-serif', size:10 }, boxWidth:10, padding:8 } } } } });
   mkChart('chart-portfolio-verdict', { type:'bar',
     data:{ labels:['🟢 '+T('قوي','Strong'),'🟡 '+T('مراجعة','Review'),'🔴 '+T('دون المعايير','Below Standards')], datasets:[{ data:[k.good,k.warn,k.bad], backgroundColor:[CHART_COLORS.good, CHART_COLORS.warn, CHART_COLORS.bad], borderRadius:6, maxBarThickness:40 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
@@ -3517,8 +3495,8 @@ function renderLogin(){
           <div class="brand" style="justify-content:center; margin-bottom:14px;">
             <div class="mark"><img src="${OPAL_LOGO_MARK}" alt="Opal"></div>
             <div>
-              <h1 style="font-size:17px;">${T('منصة استكشاف الفرص العقارية','Opal Real Estate Opportunity Explorer')}</h1>
-              <div class="sub">${T('Opal Real Estate Opportunity Explorer','منصة استكشاف الفرص العقارية')}</div>
+              <h1 style="font-size:17px;">${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')}</h1>
+              <div class="sub">${T('Real Estate Opportunity Ledger','دفتر الفرص العقارية')}</div>
             </div>
           </div>
           <div class="step-title" style="font-size:16px;">${TEAM_ENTRY? T('تسجيل دخول أعضاء الفريق','Team Member Sign-in') : T('تسجيل الدخول','Sign In')}</div>
@@ -3878,14 +3856,22 @@ function renderFundDetail(fundId){
   const cmts = commitmentsForFund(fundId);
   const calls = capitalCallsFor(fundId);
   const dists = distributionsFor(fundId);
+  // فرز الالتزامات نقدي/عيني — يخدم سؤال المستخدم المباشر: هل يمكن أن يدخل نفس الصندوق
+  // مستثمراً نقدياً (مثلاً بنك أو صندوق تقاعد) بجانب مستثمر عيني (مالك الأرض يُدخل الأرض
+  // نفسها كحصته)؟ الإجابة: نعم — والفرز أدناه يُظهر ذلك بوضوح في لوحة الصندوق.
+  const cashCommitted = cmts.filter(c=>c.data.contributionType!=='in_kind').reduce((a,c)=>a+n(c.data.commitmentAmount),0);
+  const inKindCommitted = cmts.filter(c=>c.data.contributionType==='in_kind').reduce((a,c)=>a+n(c.data.commitmentAmount),0);
   const cmtForm = ifForm && ifForm.kind==='commitment' ? `
     <div class="panel" style="margin:10px 0; background:var(--surface-2);">
       <div class="grid3">
         ${ifField('المستثمر','Investor','investorId', ifForm.draft.investorId, {select:[[T('اختر مستثمر...','Select investor...'),'']].concat(STORE.investors.map(i=>[i.data.name,i.id]))})}
-        ${ifField('مبلغ الالتزام','Commitment Amount','commitmentAmount', ifForm.draft.commitmentAmount, {type:'number'})}
+        ${ifField('نوع المساهمة','Contribution Type','contributionType', ifForm.draft.contributionType, {select:CONTRIBUTION_TYPES})}
+        ${ifField(ifForm.draft.contributionType==='in_kind'?'القيمة المتفَق عليها':'مبلغ الالتزام', ifForm.draft.contributionType==='in_kind'?'Agreed Value':'Commitment Amount','commitmentAmount', ifForm.draft.commitmentAmount, {type:'number'})}
         ${ifField('تاريخ الالتزام','Date Committed','dateCommitted', ifForm.draft.dateCommitted, {type:'date'})}
+        ${ifForm.draft.contributionType==='in_kind'? ifField('وصف المساهمة العينية (مثال: أرض المشروع)','In-Kind Description (e.g. project land)','inKindDescription', ifForm.draft.inKindDescription) : ''}
       </div>
-      <div style="display:flex; gap:8px;"><button class="btn btn-primary btn-sm" data-action="if-save" data-kind="commitment">💾 ${T('حفظ','Save')}</button><button class="btn btn-ghost btn-sm" data-action="if-cancel-form">${T('إلغاء','Cancel')}</button></div>
+      ${ifForm.draft.contributionType==='in_kind'? `<p class="note" style="margin:6px 0 0;">${T('تُسجَّل المساهمة العينية كمنقولة بالكامل عند الحفظ (بلا نداءات رأسمال تدريجية) — نفس منطق نقل ملكية الأرض دفعة واحدة عند إغلاق الصندوق.','An in-kind contribution is recorded as fully transferred on save (no gradual capital calls) — same logic as a one-time land ownership transfer at fund closing.')}</p>` : ''}
+      <div style="display:flex; gap:8px; margin-top:8px;"><button class="btn btn-primary btn-sm" data-action="if-save" data-kind="commitment">💾 ${T('حفظ','Save')}</button><button class="btn btn-ghost btn-sm" data-action="if-cancel-form">${T('إلغاء','Cancel')}</button></div>
     </div>` : '';
   const ccForm = ifForm && ifForm.kind==='capitalCall' ? `
     <div class="panel" style="margin:10px 0; background:var(--surface-2);">
@@ -3918,6 +3904,7 @@ function renderFundDetail(fundId){
       <div class="k">${T('سنة التأسيس','Vintage')}</div><div class="v">${esc(fund.data.vintageYear)}</div>
       <div class="k">${T('الحجم المستهدف','Target Size')}</div><div class="v">${fmtSAR(fund.data.targetSize)}</div>
       <div class="k">${T('إجمالي الالتزامات','Total Committed')}</div><div class="v">${fmtSAR(s.committed)}</div>
+      <div class="k">${T('منها: نقدي / عيني','Of which: Cash / In-Kind')}</div><div class="v">💵 ${fmtSAR(cashCommitted)} &nbsp;/&nbsp; 🏗️ ${fmtSAR(inKindCommitted)}</div>
       <div class="k">${T('إجمالي المسحوب (Called)','Total Called')}</div><div class="v">${fmtSAR(s.called)} (${s.calledPct!=null?fmtPct(s.calledPct):'—'})</div>
       <div class="k">${T('رأس المال المسدَّد','Paid-in Capital')}</div><div class="v">${fmtSAR(s.paidIn)}</div>
       <div class="k">${T('التوزيعات المصروفة','Distributions Paid')}</div><div class="v">${fmtSAR(s.distPaid)}</div>
@@ -3937,10 +3924,12 @@ function renderFundDetail(fundId){
     ${cmtForm}
     ${!cmtForm? `<button class="btn btn-sm" data-action="if-open-form" data-kind="commitment" data-fund="${fundId}">＋ ${T('التزام جديد','New Commitment')}</button>`:''}
     <div class="tablewrap" style="margin-top:8px;"><table class="db">
-      <thead><tr><th>${T('المستثمر','Investor')}</th><th>${T('المبلغ','Amount')}</th><th>${T('التاريخ','Date')}</th><th></th></tr></thead>
+      <thead><tr><th>${T('المستثمر','Investor')}</th><th>${T('النوع','Type')}</th><th>${T('المبلغ / القيمة','Amount / Value')}</th><th>${T('التاريخ','Date')}</th><th></th></tr></thead>
       <tbody>
-        ${cmts.length===0? `<tr><td colspan="4" style="text-align:center; color:var(--ink-faint); padding:16px;">${T('لا توجد التزامات بعد','No commitments yet')}</td></tr>` : cmts.map(c=>`
-          <tr><td>${esc(investorName(c.data.investorId))}</td><td class="num mono">${fmtSAR(c.data.commitmentAmount)}</td><td class="mono">${esc(c.data.dateCommitted)}</td>
+        ${cmts.length===0? `<tr><td colspan="5" style="text-align:center; color:var(--ink-faint); padding:16px;">${T('لا توجد التزامات بعد','No commitments yet')}</td></tr>` : cmts.map(c=>`
+          <tr><td>${esc(investorName(c.data.investorId))}</td>
+          <td>${c.data.contributionType==='in_kind'? `<span class="badge" title="${esc(c.data.inKindDescription||'')}">🏗️ ${T('عيني','In-Kind')}</span>${c.data.inKindDescription? ` <span class="note" style="font-size:11px;">— ${esc(c.data.inKindDescription)}</span>`:''}` : `<span class="badge">💵 ${T('نقدي','Cash')}</span>`}</td>
+          <td class="num mono">${fmtSAR(c.data.commitmentAmount)}</td><td class="mono">${esc(c.data.dateCommitted)}</td>
           <td><button class="btn btn-sm btn-ghost" data-action="if-delete" data-kind="commitment" data-id="${c.id}">🗑️</button></td></tr>
         `).join('')}
       </tbody>
@@ -3953,11 +3942,11 @@ function renderFundDetail(fundId){
       <thead><tr><th>${T('المستثمر','Investor')}</th><th>#</th><th>${T('التاريخ','Date')}</th><th>${T('المبلغ','Amount')}</th><th>${T('الحالة','Status')}</th><th></th></tr></thead>
       <tbody>
         ${calls.length===0? `<tr><td colspan="6" style="text-align:center; color:var(--ink-faint); padding:16px;">${T('لا توجد نداءات بعد','No capital calls yet')}</td></tr>` : calls.map(c=>`
-          <tr><td>${esc(investorName(c.data.investorId))}</td><td class="mono">${c.data.callNumber}</td><td class="mono">${esc(c.data.callDate)}</td><td class="num mono">${fmtSAR(c.data.amount)}</td>
+          <tr><td>${esc(investorName(c.data.investorId))}${c.data.linkedCommitmentId? ` <span class="note" style="font-size:11px;">(🏗️ ${T('نقل عيني تلقائي','auto in-kind transfer')})</span>`:''}</td><td class="mono">${c.data.callNumber}</td><td class="mono">${esc(c.data.callDate)}</td><td class="num mono">${fmtSAR(c.data.amount)}</td>
           <td><span class="tag">${CAPITAL_CALL_STATUS_LABEL[c.data.status]||c.data.status}</span></td>
           <td style="display:flex; gap:4px;">
-            ${c.data.status!=='paid'? `<button class="btn btn-sm btn-ghost" data-action="if-mark-paid" data-kind="capitalCall" data-id="${c.id}" title="${T('تعليم كمسدَّد','Mark paid')}">✓</button>`:''}
-            <button class="btn btn-sm btn-ghost" data-action="if-delete" data-kind="capitalCall" data-id="${c.id}">🗑️</button>
+            ${(!c.data.linkedCommitmentId && c.data.status!=='paid')? `<button class="btn btn-sm btn-ghost" data-action="if-mark-paid" data-kind="capitalCall" data-id="${c.id}" title="${T('تعليم كمسدَّد','Mark paid')}">✓</button>`:''}
+            ${!c.data.linkedCommitmentId? `<button class="btn btn-sm btn-ghost" data-action="if-delete" data-kind="capitalCall" data-id="${c.id}">🗑️</button>` : `<span class="note" style="font-size:11px;" title="${T('احذف الالتزام نفسه لحذف هذه الدفعة','Delete the commitment itself to remove this call')}">🔒</span>`}
           </td></tr>
         `).join('')}
       </tbody>
@@ -4029,8 +4018,8 @@ function render(){
       <div class="brand">
         <div class="mark"><img src="${OPAL_LOGO_MARK}" alt="Opal"></div>
         <div>
-          <h1>${T('منصة استكشاف الفرص العقارية','Opal Real Estate Opportunity Explorer')}</h1>
-          <div class="sub">${T('Opal Real Estate Opportunity Explorer — SAR','منصة استكشاف الفرص العقارية — ر.س')}</div>
+          <h1>${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')}</h1>
+          <div class="sub">${T('Real Estate Opportunity Ledger — SAR','دفتر الفرص العقارية — ر.س')}</div>
         </div>
       </div>
       <div class="badge-row">
@@ -4349,14 +4338,58 @@ document.addEventListener('click', async (e)=>{
     if(isNew && (kind==='capitalCall' || kind==='distribution')){
       await logIfTransaction({ type:kind, action:'create', relatedId:id, fundId:ifForm.draft.fundId, investorId:ifForm.draft.investorId, amount:ifForm.draft.amount });
     }
+    // مساهمة عينية (In-Kind) — استثناء core.js الضيّق نفسه (المرحلة الثامنة): بدل تعديل
+    // fundLedgerSummary/investorLedgerRows لفهم نوعين من الالتزام، نُبقيهما بلا تغيير عبر
+    // توليد/تحديث/حذف سجل capitalCalls واحد مربوط (linkedCommitmentId) ومُعلَّم 'paid' تلقائياً
+    // يمثّل نقل ملكية الأرض دفعة واحدة — فيستمر كل حساب PIC/DPI/TVPI القائم يعمل بلا لمس.
+    if(kind==='commitment'){
+      const existingLinkedCall = STORE.capitalCalls.find(cc=>cc.data.linkedCommitmentId===id);
+      if(ifForm.draft.contributionType==='in_kind'){
+        if(existingLinkedCall){
+          existingLinkedCall.data.amount = ifForm.draft.commitmentAmount;
+          existingLinkedCall.data.callDate = ifForm.draft.dateCommitted;
+          existingLinkedCall.data.investorId = ifForm.draft.investorId;
+          existingLinkedCall.data.fundId = ifForm.draft.fundId;
+          existingLinkedCall.data.status = 'paid';
+          await persistIfRecord('capitalCalls', existingLinkedCall);
+        } else {
+          const ccId = uid('CC');
+          const ccRec = { id: ccId, data: Object.assign(blankCapitalCall(ifForm.draft.fundId), {
+            investorId: ifForm.draft.investorId,
+            amount: ifForm.draft.commitmentAmount,
+            callDate: ifForm.draft.dateCommitted,
+            callNumber: 1,
+            status: 'paid',
+            notes: T('نقل ملكية عينية تلقائي عند حفظ الالتزام — '+(ifForm.draft.inKindDescription||''),'Auto-generated in-kind transfer on commitment save — '+(ifForm.draft.inKindDescription||'')),
+            linkedCommitmentId: id,
+          }) };
+          await persistIfRecord('capitalCalls', ccRec);
+          await logIfTransaction({ type:'capitalCall', action:'create', relatedId:ccId, fundId:ifForm.draft.fundId, investorId:ifForm.draft.investorId, amount:ifForm.draft.commitmentAmount });
+        }
+      } else if(existingLinkedCall){
+        // تغيّر النوع من عيني إلى نقدي عند التعديل — نحذف نداء رأس المال التلقائي المرتبط
+        await deleteIfRecord('capitalCalls', existingLinkedCall.id);
+      }
+    }
     ifForm = null;
     render();
     return;
   }
   if(action==='if-delete'){
     const kind = el.dataset.kind, id = el.dataset.id;
+    if(kind==='capitalCall'){
+      const rec = STORE.capitalCalls.find(r=>r.id===id);
+      if(rec && rec.data.linkedCommitmentId){
+        alert(T('هذه دفعة مرتبطة تلقائياً بمساهمة عينية — لحذفها احذف الالتزام (Commitment) نفسه من قائمة التزامات المستثمرين.','This capital call is auto-linked to an in-kind commitment — delete the commitment itself from the Investor Commitments list instead.'));
+        return;
+      }
+    }
     if(!confirm(T('هل أنت متأكد من الحذف؟ لا يمكن التراجع عن هذا الإجراء.','Are you sure you want to delete this? This cannot be undone.'))) return;
     await deleteIfRecord(ifCollFor(kind), id);
+    if(kind==='commitment'){
+      const linked = STORE.capitalCalls.find(cc=>cc.data.linkedCommitmentId===id);
+      if(linked) await deleteIfRecord('capitalCalls', linked.id);
+    }
     render();
     return;
   }
@@ -4397,7 +4430,7 @@ document.addEventListener('click', async (e)=>{
    متعرّج (Zebra)، وتنسيق أرقام حقيقي (فواصل الآلاف/النسب) — بدل خلايا نصّية عادية.
    ========================================================================= */
 const XL = { navy:'FF13343B', teal:'FF1F5F6B', tealLight:'FFDCEEEF', tealPale:'FFF3FAFA',
-  white:'FFFFFFFF', border:'FFC7D6D7', teal2:'FF1F5F6B', font:'Aptos', arabicFont:'Sakkal Majalla' };
+  white:'FFFFFFFF', border:'FFC7D6D7', teal2:'FF1F5F6B', font:'Arial' };
 function xlBorderAll(){ const b={style:'thin',color:{argb:XL.border}}; return {top:b,bottom:b,left:b,right:b}; }
 function xlColLetter(n){ let s=''; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); } return s; }
 function xlRowsBuilder(){
@@ -4427,7 +4460,7 @@ function xlNewSheet(wb, name, rows, kinds, opts={}){
     if(kind==='title'){
       try{ ws.mergeCells(rn,1,rn,span); }catch(e){}
       const cell = excelRow.getCell(1);
-      cell.font = { name:XL.arabicFont, bold:true, size:13, color:{argb:XL.white} };
+      cell.font = { name:XL.font, bold:true, size:13, color:{argb:XL.white} };
       cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:XL.navy} };
       cell.alignment = { horizontal:'center', vertical:'middle', rtl:true, wrapText:true };
       excelRow.height = 28;
@@ -4436,7 +4469,7 @@ function xlNewSheet(wb, name, rows, kinds, opts={}){
     if(kind==='section'){
       try{ ws.mergeCells(rn,1,rn,span); }catch(e){}
       const cell = excelRow.getCell(1);
-      cell.font = { name:XL.arabicFont, bold:true, size:11, color:{argb:XL.teal} };
+      cell.font = { name:XL.font, bold:true, size:11, color:{argb:XL.teal} };
       cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:XL.tealLight} };
       cell.alignment = { horizontal:'right', vertical:'middle', rtl:true, wrapText:true };
       excelRow.height = 20;
@@ -4456,7 +4489,7 @@ function xlNewSheet(wb, name, rows, kinds, opts={}){
     if(kind==='note'){
       for(let c2=1;c2<=span;c2++){
         const cell = excelRow.getCell(c2);
-        cell.font = { name:c2===1?XL.arabicFont:XL.font, bold:c2===1, size:10, color:{argb: c2===1?XL.teal:'FF1A2E33'} };
+        cell.font = { name:XL.font, bold:c2===1, size:10, color:{argb: c2===1?XL.teal:'FF1A2E33'} };
         cell.border = xlBorderAll();
         cell.alignment = { horizontal:c2===1?'right':'center', vertical:'middle', rtl:true, wrapText:true };
       }
@@ -4469,7 +4502,7 @@ function xlNewSheet(wb, name, rows, kinds, opts={}){
     for(let c2=1;c2<=span;c2++){
       const cell = excelRow.getCell(c2);
       const v = r[c2-1];
-      cell.font = { name:c2===1?XL.arabicFont:XL.font, size:10 };
+      cell.font = { name:XL.font, size:10 };
       cell.border = xlBorderAll();
       cell.alignment = { horizontal:c2===1?'right':'center', vertical:'middle', rtl:true, wrapText:true };
       if(zebra) cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:XL.tealPale} };
@@ -4480,7 +4513,7 @@ function xlNewSheet(wb, name, rows, kinds, opts={}){
       }
     }
     if(r[0] && typeof r[0]==='string' && /^🎯|^✅|^❌/.test(r[0])){
-      excelRow.getCell(1).font = { name:XL.arabicFont, bold:true, size:10, color:{argb:XL.teal} };
+      excelRow.getCell(1).font = { name:XL.font, bold:true, size:10, color:{argb:XL.teal} };
     }
   });
   ws.pageSetup.printArea = `A1:${xlColLetter(span)}${rows.length}`;
@@ -4502,13 +4535,13 @@ async function exportOpportunityExcel(id){
   const yrs = c.projectCF.length;
   try{
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'منصة استكشاف الفرص العقارية — أوبال';
+    wb.creator = 'دفتر الفرص العقارية — أوبال';
     wb.calcProperties = { fullCalcOnLoad:true };
 
     // نبني صفوف الملخص مع تتبّع رقم كل صف، عشان نقدر نكتب معادلات Excel حقيقية (مش أرقام جامدة)
     // للبنود اللي هي نتيجة حسابية مباشرة لبنود أخرى في نفس الجدول (هوية جبرية مضمونة الصحة).
     const B1 = xlRowsBuilder();
-    B1.push(['منصة استكشاف الفرص العقارية — مذكرة تقييم فرصة',''],'title');
+    B1.push(['دفتر الفرص العقارية — مذكرة تقييم فرصة',''],'title');
     B1.push(['معرّف الفرصة', rec.id]);
     B1.push(['اسم الفرصة', d.meta.name||'']);
     B1.push(['المدينة / الحي / الفئة', `${d.meta.city} · ${d.meta.neighborhood||'—'} · ${d.meta.tier}`]);
@@ -4885,7 +4918,7 @@ async function exportOpportunityExcel(id){
 async function exportInvestorLedgerExcel(){
   try{
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'منصة استكشاف الفرص العقارية — أوبال';
+    wb.creator = 'دفتر الفرص العقارية — أوبال';
     wb.calcProperties = { fullCalcOnLoad:true };
 
     // ---- شيت المستثمرون (بيانات خام) ----
@@ -4909,22 +4942,25 @@ async function exportInvestorLedgerExcel(){
     xlNewSheet(wb, 'الصناديق', BF.rows, BF.kinds, { colWidths:[16,26,20,14,18,16] });
 
     // ---- شيت الالتزامات (Investor↔Fund Commitments) ----
+    // أعمدة "نوع المساهمة"/"وصف المساهمة العينية" مُضافة في النهاية (وليس بينها وبين المبلغ)
+    // عمداً — حتى تبقى معادلات SUMIFS في شيت "دفتر المستثمرين" أدناه المشيرة لعمودي C/D
+    // (المستثمر/المبلغ) صحيحة بلا أي تغيير (المرحلة الثامنة — نوع مساهمة الالتزام).
     const BC = xlRowsBuilder();
-    BC.push(['الالتزامات الرأسمالية (Commitments)','','','',''],'title');
-    BC.push(['معرّف الالتزام','معرّف الصندوق','معرّف المستثمر','المبلغ','تاريخ الالتزام'],'header');
+    BC.push(['الالتزامات الرأسمالية (Commitments)','','','','','',''],'title');
+    BC.push(['معرّف الالتزام','معرّف الصندوق','معرّف المستثمر','المبلغ','تاريخ الالتزام','نوع المساهمة (Cash/In-Kind)','وصف المساهمة العينية'],'header');
     STORE.commitments.forEach(c=>{
-      BC.push([c.id, c.data.fundId||'', c.data.investorId||'', n(c.data.commitmentAmount), c.data.dateCommitted||'']);
+      BC.push([c.id, c.data.fundId||'', c.data.investorId||'', n(c.data.commitmentAmount), c.data.dateCommitted||'', c.data.contributionType==='in_kind'?'In-Kind':'Cash', c.data.inKindDescription||'']);
     });
-    xlNewSheet(wb, 'الالتزامات', BC.rows, BC.kinds, { colWidths:[16,16,16,20,16] });
+    xlNewSheet(wb, 'الالتزامات', BC.rows, BC.kinds, { colWidths:[16,16,16,20,16,20,30] });
 
     // ---- شيت نداءات رأس المال (بتواريخ فعلية وحالة — status: pending|paid|waived) ----
     const BCC = xlRowsBuilder();
-    BCC.push(['نداءات رأس المال (Capital Calls)','','','','','',''],'title');
-    BCC.push(['معرّف النداء','معرّف الصندوق','معرّف المستثمر','رقم النداء','تاريخ النداء','المبلغ','الحالة (pending/paid/waived)'],'header');
+    BCC.push(['نداءات رأس المال (Capital Calls)','','','','','','',''],'title');
+    BCC.push(['معرّف النداء','معرّف الصندوق','معرّف المستثمر','رقم النداء','تاريخ النداء','المبلغ','الحالة (pending/paid/waived)','مصدر النداء'],'header');
     STORE.capitalCalls.forEach(c=>{
-      BCC.push([c.id, c.data.fundId||'', c.data.investorId||'', c.data.callNumber||'', c.data.callDate||'', n(c.data.amount), c.data.status||'']);
+      BCC.push([c.id, c.data.fundId||'', c.data.investorId||'', c.data.callNumber||'', c.data.callDate||'', n(c.data.amount), c.data.status||'', c.data.linkedCommitmentId?'Auto (In-Kind Transfer)':'Manual']);
     });
-    xlNewSheet(wb, 'نداءات رأس المال', BCC.rows, BCC.kinds, { colWidths:[14,16,16,10,16,18,22] });
+    xlNewSheet(wb, 'نداءات رأس المال', BCC.rows, BCC.kinds, { colWidths:[14,16,16,10,16,18,22,24] });
 
     // ---- شيت التوزيعات (بتواريخ فعلية وحالة — status: declared|paid) ----
     const BD = xlRowsBuilder();
@@ -4946,13 +4982,13 @@ async function exportInvestorLedgerExcel(){
 
     // ---- دفتر المستثمرين (Investor Ledger) — معادلات SUMIFS حقيقية تشير لشيتات البيانات الخام أعلاه ----
     const BL = xlRowsBuilder();
-    BL.push(['دفتر المستثمرين (Investor Ledger) — Committed / Paid-in / Unfunded / Cumulative Distributions / DPI','','','','','','',''],'title');
-    BL.push(['معرّف المستثمر','الاسم','الفئة','الالتزام الكلي (Committed)','المسدَّد (Paid-in)','غير المسحوب (Unfunded)','التوزيعات التراكمية','DPI'],'header');
+    BL.push(['دفتر المستثمرين (Investor Ledger) — Committed / Paid-in / Unfunded / Cumulative Distributions / DPI','','','','','','','','',''],'title');
+    BL.push(['معرّف المستثمر','الاسم','الفئة','الالتزام الكلي (Committed)','المسدَّد (Paid-in)','غير المسحوب (Unfunded)','التوزيعات التراكمية','DPI','منها عيني (In-Kind)','منها نقدي (Cash)'],'header');
     const ledgerStartRow = BL.rows.length+1;
     STORE.investors.forEach(inv=>{
-      BL.push([inv.id, inv.data.name||'', inv.data.investorClass||'', 0, 0, 0, 0, 0]);
+      BL.push([inv.id, inv.data.name||'', inv.data.investorClass||'', 0, 0, 0, 0, 0, 0, 0]);
     });
-    const wsLedger = xlNewSheet(wb, 'دفتر المستثمرين', BL.rows, BL.kinds, { colWidths:[16,26,24,20,20,20,20,12] });
+    const wsLedger = xlNewSheet(wb, 'دفتر المستثمرين', BL.rows, BL.kinds, { colWidths:[16,26,24,20,20,20,20,12,18,18] });
     STORE.investors.forEach((inv,i)=>{
       const r = ledgerStartRow+i;
       const idCellRef = `$A${r}`;
@@ -4961,6 +4997,9 @@ async function exportInvestorLedgerExcel(){
       xlSetFormula(wsLedger, r, 6, `MAX(0,D${r}-E${r})`);
       xlSetFormula(wsLedger, r, 7, `SUMIFS('التوزيعات'!$E:$E,'التوزيعات'!$C:$C,${idCellRef},'التوزيعات'!$G:$G,"paid")`);
       xlSetFormula(wsLedger, r, 8, `IFERROR(G${r}/E${r},0)`, '0.00"×";;"-"');
+      // منها عيني/نقدي (المرحلة الثامنة) — تُشير لعمود F الجديد في شيت "الالتزامات" (نوع المساهمة)
+      xlSetFormula(wsLedger, r, 9, `SUMIFS('الالتزامات'!$D:$D,'الالتزامات'!$C:$C,${idCellRef},'الالتزامات'!$F:$F,"In-Kind")`);
+      xlSetFormula(wsLedger, r, 10, `SUMIFS('الالتزامات'!$D:$D,'الالتزامات'!$C:$C,${idCellRef},'الالتزامات'!$F:$F,"Cash")`);
     });
 
     const buf = await wb.xlsx.writeBuffer();
@@ -4984,7 +5023,6 @@ function exportOpportunityPptx(id){
     const pres = new Ctor();
     pres.defineLayout({ name:'WIDE', width:13.33, height:7.5 });
     pres.layout = 'WIDE';
-    pres.theme = { headFontFace:'Sakkal Majalla', bodyFontFace:'Aptos', lang:'ar-SA' };
 
     const s1 = pres.addSlide();
     s1.addText(d.meta.name||'فرصة استثمارية', { x:0.5,y:0.5,w:12.3,h:1, fontSize:28, bold:true, color:'0E6B4C', align:'right' });
@@ -5097,10 +5135,6 @@ document.addEventListener('change', (e)=>{
     else if(t.dataset.bool) val = t.value==='true';
     else val = t.value;
     setPath(wizard.draft, t.name, val);
-    if(t.name==='meta.useType'){
-      const allowed = assetClassOptionsForUseType(val).map(([,k])=>k);
-      if(!allowed.includes(wizard.draft.income.assetClass)) wizard.draft.income.assetClass = 'عام';
-    }
     if(t.dataset.rerender) render(); else updateLivePreview();
   }
 });

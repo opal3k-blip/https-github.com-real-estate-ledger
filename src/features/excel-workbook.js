@@ -28,6 +28,10 @@ import { ddStats, defaultItemsDict, DD_CATEGORIES } from './due-diligence.js';
 import { RISK_CATEGORIES, defaultRiskItems, scoreOf as riskScoreOf, bandOf as riskBandOf } from './risk-engine.js';
 import { matchBenchmarks, aggregateBench } from './benchmark-engine.js';
 import { maxAcquisitionPrice } from './max-acquisition-price.js';
+// دقة التدفقات النقدية (شهري/ربع سنوي) + ذروة الاحتياج + صافي النقدي من المستثمرين النقديين
+// (المرحلة الثامنة) — إعادة استخدام مباشرة لنفس دوال cash-flow-timing.js المستخدَمة في واجهة
+// المذكرة الحية، حتى لا يتكرر منطق منحنى S/التوزيع الشهري في أكثر من مكان (يبقى مصدراً واحداً).
+import { cashFlowTimingAnalysis } from './cash-flow-timing.js';
 
 const COMPARABLES_COLLECTION = 'comparables';
 const SEM = { INPUT:'FF1E40AF', LINK:'FF15803D', EXT_FONT:'FF92650B', EXT_FILL:'FFFEF3C7' };
@@ -84,9 +88,17 @@ const XL_CHART_BASE = { plugins:{ legend:{ labels:{ color:XL_CHART_COLORS.ink, f
   scales:{ x:{ ticks:{ color:XL_CHART_COLORS.ink, font:XL_CHART_FONT }, grid:{ color:XL_CHART_COLORS.grid } }, y:{ ticks:{ color:XL_CHART_COLORS.ink, font:XL_CHART_FONT }, grid:{ color:XL_CHART_COLORS.grid } } } };
 
 export function registerExcelWorkbook(core){
-  /* ملاحظة: زر التشغيل الأساسي أصبح زر "Excel — دفتر الاكتتاب الكامل" في رأس مذكرة
-     كل فرصة نفسه (renderDetail في core.js، data-action="xlbook-export") — لم يعد
-     هناك زر ترويجي منفصل هنا لتفادي ازدواجية الأزرار لنفس الوظيفة. */
+  core.registerDetailSection((d,c)=>{
+    const oppId = core.openDetailId;
+    const rec = core.opportunities.find(o=>o.id===oppId);
+    if(!rec) return '';
+    return `
+    <div class="section" style="text-align:center; background:var(--surface-2); border:1px dashed var(--border);">
+      <button type="button" class="btn btn-sm btn-primary" data-action="xlbook-export" data-id="${rec.id}">📊 ${core.T('تنزيل دفتر الاكتتاب الكامل (Excel، ٢١ ورقة)','Download Full Underwriting Workbook (Excel, 21 sheets)')}</button>
+      <p class="note" style="margin:8px 0 0;">${core.T('نسخة تحليلية كاملة قابلة للتدقيق — تمييز لوني إلزامي بين المُدخلات اليدوية والنتائج المحسوبة والروابط بين الأوراق وبيانات السوق الخارجية.','A full auditable analytical workbook — mandatory color-coding between hardcoded inputs, calculated outputs, cross-sheet links, and external market data.')}</p>
+    </div>`;
+  });
+
   core.registerActionHandler(async (action, el)=>{
     if(action==='xlbook-export'){ await exportUnderwritingWorkbook(core, el.dataset.id); return true; }
     return false;
@@ -124,7 +136,7 @@ function rowsBuilder(){
   };
 }
 
-async function exportUnderwritingWorkbook(core, id){
+export async function exportUnderwritingWorkbook(core, id){
   const rec = core.opportunities.find(o=>o.id===id);
   if(!rec) return;
   const d = core.withDefaults(rec.data), c = core.compute(d);
@@ -132,7 +144,7 @@ async function exportUnderwritingWorkbook(core, id){
 
   try{
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'منصة استكشاف الفرص العقارية — أوبال';
+    wb.creator = 'دفتر الفرص العقارية — أوبال';
     wb.calcProperties = { fullCalcOnLoad:true };
 
     /* ===================== 00_IC Dashboard ===================== */
@@ -292,6 +304,9 @@ async function exportUnderwritingWorkbook(core, id){
 
     /* ===================== 08_Project CF / 09_Equity CF ===================== */
     await build0809CashFlowsWithChart(core, wb, d, c);
+
+    /* ===================== 08b_Cash Flow Timing (شهري/ربع سنوي + ذروة الاحتياج) ===================== */
+    build0809bCashFlowTiming(core, wb, d, c, rec.id);
 
     /* ===================== 10_Returns ===================== */
     build10Returns(core, wb, d, c);
@@ -479,6 +494,47 @@ async function build0809CashFlowsWithChart(core, wb, d, c){
     ] },
     options:Object.assign({}, XL_CHART_BASE, { plugins:{ title:{ display:true, text:'Project vs Equity Cash Flow by Year', color:XL_CHART_COLORS.ink, font:{ size:13, weight:'bold' } }, legend:{ position:'bottom', labels:{ color:XL_CHART_COLORS.ink, font:XL_CHART_FONT } } } })
   }, 520, 280, 0, lastRow+3);
+}
+
+/* دقة زمنية شهرية/ربع سنوية + ذروة الاحتياج النقدي الفعلي + صافي النقدي المطلوب من
+   المستثمرين النقديين بعد خصم المساهمات العينية (المرحلة الثامنة، طلب المستخدم الأول) —
+   مُشتقّة بالكامل من نفس صفوف 08_Project CF / 09_Equity CF أعلاه دون أي تعديل عليها. */
+function build0809bCashFlowTiming(core, wb, d, c, oppId){
+  const { fmtSAR, xlRowsBuilder, xlNewSheet } = core;
+  const a = cashFlowTimingAnalysis(core, d, c, oppId);
+  const B = xlRowsBuilder(); const S = [];
+  const push = (vals,kind,sem)=>{ const n=B.push(vals,kind); S[n-1]=sem||null; return n; };
+  const periodLabel = (row, unit)=> row.yearIndex===0 ? 'بداية المشروع (Day 0)' : `سنة ${row.yearIndex} — ${unit} ${unit==='شهر'?row.monthInYear:row.quarter}`;
+
+  push(['دقة التدفقات النقدية — Cash Flow Timing Precision (شهري / ربع سنوي)',''],'title');
+  push(['مُشتقّة من 08_Project CF / 09_Equity CF السنوية دون أي تعديل عليها — سنوات الإنشاء بمنحنى S واقعي، سنوات التشغيل الوسيطة بتوزيع خطي متساوٍ، وسنة الخروج/البيع كدفعة إغلاق واحدة في شهرها الأخير.','']);
+  push(['','']);
+
+  push(['🔴 ذروة الاحتياج النقدي الفعلي (Peak Cash Need)',''],'section');
+  push(['المؤشر','القيمة'],'header');
+  push(['المبلغ (ر.س)', Math.round(a.peakCashNeed.amount)]);
+  push(['متى يحدث', a.peakCashNeed.yearIndex===0? 'بداية المشروع (Day 0)' : `سنة ${a.peakCashNeed.yearIndex} — شهر ${a.peakCashNeed.monthInYear}`]);
+  push(['','']);
+
+  push(['صافي النقدي المطلوب فعلياً من المستثمرين النقديين',''],'section');
+  push(['المؤشر','القيمة (ر.س)'],'header');
+  push(['إجمالي المساهمات العينية المرتبطة (صندوق/صناديق هذه الفرصة)', Math.round(a.totalInKind)]);
+  push(['إجمالي المساهمات النقدية المرتبطة (نفس الصندوق/الصناديق)', Math.round(a.totalCash)]);
+  push(['= صافي النقدي المطلوب فعلياً (ذروة الاحتياج − إجمالي العيني، بحد أدنى صفر)', Math.round(a.netCashRequiredFromCashInvestors)], 'note');
+  if(a.linkedFunds.length===0) push(['⚠️ ملاحظة', 'لا يوجد صندوق مرتبط بهذه الفرصة بعد — الرقم أعلاه يفترض تغطية عينية صفرية.']);
+  push(['','']);
+
+  push(['التفصيل الشهري — Monthly Detail (تدفق حقوق الملكية)',''],'section');
+  push(['الفترة','التدفق (ر.س)','التراكمي (ر.س)'],'header');
+  a.equityMonthly.forEach(mo=> push([periodLabel(mo,'شهر'), Math.round(mo.amount), Math.round(mo.cumulative)]));
+  push(['','']);
+
+  push(['التفصيل ربع السنوي — Quarterly Detail (تدفق حقوق الملكية)',''],'section');
+  push(['الفترة','التدفق (ر.س)','التراكمي (ر.س)'],'header');
+  a.equityQuarterly.forEach(q=> push([periodLabel(q,'ربع'), Math.round(q.amount), Math.round(q.cumulative)]));
+
+  const ws = xlNewSheet(wb, '08b_Cash Flow Timing', B.rows, B.kinds, { colWidths:[46,22,22] });
+  colorize(ws, B.kinds, S);
 }
 
 function build10Returns(core, wb, d, c){

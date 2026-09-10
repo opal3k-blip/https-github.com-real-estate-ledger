@@ -20,6 +20,10 @@ import { generateAnalystNarrative } from './ai-analyst.js';
 import { RISK_CATEGORIES, defaultRiskItems, scoreOf as riskScoreOf, bandOf as riskBandOf } from './risk-engine.js';
 import { matchBenchmarks, aggregateBench } from './benchmark-engine.js';
 import { maxAcquisitionPrice } from './max-acquisition-price.js';
+// دقة التدفقات النقدية (شهري/ربع سنوي) + ذروة الاحتياج + صافي النقدي من المستثمرين النقديين
+// (المرحلة الثامنة) — نفس مصدر الحساب المستخدَم في واجهة المذكرة الحية وفي دفتر الاكتتاب
+// الكامل (excel-workbook.js)، حتى لا يتكرر منطق منحنى S/التوزيع الشهري في أكثر من مكان.
+import { cashFlowTimingAnalysis } from './cash-flow-timing.js';
 
 const COMPARABLES_COLLECTION = 'comparables';
 const PAL = { green:'0E6B4C', text:'4C5850', ink:'152019', card:'F3F4F0', border:'D6DACF', good:'1E8A56', warn:'9C6A0A', bad:'AE2E22' };
@@ -32,16 +36,24 @@ function median(nums){
 }
 
 export function registerICPresentation(core){
-  /* ملاحظة: زر التشغيل الأساسي أصبح زر "PowerPoint — عرض اللجنة" في رأس مذكرة كل
-     فرصة نفسه (renderDetail في core.js، data-action="icppt-export") — لم يعد هناك
-     زر ترويجي منفصل هنا لتفادي ازدواجية الأزرار لنفس الوظيفة. */
+  core.registerDetailSection((d,c)=>{
+    const oppId = core.openDetailId;
+    const rec = core.opportunities.find(o=>o.id===oppId);
+    if(!rec) return '';
+    return `
+    <div class="section" style="text-align:center; background:var(--surface-2); border:1px dashed var(--border);">
+      <button type="button" class="btn btn-sm btn-primary" data-action="icppt-export" data-id="${rec.id}">🖥️ ${core.T('تنزيل عرض لجنة الاستثمار (PowerPoint، ١٢ شريحة)','Download IC Presentation (PowerPoint, 12 slides)')}</button>
+      <p class="note" style="margin:8px 0 0;">${core.T('عرض مختصر بمستوى لجنة استثمار — ١٢ شريحة فقط، لا عشرات شرائح البيانات.','A concise IC-level deck — just 12 slides, not dozens of data slides.')}</p>
+    </div>`;
+  });
+
   core.registerActionHandler(async (action, el)=>{
     if(action==='icppt-export'){ await exportICPresentation(core, el.dataset.id); return true; }
     return false;
   });
 }
 
-async function exportICPresentation(core, id){
+export async function exportICPresentation(core, id){
   const rec = core.opportunities.find(o=>o.id===id);
   if(!rec) return;
   const d = core.withDefaults(rec.data), c = core.compute(d);
@@ -51,7 +63,6 @@ async function exportICPresentation(core, id){
     const pres = new Ctor();
     pres.defineLayout({ name:'WIDE', width:13.33, height:7.5 });
     pres.layout = 'WIDE';
-    pres.theme = { headFontFace:'Sakkal Majalla', bodyFontFace:'Aptos', lang:'ar-SA' };
 
     const narrative = generateAnalystNarrative(core, d, c);
     const decisions = (d.ic && d.ic.decisions) || [];
@@ -181,11 +192,23 @@ async function exportICPresentation(core, id){
     {
       const s = pres.addSlide();
       H(s, 'التدفقات النقدية — Cash Flow');
+      // ذروة الاحتياج النقدي الفعلي + صافي النقدي المطلوب من المستثمرين النقديين (المرحلة
+      // الثامنة) — تُضاف كشريط مؤشرات مضغوط فوق الجدول السنوي القائم نفسه، بلا شريحة جديدة
+      // وبلا تفصيل شهري/ربع سنوي كامل هنا، احتراماً لقيد "١٠-١٢ شريحة فقط" الذي طلبه المستخدم
+      // بالضبط لهذا العرض (انظر تعليق أعلى الملف) — التفصيل الشهري/ربع السنوي الكامل متوفر في
+      // دفتر الاكتتاب الكامل (excel-workbook.js، ورقة 08b) وفي مذكرة الفرصة الحية.
+      const a = cashFlowTimingAnalysis(core, d, c, rec.id);
+      const peakLabel = a.peakCashNeed.yearIndex===0 ? 'بداية المشروع (Day 0)' : `سنة ${a.peakCashNeed.yearIndex} — شهر ${a.peakCashNeed.monthInYear}`;
+      kpiRow(s, [
+        ['🔴 ذروة الاحتياج النقدي', fmtSAR(a.peakCashNeed.amount)],
+        ['متى يحدث', peakLabel],
+        ['صافي النقدي من المستثمرين النقديين', fmtSAR(a.netCashRequiredFromCashInvestors)],
+      ], 1.3, 4.0);
       const years = c.projectCF.map((v,i)=>String(i));
       s.addChart(pres.ChartType.bar, [
         { name:'Project CF', labels:years, values:c.projectCF.map(v=>Math.round(v)) },
         { name:'Equity CF', labels:years, values:c.equityCF.map(v=>Math.round(v)) },
-      ], { x:0.5, y:1.25, w:12.3, h:3.0, barDir:'col', barGrouping:'clustered', chartColors:[PAL.text, PAL.green], showLegend:true, legendPos:'b', legendFontSize:11,
+      ], { x:0.5, y:2.55, w:12.3, h:2.6, barDir:'col', barGrouping:'clustered', chartColors:[PAL.text, PAL.green], showLegend:true, legendPos:'b', legendFontSize:11,
         catAxisLabelFontSize:10, valAxisLabelFontSize:10, title:'Project vs Equity Cash Flow by Year', titleFontSize:13, titleColor:PAL.ink });
       const rows = [[
         {text:'السنة', options:{bold:true, fill:{color:PAL.card}}},
@@ -195,7 +218,7 @@ async function exportICPresentation(core, id){
       for(let i=0;i<c.projectCF.length;i++){
         rows.push([ String(i), fmtSAR(c.projectCF[i]), fmtSAR(c.equityCF[i]) ]);
       }
-      s.addTable(rows, { x:0.5,y:4.45,w:12.3,h:2.7, fontSize:10.5, autoPage:true, border:{type:'solid',color:PAL.border,pt:0.5}, align:'center' });
+      s.addTable(rows, { x:0.5,y:5.35,w:12.3,h:1.8, fontSize:10.5, autoPage:true, border:{type:'solid',color:PAL.border,pt:0.5}, align:'center' });
     }
 
     /* ===================== 7) Sensitivity ===================== */
@@ -318,7 +341,7 @@ async function exportICPresentation(core, id){
         {text:'ROI: ', options:{bold:true}}, {text:fmtPct(c.ROI)+'    '},
         {text:'فترة الاسترداد: ', options:{bold:true}}, {text:(c.paybackPeriod!=null?c.paybackPeriod.toFixed(1)+' سنة':'—')+'\n'},
       ], { x:0.5,y:1.4,w:12.3,h:3, fontSize:14, align:'right', color:PAL.ink, lineSpacing:34 });
-      s.addText('هذا العرض أُعِدَّ آلياً من بيانات منصة استكشاف الفرص العقارية. الأرقام تقديرية ولا تُغني عن تقييم مستقل معتمد قبل أي قرار استثماري نهائي.',
+      s.addText('هذا العرض أُعِدَّ آلياً من بيانات دفتر الفرص العقارية. الأرقام تقديرية ولا تُغني عن تقييم مستقل معتمد قبل أي قرار استثماري نهائي.',
         { x:0.5,y:5.0,w:12.3,h:1, fontSize:10, color:PAL.text, align:'right', italic:true });
     }
 

@@ -38,7 +38,7 @@ export function registerAutomatedICMemo(core){
       <div style="display:flex; flex-direction:column; gap:6px;">
         ${paras.map(p=>`<p style="margin:0; font-size:12px; line-height:1.85;">${core.esc(p)}</p>`).join('')}
       </div>
-      <button type="button" class="btn btn-sm btn-ghost" style="margin-top:12px;" data-action="icbook-open" data-id="${core.openDetailId||''}" data-autoprint="1">📘 ${core.T('طباعة / PDF — الكتاب الكامل (يتضمن هذا الملخص)','Print / PDF — Full Book (includes this summary)')}</button>
+      <button type="button" class="btn btn-sm btn-ghost" style="margin-top:12px;" data-action="print-memo">🖨️ ${core.T('طباعة/PDF لكامل المذكرة (تتضمن هذا الملخص)','Print/PDF the full memo (includes this summary)')}</button>
     </div>`;
   });
 }
