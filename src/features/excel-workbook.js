@@ -150,7 +150,7 @@ export async function exportUnderwritingWorkbook(core, id){
 
   try{
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'دفتر الفرص العقارية — أوبال';
+    wb.creator = 'مستكشف الفرص العقارية — أوبال';
     wb.calcProperties = { fullCalcOnLoad:true };
 
     /* ===================== 00_IC Dashboard ===================== */

@@ -1,5 +1,5 @@
 /* =========================================================================
-   دفتر الفرص العقارية — Real Estate Opportunity Ledger
+   مستكشف الفرص العقارية — Opal Real Estate Opportunity Explorer
    Single-file interactive intake + underwriting engine + database.
    ========================================================================= */
 
@@ -113,11 +113,11 @@ try{ document.documentElement.lang = LANG; }catch(e){}
 function T(ar, en){ return LANG==='en' ? (en!=null? en : ar) : ar; }
 function updateDocMeta(){
   try{
-    document.title = LANG==='en' ? 'Real Estate Opportunity Ledger — Opal' : 'دفتر الفرص العقارية — Opal';
+    document.title = LANG==='en' ? 'Opal Real Estate Opportunity Explorer' : 'مستكشف الفرص العقارية — أوبال';
     const metaDesc = document.querySelector('meta[name="description"]');
     if(metaDesc) metaDesc.setAttribute('content', LANG==='en'
-      ? 'Real Estate Opportunity Ledger — a real-estate investment underwriting and feasibility tool by Opal'
-      : 'دفتر الفرص العقارية — أداة تقييم وتحليل جدوى الفرص الاستثمارية العقارية من شركة أوبال القابضة (Opal Holding)');
+      ? 'Opal Real Estate Opportunity Explorer — a real-estate investment underwriting and feasibility tool by Opal'
+      : 'مستكشف الفرص العقارية — أداة تقييم وتحليل جدوى الفرص الاستثمارية العقارية من شركة أوبال القابضة (Opal Holding)');
   }catch(e){}
 }
 function setLang(l){
@@ -2833,13 +2833,13 @@ function renderDetail(id){
   <div class="memo" data-print-date="${esc(reportDates.asOfText)}">
     <div class="print-run-header">
       <span>${esc(branding.companyName||T('أوبال القابضة','Opal Holding'))} — ${esc(d.meta.name||T('بدون اسم','Unnamed'))}</span>
-      <span>${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')} · ${T('تاريخ سريان البيانات','As-of Date')}: ${esc(reportDates.asOfText)}</span>
+      <span>${T('مستكشف الفرص العقارية','Opal Real Estate Opportunity Explorer')} · ${T('تاريخ سريان البيانات','As-of Date')}: ${esc(reportDates.asOfText)}</span>
     </div>
     <div class="print-letterhead">
       ${branding.logoDataUrl? `<img src="${branding.logoDataUrl}" alt="${esc(branding.companyName||T('شعار الشركة','Company Logo'))}" class="print-letterhead-logo">` : ''}
       <div class="print-letterhead-text">
         <div class="print-letterhead-company">${esc(branding.companyName||'')}</div>
-        <div class="print-letterhead-app">${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')} · Real Estate Opportunity Ledger</div>
+        <div class="print-letterhead-app">${T('مستكشف الفرص العقارية','Opal Real Estate Opportunity Explorer')} · Opal Real Estate Opportunity Explorer</div>
         <div class="print-letterhead-date">${T('تاريخ سريان البيانات','As-of Date')} ${esc(reportDates.asOfText)} · ${T('تم إنشاؤه في','Generated on')} ${esc(reportDates.generatedText)}</div>
       </div>
     </div>
@@ -3521,8 +3521,8 @@ function renderLogin(){
           <div class="brand" style="justify-content:center; margin-bottom:14px;">
             <div class="mark"><img src="${OPAL_LOGO_MARK}" alt="Opal"></div>
             <div>
-              <h1 style="font-size:17px;">${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')}</h1>
-              <div class="sub">${T('Real Estate Opportunity Ledger','دفتر الفرص العقارية')}</div>
+              <h1 style="font-size:17px;">${T('مستكشف الفرص العقارية','Opal Real Estate Opportunity Explorer')}</h1>
+              <div class="sub">${T('Opal Real Estate Opportunity Explorer','مستكشف الفرص العقارية')}</div>
             </div>
           </div>
           <div class="step-title" style="font-size:16px;">${TEAM_ENTRY? T('تسجيل دخول أعضاء الفريق','Team Member Sign-in') : T('تسجيل الدخول','Sign In')}</div>
@@ -4044,8 +4044,8 @@ function render(){
       <div class="brand">
         <div class="mark"><img src="${OPAL_LOGO_MARK}" alt="Opal"></div>
         <div>
-          <h1>${T('دفتر الفرص العقارية','Real Estate Opportunity Ledger')}</h1>
-          <div class="sub">${T('Real Estate Opportunity Ledger — SAR','دفتر الفرص العقارية — ر.س')}</div>
+          <h1>${T('مستكشف الفرص العقارية','Opal Real Estate Opportunity Explorer')}</h1>
+          <div class="sub">${T('Opal Real Estate Opportunity Explorer — SAR','مستكشف الفرص العقارية — ر.س')}</div>
         </div>
       </div>
       <div class="badge-row">
@@ -4562,13 +4562,13 @@ async function exportOpportunityExcel(id){
   const yrs = c.projectCF.length;
   try{
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'دفتر الفرص العقارية — أوبال';
+    wb.creator = 'مستكشف الفرص العقارية — أوبال';
     wb.calcProperties = { fullCalcOnLoad:true };
 
     // نبني صفوف الملخص مع تتبّع رقم كل صف، عشان نقدر نكتب معادلات Excel حقيقية (مش أرقام جامدة)
     // للبنود اللي هي نتيجة حسابية مباشرة لبنود أخرى في نفس الجدول (هوية جبرية مضمونة الصحة).
     const B1 = xlRowsBuilder();
-    B1.push(['دفتر الفرص العقارية — مذكرة تقييم فرصة',''],'title');
+    B1.push(['مستكشف الفرص العقارية — مذكرة تقييم فرصة',''],'title');
     B1.push(['معرّف الفرصة', rec.id]);
     B1.push(['اسم الفرصة', d.meta.name||'']);
     B1.push(['المدينة / الحي / الفئة', `${d.meta.city} · ${d.meta.neighborhood||'—'} · ${d.meta.tier}`]);
@@ -4945,7 +4945,7 @@ async function exportOpportunityExcel(id){
 async function exportInvestorLedgerExcel(){
   try{
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'دفتر الفرص العقارية — أوبال';
+    wb.creator = 'مستكشف الفرص العقارية — أوبال';
     wb.calcProperties = { fullCalcOnLoad:true };
 
     // ---- شيت المستثمرون (بيانات خام) ----
