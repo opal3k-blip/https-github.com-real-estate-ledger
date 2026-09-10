@@ -1,4 +1,4 @@
-# منصة استكشاف الفرص العقارية — Opal Real Estate Opportunity Explorer
+# مستكشف الفرص العقارية — Opal Real Estate Opportunity Explorer
 
 أداة تقييم وتحليل جدوى الفرص الاستثمارية العقارية — نسخة مستقلة تعمل على رابط ثابت خاص بك،
 مع قاعدة بيانات سحابية حقيقية (Firebase Firestore) محمية بتسجيل دخول (Firebase Authentication)
