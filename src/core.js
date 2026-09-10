@@ -2808,13 +2808,6 @@ function barRow(label,val,total,color){
     <div class="track"><div class="fill" style="width:${pct}%; background:${color};"></div></div></div>`;
 }
 
-const MARKET_BENCH = {
-  irr: ['15%–20% (تطوير سكني/تجاري نموذجي)'],
-  cap: ['7%–9% (الرياض) · 7.5%–8.5% (جدة/الدمام)'],
-  dscr: ['≥ 1.25× (الحد الأدنى البنكي)'],
-  yoc: ['≥ 8% (سبريد فوق Cap Rate)'],
-};
-
 function renderDetail(id){
   const rec = opportunities.find(o=>o.id===id);
   if(!rec) return '';
@@ -3290,12 +3283,8 @@ ${T('بدلاً من بيع الأصل في نهاية المدة، يقوم ا�
         </div>
 
         <div class="section">
-          <h3>📊 ${T('مقارنة بمعايير السوق السعودي','Comparison with Saudi Market Benchmarks')}</h3>
-          <div class="kv">
-            <div class="k">Equity IRR ${T('مقابل نطاق السوق','vs. market range')}</div><div class="v" style="font-family:inherit; font-size:12px; direction:rtl; unicode-bidi:plaintext; font-weight:500;">${MARKET_BENCH.irr[0]}</div>
-            <div class="k">Cap Rate ${T('عند الخروج','at exit')}</div><div class="v" style="font-family:inherit; font-size:12px; direction:rtl; unicode-bidi:plaintext; font-weight:500;">${MARKET_BENCH.cap[0]}</div>
-            <div class="k">DSCR</div><div class="v" style="font-family:inherit; font-size:12px; direction:rtl; unicode-bidi:plaintext; font-weight:500;">${MARKET_BENCH.dscr[0]}</div>
-          </div>
+          <h3>📊 ${T('مقارنة بمعايير السوق','Comparison with Market Benchmarks')}</h3>
+          <p class="note">${T('إصلاح حوكمة (P0): أُزيل معيار عام ثابت (15–20% IRR، 7–9% Cap Rate...) كان يظهر هنا بصرف النظر عن مدينة/نوع/استراتيجية الفرصة الفعلية — يتعارض مع مكتبة أوبال المرجعية الديناميكية (📚 الفرصة مقابل المعيار المرجعي أدناه) التي تطابق المدينة والنوع فعلياً أو تُفصح صراحة عن عدم توفر معيار مناسب بدل رقم عام مضلِّل. راجع قسم "الفرصة مقابل المعيار المرجعي" أسفل هذا القسم للمقارنة الفعلية.','Governance fix (P0): a fixed generic benchmark (15–20% IRR, 7–9% cap rate...) that used to appear here regardless of this deal\'s actual city/type/strategy has been removed — it conflicted with the dynamic OPAL Benchmark Library (see \"Your Deal vs. Benchmark\" below), which matches city+type or explicitly discloses that no suitable benchmark is available instead of showing a misleading generic number. See the \"Your Deal vs. Benchmark\" section below for the real comparison.')}</p>
         </div>
 
         <div class="section">
@@ -5363,7 +5352,6 @@ export {
   renderTable,
   checkRow,
   barRow,
-  MARKET_BENCH,
   renderDetail,
   renderWizardModal,
   renderConfirmDelete,
