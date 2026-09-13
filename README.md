@@ -43,6 +43,9 @@
 | `خطة_التقارير_والمهام_القادمة.md` | مهام مُسجَّلة (لم تُنفَّذ بعد): إعادة تصميم الطباعة/Excel/PowerPoint بمستوى مؤسسي — **المراحل الثلاث اكتملت بالكامل (٢١/٢١ نظاماً)، المتبقي فقط إعادة هيكلة التقارير الثلاثة** |
 | `firebase-config.js` | مفاتيح الاتصال بمشروع Firebase — **مُعبّأة بالفعل بمشروعك** `real-estate-ledger-f85a6` |
 | `firestore.rules` | قواعد الأمان — تمّ نشرها بالفعل: الوصول للبيانات يتطلب تسجيل دخول |
+| `firestore.indexes.json` | فهارس Firestore المركبة المقترحة للأداء عند توسع سجلات النسخ/الأداء/التدقيق/قائمة Monday |
+| `.github/workflows/ci.yml` | CI/CD Regression Pipeline: فحص JavaScript، التحقق المالي، اختبارات قواعد Firestore، فحص الدوال، واختبار أداء smoke |
+| `docs/` | وثائق الجاهزية المؤسسية: Architecture، ERD، Data Dictionary، API، Security Rules Review، DR، Monitoring، Performance |
 | `firebase.json`, `.firebaserc` | ملفات إعداد داخلية لأداة Firebase (لا تحتاج لمسّها) |
 | `README.md` | هذا الدليل |
 

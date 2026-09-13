@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "pretest": "node -e \"require('fs').copyFileSync('../../firestore.rules','./firestore.rules')\"",
-    "test": "firebase emulators:exec --only firestore --project demo-test \"node rules.test.mjs\""
+    "pretest:load": "node -e \"require('fs').copyFileSync('../../firestore.rules','./firestore.rules')\"",
+    "test": "firebase emulators:exec --only firestore --project demo-test \"node rules.test.mjs\"",
+    "test:load": "firebase emulators:exec --only firestore --project demo-load \"node load-stress.test.mjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",

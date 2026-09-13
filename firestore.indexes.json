@@ -1,0 +1,62 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "underwritingVersions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "oppId", "order": "ASCENDING" },
+        { "fieldPath": "savedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "underwritingVersions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "oppId", "order": "ASCENDING" },
+        { "fieldPath": "stage", "order": "ASCENDING" },
+        { "fieldPath": "savedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "assetActuals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "oppId", "order": "ASCENDING" },
+        { "fieldPath": "asOfDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "icDecisions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "oppId", "order": "ASCENDING" },
+        { "fieldPath": "recordedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "oppAuditLog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "oppId", "order": "ASCENDING" },
+        { "fieldPath": "changedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "mondayTaskQueue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "queuedAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "presence",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "online", "order": "ASCENDING" },
+        { "fieldPath": "lastSeen", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
