@@ -133,7 +133,9 @@ export function cashFlowTimingAnalysis(core, d, c, oppId){
     const cmts = core.commitmentsForFund(f.id);
     cmts.forEach(cm=>{
       const amt = n(cm.data.commitmentAmount);
-      if(cm.data.contributionType==='in_kind') totalInKind += amt; else totalCash += amt;
+      if(cm.data.contributionType==='in_kind'){
+        if(cm.data.inKindAssetId && cm.data.inKindAssetId===oppId) totalInKind += amt;
+      } else totalCash += amt;
     });
   });
   const netCashRequiredFromCashInvestors = Math.max(0, peakCashNeed.amount - totalInKind);

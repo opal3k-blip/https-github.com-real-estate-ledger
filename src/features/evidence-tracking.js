@@ -51,6 +51,7 @@ const KEY_FIELDS = [
   { path:'development.exitCapRate', ar:'معدل الرسملة عند الخروج',      en:'Exit cap rate',           appliesTo:'development', fmt:'pct', critical:false },
   { path:'landbank.appreciation',   ar:'معدل نمو قيمة الأرض',          en:'Land appreciation rate',  appliesTo:'landbank',    fmt:'pct', critical:false },
 ];
+export { KEY_FIELDS };
 
 function fieldsFor(oppType){ return KEY_FIELDS.filter(f=>f.appliesTo===null || f.appliesTo===oppType); }
 function fmtVal(core, fmt, v){

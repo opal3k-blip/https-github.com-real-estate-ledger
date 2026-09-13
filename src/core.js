@@ -756,6 +756,35 @@ async function logIfTransaction(entry){
   await persistIfRecord('transactions', rec);
 }
 
+function netCommittedForInvestor(fundId, investorId){
+  return commitmentsForFund(fundId, investorId).reduce((sum, rec)=>sum+n(rec.data.commitmentAmount),0);
+}
+function netPaidCallsForInvestor(fundId, investorId){
+  return capitalCallsFor(fundId, investorId).filter(rec=>rec.data.status==='paid').reduce((sum, rec)=>sum+n(rec.data.amount),0);
+}
+function validateIfDraft(kind, draft, editId){
+  if((kind==='capitalCall' || kind==='distribution') && !draft.reversalOfId && n(draft.amount)<0){
+    return T('لا يمكن إنشاء نداء/توزيعة سالبة كقيد عادي. استخدم زر العكس ↩️ لإنشاء قيد تصحيحي مرتبط بسجل أصلي.','Negative capital calls/distributions are not allowed as normal records. Use the reverse ↩️ action to create a correcting entry linked to an original record.');
+  }
+  if(kind==='commitment' && !draft.reversalOfId && n(draft.commitmentAmount)<0){
+    return T('لا يمكن إنشاء التزام سالب كقيد عادي. استخدم زر العكس ↩️ لإنشاء قيد تصحيحي مرتبط بسجل أصلي.','Negative commitments are not allowed as normal records. Use the reverse ↩️ action to create a correcting entry linked to an original record.');
+  }
+  if(kind==='capitalCall' && draft.status==='paid' && !draft.reversalOfId){
+    const committed = netCommittedForInvestor(draft.fundId, draft.investorId);
+    const existingPaid = netPaidCallsForInvestor(draft.fundId, draft.investorId);
+    const before = editId ? STORE.capitalCalls.find(rec=>rec.id===editId) : null;
+    const beforePaid = before && before.data.status==='paid' ? n(before.data.amount) : 0;
+    const proposedPaid = existingPaid - beforePaid + n(draft.amount);
+    if(proposedPaid > committed + 1e-6){
+      return T(
+        `لا يمكن ترحيل نداء رأس مال يتجاوز الالتزام: الالتزام ${fmtSAR(committed)}، المسدد الحالي ${fmtSAR(existingPaid)}، وبعد هذا القيد يصبح ${fmtSAR(proposedPaid)}.`,
+        `Cannot post an over-call above commitment: commitment ${fmtSAR(committed)}, current paid-in ${fmtSAR(existingPaid)}, after this record ${fmtSAR(proposedPaid)}.`
+      );
+    }
+  }
+  return null;
+}
+
 const INVESTOR_CLASSES = ["مؤسسي (Institutional)","فردي مؤهَّل (Qualified Individual)","حكومي/سيادي (Sovereign)","عائلي (Family Office)"];
 const FUND_TYPES = ["دخل تأجيري (Income)","تطوير (Development)","تخزين أراضٍ (Land Banking)","مختلط (Mixed)"];
 const FUND_STATUS = [["🟡 تحت التأسيس","forming"],["🟢 مفتوح للاكتتاب","raising"],["🔵 مُغلَق ويستثمر","investing"],["⚪ في مرحلة التصفية","harvesting"],["⚫ مُصفَّى بالكامل","closed"]];
@@ -789,7 +818,7 @@ function blankFund(){ return { name:'', fundType:FUND_TYPES[0], vintageYear:new 
 // السجل الأصل، بمبلغ عكسي/سالب) — لا تعديل ولا حذف مطلقاً؛ null يعني "سجل أصلي، ليس عكسياً".
 // notes أُضيف لـ commitment (كان موجوداً أصلاً في capitalCall/distribution) ليحمل سبب العكس عند
 // إنشاء قيد عكسي — وإلا يبقى فارغاً كما كان.
-function blankCommitment(fundId){ return { fundId:fundId||'', investorId:'', commitmentAmount:0, dateCommitted:todayStr(), contributionType:'cash', inKindDescription:'', notes:'', reversalOfId:null }; }
+function blankCommitment(fundId){ return { fundId:fundId||'', investorId:'', commitmentAmount:0, dateCommitted:todayStr(), contributionType:'cash', inKindDescription:'', inKindAssetId:'', notes:'', reversalOfId:null }; }
 function blankCapitalCall(fundId){ return { fundId:fundId||'', investorId:'', callNumber:1, callDate:todayStr(), amount:0, status:'pending', notes:'', linkedCommitmentId:null, reversalOfId:null, approvedBy:null, approvedAt:null }; }
 function blankDistribution(fundId){ return { fundId:fundId||'', investorId:'', distDate:todayStr(), amount:0, type:DISTRIBUTION_TYPES[0], status:'declared', notes:'', reversalOfId:null, approvedBy:null, approvedAt:null }; }
 
@@ -885,6 +914,7 @@ function investorLedgerRows(){
     const calls = STORE.capitalCalls.filter(c=>c.data.investorId===inv.id);
     const paidIn = calls.filter(c=>c.data.status==='paid').reduce((a,c)=>a+n(c.data.amount),0);
     const unfunded = Math.max(0, committed-paidIn);
+    const overcalled = Math.max(0, paidIn-committed);
     const dists = STORE.distributions.filter(d=>d.data.investorId===inv.id);
     const cumDist = dists.filter(d=>d.data.status==='paid').reduce((a,d)=>a+n(d.data.amount),0);
     const dpi = paidIn>0 ? cumDist/paidIn : null;
@@ -897,11 +927,12 @@ function investorLedgerRows(){
       const myCommit = cmts.filter(c=>c.data.fundId===fid).reduce((a,c)=>a+n(c.data.commitmentAmount),0);
       const share = fundCommitTotal>0 ? myCommit/fundCommitTotal : 0;
       const { totalValue } = fundEquityAndValue(fid);
-      estRemainingValue += Math.max(0, totalValue*share - cumDist*share/(fundIds.length||1));
+      const fundSpecificDist = distributionsFor(fid, inv.id).filter(d=>d.data.status==='paid').reduce((a,d)=>a+n(d.data.amount),0);
+      estRemainingValue += Math.max(0, totalValue*share - fundSpecificDist);
     });
     const rvpi = paidIn>0 ? estRemainingValue/paidIn : null;
     const tvpi = (dpi!=null && rvpi!=null) ? dpi+rvpi : null;
-    return { investor:inv, committed, paidIn, unfunded, cumDist, dpi, rvpi, tvpi, fundCount:fundIds.length };
+    return { investor:inv, committed, paidIn, unfunded, overcalled, cumDist, dpi, rvpi, tvpi, fundCount:fundIds.length };
   });
 }
 function fundLedgerSummary(fundId){
@@ -915,7 +946,9 @@ function fundLedgerSummary(fundId){
   const dpi = paidIn>0? distPaid/paidIn : null;
   const { totalEquity, totalValue } = fundEquityAndValue(fundId);
   const calledPct = committed>0? called/committed : null;
-  return { committed, called, calledPct, paidIn, distPaid, dpi, totalEquity, totalValue };
+  const deployableCash = Math.max(0, paidIn - distPaid);
+  const overcalled = Math.max(0, paidIn - committed);
+  return { committed, called, calledPct, paidIn, distPaid, dpi, totalEquity, totalValue, deployableCash, overcalled };
 }
 
 /* =========================================================================
@@ -1573,8 +1606,11 @@ function compute(o, scenarioKey){
   const npvProject = npvAt(WACC, projectCF);
   const totalDistrib = equityCF.slice(1).reduce((a,b)=>a+Math.max(0,b),0);
   const investorSideFees = o.subscription.subscriptionFee*equity;
-  const investorCashInvested = equity + investorSideFees;
-  // MOIC للمستثمر يجب أن يعكس كل النقد المدفوع فعلياً، بما فيه رسوم الاشتراك.
+  const contributedEquity = equityCF.reduce((sum, cf)=> sum + (cf<0 ? Math.abs(cf) : 0), 0);
+  const investorCashInvested = contributedEquity + investorSideFees;
+  // MOIC للمستثمر يجب أن يعكس كل النقد المدفوع فعلياً: مساهمة البداية + أي نداءات حقوق ملكية لاحقة
+  // تظهر كتدفقات سالبة في equityCF + رسوم الاشتراك. هذا يمنع تضخيم MOIC/PIC/Waterfall عندما تظهر
+  // shortfalls تشغيلية أو تمويلية بعد السنة صفر.
   const MOIC = investorCashInvested>0 ? totalDistrib/investorCashInvested : 0;
   const DPI = MOIC; const RVPI = 0; const TVPI = DPI+RVPI;
 
@@ -1583,10 +1619,10 @@ function compute(o, scenarioKey){
   // رأس المال المستثمر (equity) — مقياس "بسيط" غير مخصوم بالقيمة الزمنية للنقود، يكمّل
   // IRR/MOIC/NPV ولا يغني عنها. null تعني أن الاسترداد الكامل لم يتحقق خلال مدة الاحتفاظ بالمشروع.
   let paybackPeriod = null;
-  if(equity<=0){
+  if(investorCashInvested<=0){
     paybackPeriod = 0;
   } else {
-    let cum = equityCF[0]||0;
+    let cum = (equityCF[0]||0) - investorSideFees;
     for(let yr=1; yr<equityCF.length; yr++){
       const prevCum = cum;
       cum += equityCF[yr];
@@ -1626,7 +1662,7 @@ function compute(o, scenarioKey){
   const feesPctOfTPC = TPC>0 ? fundSideFees/TPC : 0;
 
   // ---- Waterfall ----
-  const PIC = equity;
+  const PIC = contributedEquity;
   const roc = Math.min(PIC, totalDistrib);
   let remaining = totalDistrib - roc;
   const prefTarget = PIC*(Math.pow(1+o.economics.hurdle, totalYears)-1);
@@ -1684,7 +1720,7 @@ function compute(o, scenarioKey){
     oneTimeFixed, structuringFee, acquisitionFee, arrangementFee, TPC, debt, seniorDebt, mezzDebt, equity, interestRate, Ke, Kd, WACC,
     amortType, assetClass, holdStrategy, scopeType, infraCostAmt, verticalCost, balloonBalanceAtExit,
     gla, totalYears, constructionYears, operationYears,
-    equityIRR, projectIRR, npvEquity, npvProject, totalDistrib, MOIC, DPI, RVPI, TVPI, paybackPeriod, dscrMin, dscrAvg,
+    equityIRR, projectIRR, npvEquity, npvProject, totalDistrib, contributedEquity, investorCashInvested, MOIC, DPI, RVPI, TVPI, paybackPeriod, dscrMin, dscrAvg,
     equityIRRCashOnly, MOICCashOnly, totalDistribCashOnly,
     stabilizedNOIyr1, yieldOnCost, NAV, ROI,
     mgmtFeeTotal, assetMgmtTotal, regAuditCustodianTotal, fundSideFees, investorSideFees, feesPctOfTPC,
@@ -2622,7 +2658,7 @@ function renderBenchmarkPanel(k){
    NOTE: A simplified fund-level aggregation — same ROC→Pref→Catch-up→Carry-split logic as each deal,
    applied once to portfolio totals, not a full date-accurate accrual engine. */
 function portfolioWaterfall(list){
-  let sumEquity=0, sumTotalDistrib=0, sumGpAmerican=0, sumLpAmerican=0, sumDevAmerican=0;
+  let sumEquity=0, sumPIC=0, sumTotalDistrib=0, sumGpAmerican=0, sumLpAmerican=0, sumDevAmerican=0;
   let wHurdle=0, wCarry=0, wLp=0, wGp=0, wDev=0;
   let maxHorizon=0;
   const items = [];
@@ -2631,6 +2667,7 @@ function portfolioWaterfall(list){
     const c = compute(d);
     if(!(c.equity>0)) return;
     sumEquity += c.equity;
+    sumPIC += c.PIC || c.equity;
     sumTotalDistrib += c.totalDistrib||0;
     sumGpAmerican += c.gpTotal||0;
     sumLpAmerican += c.lpTotal||0;
@@ -2643,7 +2680,7 @@ function portfolioWaterfall(list){
   if(sumEquity<=0) return null;
   const hurdle = wHurdle/sumEquity, carry = wCarry/sumEquity, lpShare = wLp/sumEquity, gpShare = wGp/sumEquity, devShare = wDev/sumEquity;
 
-  const PIC = sumEquity;
+  const PIC = sumPIC || sumEquity;
   const roc = Math.min(PIC, sumTotalDistrib);
   let remaining = sumTotalDistrib - roc;
   const prefTarget = PIC*(Math.pow(1+hurdle, maxHorizon)-1);
@@ -3981,9 +4018,10 @@ function renderFundDetail(fundId){
         ${ifField(ifForm.draft.contributionType==='in_kind'?'القيمة المتفَق عليها':'مبلغ الالتزام', ifForm.draft.contributionType==='in_kind'?'Agreed Value':'Commitment Amount','commitmentAmount', ifForm.draft.commitmentAmount, {type:'number'})}
         ${ifField('تاريخ الالتزام','Date Committed','dateCommitted', ifForm.draft.dateCommitted, {type:'date'})}
         ${ifForm.draft.contributionType==='in_kind'? ifField('وصف المساهمة العينية (مثال: أرض المشروع)','In-Kind Description (e.g. project land)','inKindDescription', ifForm.draft.inKindDescription) : ''}
+        ${ifForm.draft.contributionType==='in_kind'? `<div class="field"><label><span>${T('الأصل/الفرصة المرتبطة بالمساهمة العينية','Asset linked to in-kind contribution')}</span></label><select name="inKindAssetId"><option value="">${T('غير مرتبطة بأصل محدد','Not tied to a specific asset')}</option>${(fund.data.assetIds||[]).map(oid=>{ const opp=opportunities.find(o=>o.id===oid); return `<option value="${oid}" ${ifForm.draft.inKindAssetId===oid?'selected':''}>${esc((opp&&opp.data&&opp.data.meta&&opp.data.meta.name)||oid)}</option>`; }).join('')}</select></div>` : ''}
         ${ifForm.draft.reversalOfId? ifField('سبب العكس/التصحيح','Reversal / Correction Reason','notes', ifForm.draft.notes) : ''}
       </div>
-      ${ifForm.draft.contributionType==='in_kind'? `<p class="note" style="margin:6px 0 0;">${T('تُسجَّل المساهمة العينية كمنقولة بالكامل عند الحفظ (بلا نداءات رأسمال تدريجية) — نفس منطق نقل ملكية الأرض دفعة واحدة عند إغلاق الصندوق.','An in-kind contribution is recorded as fully transferred on save (no gradual capital calls) — same logic as a one-time land ownership transfer at fund closing.')}</p>` : ''}
+      ${ifForm.draft.contributionType==='in_kind'? `<p class="note" style="margin:6px 0 0;">${T('تُسجَّل المساهمة العينية كمنقولة بالكامل عند الحفظ، ويجب ربطها بأصل واحد عند استخدامها في تحليل الاحتياج النقدي حتى لا تُخصم مرتين عبر أكثر من فرصة.','An in-kind contribution is recorded as fully transferred on save, and should be tied to one asset when used in cash-need analysis to avoid double deduction across multiple opportunities.')}</p>` : ''}
       <div style="display:flex; gap:8px; margin-top:8px;"><button class="btn btn-primary btn-sm" data-action="if-save" data-kind="commitment">💾 ${T('حفظ','Save')}</button><button class="btn btn-ghost btn-sm" data-action="if-cancel-form">${T('إلغاء','Cancel')}</button></div>
     </div>` : '';
   const ccForm = ifForm && ifForm.kind==='capitalCall' ? `
@@ -4047,7 +4085,7 @@ function renderFundDetail(fundId){
       <tbody>
         ${cmts.length===0? `<tr><td colspan="5" style="text-align:center; color:var(--ink-faint); padding:16px;">${T('لا توجد التزامات بعد','No commitments yet')}</td></tr>` : cmts.map(c=>`
           <tr><td>${esc(investorName(c.data.investorId))}${c.data.reversalOfId? ` <span class="note" style="font-size:11px;" title="${T('قيد عكسي','reversal entry')}">↩️</span>`:''}</td>
-          <td>${c.data.contributionType==='in_kind'? `<span class="badge" title="${esc(c.data.inKindDescription||'')}">🏗️ ${T('عيني','In-Kind')}</span>${c.data.inKindDescription? ` <span class="note" style="font-size:11px;">— ${esc(c.data.inKindDescription)}</span>`:''}` : `<span class="badge">💵 ${T('نقدي','Cash')}</span>`}</td>
+          <td>${c.data.contributionType==='in_kind'? `<span class="badge" title="${esc(c.data.inKindDescription||'')}">🏗️ ${T('عيني','In-Kind')}</span>${c.data.inKindDescription? ` <span class="note" style="font-size:11px;">— ${esc(c.data.inKindDescription)}</span>`:''}${c.data.inKindAssetId? ` <span class="note" style="font-size:11px;">(${esc((opportunities.find(o=>o.id===c.data.inKindAssetId)?.data?.meta?.name)||c.data.inKindAssetId)})</span>`:''}` : `<span class="badge">💵 ${T('نقدي','Cash')}</span>`}</td>
           <td class="num mono">${fmtSAR(c.data.commitmentAmount)}</td><td class="mono">${esc(c.data.dateCommitted)}</td>
           <td><button class="btn btn-sm btn-ghost" data-action="if-reverse" data-kind="commitment" data-id="${c.id}" title="${T('التزام مُرحَّل — لا يمكن حذفه؛ أنشئ قيد عكسي بدل ذلك','Posted commitment — cannot be deleted; create a reversal entry instead')}">↩️</button></td></tr>
         `).join('')}
@@ -4509,6 +4547,8 @@ document.addEventListener('click', async (e)=>{
         return;
       }
     }
+    const validationError = validateIfDraft(kind, ifForm.draft, ifForm.editId);
+    if(validationError){ alert(validationError); return; }
     const id = ifForm.editId || uid(ifPrefixFor(kind));
     await persistIfRecord(coll, { id, data: ifForm.draft });
     if(isNew && (kind==='capitalCall' || kind==='distribution')){

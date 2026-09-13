@@ -113,6 +113,7 @@ function ctxFor(email){ return testEnv.authenticatedContext(email, { email }); }
 // نفسه (رفض المحلل/عضو اللجنة، قبول مدير الصندوق، إبقاء القراءة متاحة) على حاله لبقية المجموعات.
 const LEDGER_COLLECTIONS = ['investors','funds','commitments','capitalCalls','distributions','transactions'];
 function ledgerValidCreateShape(coll){
+  if(coll==='commitments') return { fundId:'FND-1', investorId:'INV-1', commitmentAmount:1, dateCommitted:'2026-01-01', contributionType:'cash', reversalOfId:null };
   if(coll==='capitalCalls') return { fundId:'FND-1', investorId:'INV-1', callNumber:99, callDate:'2026-01-01', amount:1, status:'pending', linkedCommitmentId:null, reversalOfId:null };
   if(coll==='distributions') return { fundId:'FND-1', investorId:'INV-1', distDate:'2026-01-01', amount:1, status:'declared', reversalOfId:null };
   return { name:'test' };
@@ -345,6 +346,8 @@ for(const coll of LEDGER_COLLECTIONS){
   assert(true, '🔒 حتى مدير الصندوق لا يقدر يحذف التزام — التصحيح الوحيد المسموح هو قيد عكسي جديد');
   await assertSucceeds(setDoc(doc(dbFM,'commitments','CMT-1-REV'), { fundId:'FND-1', investorId:'INV-1', commitmentAmount:-1000000, dateCommitted:'2026-01-02', contributionType:'cash', notes:'تصحيح', reversalOfId:'CMT-1' }));
   assert(true, '✅ مدير الصندوق يقدر إنشاء قيد عكسي (سجل جديد بمبلغ سالب وreversalOfId) بدل تعديل الأصل — هذا التصحيح المحاسبي الصحيح الوحيد');
+  await assertFails(setDoc(doc(dbFM,'commitments','CMT-NEG-NORMAL'), { fundId:'FND-1', investorId:'INV-1', commitmentAmount:-100000, dateCommitted:'2026-01-03', contributionType:'cash', reversalOfId:null }));
+  assert(true, '🔒 لا يمكن إنشاء التزام سالب كسجل عادي — السالب مسموح فقط كقيد عكسي مرتبط');
 }
 {
   // capitalCalls: "مسودة" بينما status=='pending' (تعديل/حذف حر كما كان)، تُرحَّل نهائياً عند 'paid'/'waived'
@@ -363,6 +366,10 @@ for(const coll of LEDGER_COLLECTIONS){
   assert(true, '✅ ترحيل النداء (approved → paid) مسموح — هذا هو الانتقال المسموح الوحيد بعد الاعتماد، ونقطة القفل النهائي');
   await assertFails(updateDoc(doc(dbFM,'capitalCalls','CC-1'), { amount: 700000 }));
   assert(true, '🔒 بعد الترحيل (status=="paid") لا يقدر مدير الصندوق تعديل النداء إطلاقاً، ولو لمجرد تصحيح رقم');
+  await assertFails(setDoc(doc(dbFM,'capitalCalls','CC-NEG-NORMAL'), { fundId:'FND-1', investorId:'INV-1', callNumber:2, callDate:'2026-01-05', amount:-100000, status:'pending', linkedCommitmentId:null, reversalOfId:null }));
+  assert(true, '🔒 لا يمكن إنشاء نداء رأس مال سالب كمسودة عادية — يجب استخدام قيد عكسي');
+  await assertSucceeds(setDoc(doc(dbFM,'capitalCalls','CC-REV-NEG'), { fundId:'FND-1', investorId:'INV-1', callNumber:3, callDate:'2026-01-06', amount:-100000, status:'paid', linkedCommitmentId:null, reversalOfId:'CC-1' }));
+  assert(true, '✅ النداء السالب مسموح فقط عندما يكون قيداً عكسياً مرتبطاً بسجل أصلي');
   await assertFails(deleteDoc(doc(dbFM,'capitalCalls','CC-1')));
   assert(true, '🔒 ولا حذفه أيضاً — التصحيح الوحيد قيد عكسي جديد');
   await assertSucceeds(setDoc(doc(dbFM,'capitalCalls','CC-1-REV'), { fundId:'FND-1', investorId:'INV-1', callNumber:1, callDate:'2026-01-03', amount:-700000, status:'paid', linkedCommitmentId:null, notes:'تصحيح', reversalOfId:'CC-1' }));

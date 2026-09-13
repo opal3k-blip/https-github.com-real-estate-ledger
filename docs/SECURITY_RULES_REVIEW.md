@@ -33,9 +33,9 @@ ALL PASSED (against a real Firestore emulator, not a mock)
 | `presence` | Authorized | المستخدم لوثيقته فقط | المستخدم لوثيقته فقط | المستخدم لوثيقته فقط | حضور لحظي |
 | `investors` | Authorized | Fund Manager | Fund Manager | Fund Manager | دفتر المستثمرين |
 | `funds` | Authorized | Fund Manager | Fund Manager | Fund Manager | دفتر الصناديق |
-| `commitments` | Authorized | Fund Manager | ممنوع | ممنوع | append-only |
-| `capitalCalls` | Authorized | Fund Manager بشروط status/reversal | Fund Manager عبر transitions فقط | فقط draft `pending` | قفل محاسبي بعد الاعتماد/الترحيل |
-| `distributions` | Authorized | Fund Manager بشروط | Fund Manager عبر transitions فقط | فقط draft `declared` | قفل محاسبي بعد الاعتماد/الترحيل |
+| `commitments` | Authorized | Fund Manager؛ المبلغ موجب إلا لو `reversalOfId` موجود | ممنوع | ممنوع | append-only، لا التزامات سالبة عادية |
+| `capitalCalls` | Authorized | Fund Manager بشروط status/reversal؛ المبلغ موجب إلا لو قيد عكسي | Fund Manager عبر transitions فقط وبنفس قيد المبلغ | فقط draft `pending` | قفل محاسبي بعد الاعتماد/الترحيل |
+| `distributions` | Authorized | Fund Manager بشروط؛ المبلغ موجب إلا لو قيد عكسي | Fund Manager عبر transitions فقط وبنفس قيد المبلغ | فقط draft `declared` | قفل محاسبي بعد الاعتماد/الترحيل |
 | `transactions` | Authorized | Fund Manager | ممنوع | ممنوع | سجل append-only |
 | `comparables` | Authorized | Fund Manager | Fund Manager | Fund Manager | مكتبة مرجعية |
 | `benchmarks` | Authorized | Fund Manager | Fund Manager | Fund Manager | مكتبة مرجعية |
@@ -56,6 +56,7 @@ ALL PASSED (against a real Firestore emulator, not a mock)
 | `recordedBy/savedBy/enteredBy` تطابق المستخدم | يمنع انتحال الهوية |
 | قفل `transactions`, `icDecisions`, `assetActuals` | يحافظ على التاريخ المؤسسي |
 | بوابة `capitalCalls` و`distributions` | تمنع تجاوز اعتماد رأس المال |
+| منع القيود السالبة العادية | يجعل التصحيحات قابلة للتتبع فقط عبر `reversalOfId` |
 
 ## اختبارات مطلوبة في CI
 
@@ -65,6 +66,7 @@ ALL PASSED (against a real Firestore emulator, not a mock)
 - قبول `v4_ic_approved` فقط بعد قرار IC صحيح.
 - رفض تعديل `oppAuditLog` من أي عميل.
 - رفض update/delete للسجلات append-only.
+- رفض الالتزامات/النداءات/التوزيعات السالبة إذا لم تكن قيوداً عكسية.
 
 ## توصيات إضافية
 

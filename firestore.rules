@@ -224,7 +224,10 @@ service cloud.firestore {
     // حقيقة محاسبية منشورة — لا نافذة تعديل بعد الترحيل مهما كانت صغيرة.
     match /commitments/{id} {
       allow read: if isAuthorized();
-      allow create: if isFundManagerOrAbove();
+      allow create: if isFundManagerOrAbove()
+        && (request.resource.data.get('reversalOfId', null) != null
+          ? request.resource.data.commitmentAmount < 0
+          : request.resource.data.commitmentAmount >= 0);
       allow update, delete: if false;
     }
     // بوابة اعتماد صريحة ومنفصلة (المرحلة السادسة-ب، بطلب صريح من المستخدم: "نعم، أضف بوابة
@@ -240,6 +243,9 @@ service cloud.firestore {
           || (before.status == 'approved' && after.diff(before).affectedKeys().hasOnly(['status','approvedBy','approvedAt'])
                 && (after.status == 'paid' || after.status == 'waived'));
     }
+    function ledgerAmountOk(data) {
+      return data.get('reversalOfId', null) != null ? data.amount < 0 : data.amount >= 0;
+    }
     match /capitalCalls/{id} {
       allow read: if isAuthorized();
       // إنشاء عادي (يدوي) يجب أن يبدأ 'pending' دائماً — لا يجوز تخطّي البوابة بإنشاء سجل جديد
@@ -247,21 +253,21 @@ service cloud.firestore {
       // if-reverse — المرحلة السادسة) يُنشَأ عمداً بنفس حالة الأصل المُرحَّلة فوراً، و(٢) نداء
       // النقل العيني التلقائي (linkedCommitmentId، من منطق if-save الموجود لالتزام عيني) يُنشَأ
       // 'paid' فوراً لأنه ناتج تنفيذي للالتزام نفسه لحظة توثيقه — ليس نداءً يحتاج اعتماداً مستقلاً.
-      allow create: if isFundManagerOrAbove() && (
+      allow create: if isFundManagerOrAbove() && ledgerAmountOk(request.resource.data) && (
              request.resource.data.get('status', null) == 'pending'
           || request.resource.data.get('reversalOfId', null) != null
           || request.resource.data.get('linkedCommitmentId', null) != null
       );
-      allow update: if isFundManagerOrAbove() && ledgerStatusTransitionOk(resource.data, request.resource.data);
+      allow update: if isFundManagerOrAbove() && ledgerAmountOk(request.resource.data) && ledgerStatusTransitionOk(resource.data, request.resource.data);
       allow delete: if isFundManagerOrAbove() && resource.data.status == 'pending' && resource.data.linkedCommitmentId == null;
     }
     match /distributions/{id} {
       allow read: if isAuthorized();
-      allow create: if isFundManagerOrAbove() && (
+      allow create: if isFundManagerOrAbove() && ledgerAmountOk(request.resource.data) && (
              request.resource.data.get('status', null) == 'declared'
           || request.resource.data.get('reversalOfId', null) != null
       );
-      allow update: if isFundManagerOrAbove() && ledgerStatusTransitionOk(resource.data, request.resource.data);
+      allow update: if isFundManagerOrAbove() && ledgerAmountOk(request.resource.data) && ledgerStatusTransitionOk(resource.data, request.resource.data);
       allow delete: if isFundManagerOrAbove() && resource.data.status == 'declared';
     }
     match /transactions/{id} {

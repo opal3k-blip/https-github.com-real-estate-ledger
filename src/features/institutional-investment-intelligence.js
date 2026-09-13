@@ -256,9 +256,9 @@ function formulaValidation(core, rows){
       const diff = Math.abs((c.debt + c.equity) - c.TPC);
       checks.push({ name, check:'Debt + Equity = TPC', pass: diff <= Math.max(1, c.TPC*0.001), detail: core.fmtSAR(diff), kpi:'TPC / Equity / Debt' });
     }
-    if(c.MOIC!=null && c.equity!=null && c.totalDistrib!=null && c.equity>0){
-      const expected = c.totalDistrib / c.equity;
-      checks.push({ name, check:'MOIC = Total Distributions / Equity', pass: Math.abs(expected-c.MOIC) <= 0.01, detail: `${ratio(c.MOIC)} vs ${ratio(expected)}`, kpi:'MOIC' });
+    if(c.MOIC!=null && c.investorCashInvested!=null && c.totalDistrib!=null && c.investorCashInvested>0){
+      const expected = c.totalDistrib / c.investorCashInvested;
+      checks.push({ name, check:'MOIC = Total Distributions / Total Contributed Equity', pass: Math.abs(expected-c.MOIC) <= 0.01, detail: `${ratio(c.MOIC)} vs ${ratio(expected)}`, kpi:'MOIC/PIC' });
     }
     if(c.projectCF && c.totalYears!=null){
       checks.push({ name, check:'Cash-flow length matches model years', pass: c.projectCF.length >= Math.max(1, Number(c.totalYears)||1), detail:`${c.projectCF.length} rows`, kpi:'IRR / NPV' });

@@ -15,8 +15,8 @@
 | `presence` | Firebase UID | `email`, `name`, `online`, `lastSeen` | حضور لحظي |
 | `investors` | auto/document id | `name`, `type`, `email`, `phone`, `notes` | بيانات المستثمرين |
 | `funds` | auto/document id | `name`, `targetSize`, `assetIds`, `vintage`, `status` | الصناديق والمحافظ |
-| `commitments` | auto/document id | `fundId`, `investorId`, `amount`, `date`, `inKind`, `reversalOfId` | التزامات المستثمرين |
-| `capitalCalls` | auto/document id | `fundId`, `investorId`, `amount`, `status`, `approvedBy`, `approvedAt`, `paidAt`, `reversalOfId` | نداءات رأس المال |
+| `commitments` | auto/document id | `fundId`, `investorId`, `commitmentAmount`, `dateCommitted`, `contributionType`, `inKindDescription`, `inKindAssetId`, `reversalOfId` | التزامات المستثمرين؛ المساهمة العينية تُربط بأصل واحد عبر `inKindAssetId` عند خصمها من الاحتياج النقدي |
+| `capitalCalls` | auto/document id | `fundId`, `investorId`, `amount`, `status`, `approvedBy`, `approvedAt`, `paidAt`, `linkedCommitmentId`, `reversalOfId` | نداءات رأس المال؛ المبالغ السالبة مسموحة فقط كقيود عكسية |
 | `distributions` | auto/document id | `fundId`, `investorId`, `amount`, `status`, `approvedBy`, `approvedAt`, `paidAt`, `reversalOfId` | توزيعات المستثمرين |
 | `transactions` | auto/document id | `fundId`, `investorId`, `type`, `amount`, `at`, `notes` | سجل معاملات append-only |
 | `comparables` | auto/document id | `city`, `useType`, `price`, `capRate`, `source`, `date` | مقارنات السوق |
@@ -57,9 +57,19 @@
 | `criteria.irrMin`, `criteria.moicMin`, `criteria.dscrMin` | حدود لجنة الاستثمار |
 | `economics.hurdle`, `economics.carry` | اقتصاديات الصندوق |
 
+## حقول محسوبة رئيسية
+
+| الحقل المحسوب | التعريف |
+|---|---|
+| `contributedEquity` / `PIC` | إجمالي كل التدفقات السالبة في `equityCF` بالقيمة المطلقة، وليس مساهمة السنة صفر فقط |
+| `investorCashInvested` | `contributedEquity + investorSideFees` |
+| `MOIC` | `totalDistrib / investorCashInvested` |
+| `ROI` | `(totalDistrib - investorCashInvested) / investorCashInvested` |
+| `DPI` / `TVPI` | حالياً يعكسان التوزيعات النقدية المحققة على نفس قاعدة `investorCashInvested`، مع `RVPI=0` ما لم توجد قيمة حالية موثقة |
+
 ## سياسة البيانات
 
 1. لا تحفظ أسرار API داخل Firestore.
 2. `mondayConfig` يحفظ IDs وإعدادات غير سرية فقط.
-3. السجلات المحاسبية والقرارات لا تعدل بعد اعتمادها؛ التصحيح يكون بقيد عكسي/سجل جديد.
+3. السجلات المحاسبية والقرارات لا تعدل بعد اعتمادها؛ التصحيح يكون بقيد عكسي/سجل جديد، والقيود السالبة العادية مرفوضة.
 4. أي Collection جديد يجب أن يضاف إلى `firestore.rules`, هذا القاموس، واختبارات Rules.

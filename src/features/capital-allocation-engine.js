@@ -71,6 +71,12 @@ function allocatedElsewhereInFund(core, fund, excludeOppId){
   }, 0);
 }
 
+function deployableCashForFund(core, fund, excludeOppId){
+  const summary = core.fundLedgerSummary(fund.id);
+  const allocated = allocatedElsewhereInFund(core, fund, excludeOppId);
+  return Math.max(0, core.n(summary.paidIn) - core.n(summary.distPaid) - allocated);
+}
+
 export function registerCapitalAllocationEngine(core){
   core.registerAssetLinkGuard((fund, oppId)=>{
     const rec = core.opportunities.find(o=>o.id===oppId);
@@ -86,15 +92,23 @@ export function registerCapitalAllocationEngine(core){
     if(!(targetEquity > 0)){
       return { blocked:true, reason: core.T('🔒 حدِّد "تخصيص رأس المال المستهدف" لهذه الفرصة أولاً (قسم محرك ربط رأس المال) قبل ربطها بأي صندوق.','🔒 Set a "Target Equity Allocation" for this opportunity first (Capital Allocation Engine section) before linking it to any fund.') };
     }
+    const maxAllocation = core.n(d.capitalAllocation && d.capitalAllocation.maxAllocation);
+    if(maxAllocation>0 && targetEquity > maxAllocation + 1e-6){
+      return { blocked:true, reason: core.T(
+        `🔒 التخصيص المستهدف ${core.fmtSAR(targetEquity)} يتجاوز الحد الأقصى المعتمد ${core.fmtSAR(maxAllocation)} لهذه الفرصة.`,
+        `🔒 Target allocation ${core.fmtSAR(targetEquity)} exceeds the approved maximum allocation ${core.fmtSAR(maxAllocation)} for this opportunity.`
+      ) };
+    }
 
     const summary = core.fundLedgerSummary(fund.id);
-    const already = allocatedElsewhereInFund(core, fund, oppId);
-    const paidIn = core.n(summary.paidIn);
-    if(already + targetEquity > paidIn + 1e-6){
-      const avail = Math.max(0, paidIn - already);
+    const avail = deployableCashForFund(core, fund, oppId);
+    if(targetEquity > avail + 1e-6){
+      const already = allocatedElsewhereInFund(core, fund, oppId);
+      const paidIn = core.n(summary.paidIn);
+      const distPaid = core.n(summary.distPaid);
       return { blocked:true, reason: core.T(
-        `🔒 سعة الصندوق غير كافية: رأس المال المسدَّد ${core.fmtSAR(paidIn)}، منه ${core.fmtSAR(already)} مخصَّص لأصول أخرى بالفعل، والمتاح ${core.fmtSAR(avail)} فقط — أقل من التخصيص المطلوب ${core.fmtSAR(targetEquity)} لهذه الفرصة.`,
-        `🔒 Insufficient fund capacity: paid-in capital is ${core.fmtSAR(paidIn)}, of which ${core.fmtSAR(already)} is already allocated to other assets, leaving only ${core.fmtSAR(avail)} available — less than the ${core.fmtSAR(targetEquity)} requested for this opportunity.`
+        `🔒 سعة الصندوق غير كافية: رأس المال المسدَّد ${core.fmtSAR(paidIn)}، التوزيعات المدفوعة ${core.fmtSAR(distPaid)}، والمخصص لأصول أخرى ${core.fmtSAR(already)}؛ النقد القابل للتخصيص ${core.fmtSAR(avail)} فقط — أقل من ${core.fmtSAR(targetEquity)}.`,
+        `🔒 Insufficient fund capacity: paid-in ${core.fmtSAR(paidIn)}, paid distributions ${core.fmtSAR(distPaid)}, allocated to other assets ${core.fmtSAR(already)}; deployable cash is only ${core.fmtSAR(avail)} — below ${core.fmtSAR(targetEquity)}.`
       ) };
     }
     return { blocked:false };
@@ -125,6 +139,7 @@ export function registerCapitalAllocationEngine(core){
       <div class="kv">
         ${readOnlyRow('حالة اعتماد اللجنة','IC Approval Status', ic.approved? `✅ ${core.T('مُعتمَدة — يمكن التخصيص/الربط','Approved — eligible for allocation/linking')}` : `<span style="color:var(--bad);">🔴 ${core.esc(core.T(ic.reason.ar, ic.reason.en))}</span>`)}
         ${readOnlyRow('تخصيص رأس المال المستهدف','Target Equity Allocation', alloc.targetEquity? core.fmtSAR(alloc.targetEquity) : '—')}
+        ${readOnlyRow('الحد الأقصى للتخصيص','Max Allocation', alloc.maxAllocation? core.fmtSAR(alloc.maxAllocation) : '—')}
         ${readOnlyRow('الأولوية','Priority', PRIORITY_LABEL[alloc.priority]||alloc.priority||'—')}
         ${readOnlyRow('الربط بصندوق','Fund Linkage', linkedFunds.length? linkedFunds.map(f=>core.esc(f.data.name||f.id)).join(' · ') : core.T('غير مربوطة بأي صندوق بعد','Not linked to any fund yet'))}
       </div>
