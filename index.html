@@ -271,6 +271,96 @@ table.report tr:last-child td{ border-bottom:none; }
 .cond-row select{ min-width:150px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-size:12.5px; }
 table.db thead th:first-child, table.db tbody td:first-child{ width:32px; text-align:center; }
 
+/* ---------- language direction ---------- */
+html[dir="ltr"] body{
+  direction:ltr;
+  text-align:left;
+  font-family:'Aptos','Segoe UI',Arial,sans-serif;
+}
+html[dir="ltr"] h1,
+html[dir="ltr"] h2,
+html[dir="ltr"] h3,
+html[dir="ltr"] .display{
+  font-family:'Aptos','Segoe UI',Arial,sans-serif;
+}
+html[dir="ltr"] .brand .sub,
+html[dir="ltr"] .note,
+html[dir="ltr"] .empty,
+html[dir="ltr"] .memo-hero .meta,
+html[dir="ltr"] .activity-item,
+html[dir="ltr"] .field label,
+html[dir="ltr"] .field .hint,
+html[dir="ltr"] .step-title,
+html[dir="ltr"] .step-sub{
+  text-align:left;
+  direction:ltr;
+}
+html[dir="ltr"] table.db th,
+html[dir="ltr"] table.db td,
+html[dir="ltr"] table.report th,
+html[dir="ltr"] table.report td{
+  direction:ltr;
+}
+html[dir="ltr"] table.db td:first-child,
+html[dir="ltr"] table.db th:first-child,
+html[dir="ltr"] table.report td:first-child,
+html[dir="ltr"] table.report th:first-child{
+  text-align:left;
+  direction:ltr;
+}
+html[dir="ltr"] table.db thead th:first-child,
+html[dir="ltr"] table.db tbody td:first-child{
+  text-align:center;
+}
+html[dir="ltr"] .field input,
+html[dir="ltr"] .field select,
+html[dir="ltr"] .field textarea,
+html[dir="ltr"] .cond-row input[type=text],
+html[dir="ltr"] [style*="direction:rtl"],
+html[dir="ltr"] [style*="direction: rtl"]{
+  direction:ltr !important;
+  text-align:left !important;
+  unicode-bidi:isolate !important;
+}
+html[dir="ltr"] .field input[type=number],
+html[dir="ltr"] .num,
+html[dir="ltr"] .ltr,
+html[dir="ltr"] .kv .v,
+html[dir="ltr"] .livebox .li b,
+html[dir="ltr"] .dash-hero-card .v,
+html[dir="ltr"] .kpi .v{
+  direction:ltr !important;
+  text-align:center !important;
+}
+html[dir="ltr"] ul,
+html[dir="ltr"] ol{
+  padding-left:20px;
+  padding-right:0;
+}
+html[dir="ltr"] .dash-section-title{
+  padding-left:2px;
+  padding-right:0;
+}
+html[dir="ltr"] .suffix-wrap .suffix{
+  left:auto;
+  right:11px;
+}
+html[dir="ltr"] .suffix-wrap input{
+  padding-left:11px;
+  padding-right:44px;
+}
+html[dir="ltr"] .activity-badge{
+  left:auto;
+  right:-6px;
+}
+html[dir="ltr"] .activity-dropdown{
+  left:auto;
+  right:0;
+}
+html[dir="ltr"] .kv{
+  grid-template-columns:auto 1fr;
+}
+
 /* ---------- print / PDF export (letterhead-style report) ---------- */
 @page{ margin: 22mm 16mm 20mm; }
 /* غلاف/ترويسة الطباعة (شعار الشركة + اسمها) — عنصر DOM حقيقي، مخفي على الشاشة، يظهر فقط عند الطباعة */
