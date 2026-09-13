@@ -1,7 +1,7 @@
 /* =========================================================================
-   Stage 8 — Institutional Intelligence Layer
+   محرك الذكاء الاستثماري المؤسسي — Institutional Investment Intelligence
    ---------------------------------------------------------------------------
-   طبقة مؤسسية موحّدة فوق Stage 7: لا تغيّر محرك الحساب الأساسي، بل تجمع
+   طبقة مؤسسية موحّدة لا تغيّر محرك الحساب الأساسي، بل تجمع
    النتائج الحالية، سجل الإصدارات، الأداء الفعلي، أدلة العناية الواجبة، وسجل
    قرارات اللجنة في لوحة واحدة + Investment Passport لكل أصل.
    ========================================================================= */
@@ -315,7 +315,7 @@ function miniScore(core, title, item){
   </div>`;
 }
 
-function renderStage8Dashboard(core){
+function renderInstitutionalInvestmentIntelligenceDashboard(core){
   const rows = opportunityIntelligenceRows(core);
   const p = portfolioIntelligenceStats(core);
   const stress = portfolioStressRows(core, rows);
@@ -330,14 +330,14 @@ function renderStage8Dashboard(core){
   return `
   <div class="section" style="margin-bottom:14px;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">
     <div>
-      <h2 style="margin:0;">🧠 Stage 8 — ${core.T('محرك الذكاء الاستثماري المؤسسي','Institutional Investment Intelligence')}</h2>
+      <h2 style="margin:0;">🧠 ${core.T('محرك الذكاء الاستثماري المؤسسي','Institutional Investment Intelligence Engine')}</h2>
       <p class="note" style="margin:4px 0 0;">${core.T('لوحة واحدة تجمع القرار، المحفظة، التخصيص، التحذير المبكر، التعلم المؤسسي، والتقارير من نفس البيانات.','One layer for decision intelligence, portfolio analytics, allocation, warnings, institutional learning, and reporting from the same data.')}</p>
     </div>
-    <button class="btn btn-sm btn-ghost" data-action="stage8-close">✖ ${core.T('إغلاق','Close')}</button>
+    <button class="btn btn-sm btn-ghost" data-action="institutional-intelligence-close">✖ ${core.T('إغلاق','Close')}</button>
   </div>
 
   <div class="panel" style="margin-bottom:14px;">
-    <div class="panel-head"><h3>8.1 ${core.T('Investment Intelligence Engine','Investment Intelligence Engine')}</h3></div>
+    <div class="panel-head"><h3>${core.T('Investment Intelligence Engine','Investment Intelligence Engine')}</h3></div>
     <div class="grid3">
       ${miniScore(core, 'Investment Quality', { score: median(rows.map(r=>r.suite.investmentQuality.score)) || 0, band: confidenceBand(median(rows.map(r=>r.suite.investmentQuality.score)) || 0) })}
       ${miniScore(core, 'Decision Confidence', { score: median(rows.map(r=>r.suite.decisionConfidence.score)) || 0, band: confidenceBand(median(rows.map(r=>r.suite.decisionConfidence.score)) || 0) })}
@@ -345,7 +345,7 @@ function renderStage8Dashboard(core){
     </div>
     <div class="tablewrap" style="margin-top:10px;"><table class="db" style="font-size:12px;"><thead><tr><th>${core.T('الفرصة','Opportunity')}</th><th>Quality</th><th>Decision</th><th>Execution</th><th>Evidence</th><th>${core.T('لماذا؟','Why?')}</th></tr></thead><tbody>
       ${rows.map(r=>`<tr>
-        <td><button class="btn btn-sm btn-ghost" data-action="stage8-open-opp" data-id="${r.rec.id}">${core.esc(r.d.meta.name||r.rec.id)}</button></td>
+        <td><button class="btn btn-sm btn-ghost" data-action="institutional-intelligence-open-opp" data-id="${r.rec.id}">${core.esc(r.d.meta.name||r.rec.id)}</button></td>
         <td class="num">${r.suite.investmentQuality.score.toFixed(0)}</td>
         <td class="num">${r.suite.decisionConfidence.score.toFixed(0)}</td>
         <td class="num">${r.suite.executionConfidence.score.toFixed(0)}</td>
@@ -360,7 +360,7 @@ function renderStage8Dashboard(core){
   </div>
 
   <div class="panel" style="margin-bottom:14px;">
-    <div class="panel-head"><h3>8.2 ${core.T('Portfolio Intelligence','Portfolio Intelligence')}</h3></div>
+    <div class="panel-head"><h3>${core.T('Portfolio Intelligence','Portfolio Intelligence')}</h3></div>
     ${kv(core, [
       ['NAV', core.fmtSAR(p.nav)],
       ['AUM / Committed', core.fmtSAR(p.committed)],
@@ -379,7 +379,7 @@ function renderStage8Dashboard(core){
   </div>
 
   <div class="panel" style="margin-bottom:14px;">
-    <div class="panel-head"><h3>8.3 ${core.T('Capital Allocation Optimizer','Capital Allocation Optimizer')}</h3></div>
+    <div class="panel-head"><h3>${core.T('Capital Allocation Optimizer','Capital Allocation Optimizer')}</h3></div>
     <div class="kv"><div class="k">Available Equity</div><div class="v"><b>${core.fmtSAR(optimizer.availableEquity)}</b></div><div class="k">Capital Remaining</div><div class="v"><b>${core.fmtSAR(optimizer.remaining)}</b></div></div>
     <div class="tablewrap" style="margin-top:10px;"><table class="db" style="font-size:12px;"><thead><tr><th>${core.T('الفرصة','Opportunity')}</th><th>Need</th><th>Score</th><th>Risk</th><th>Return</th><th>Marginal Return</th><th>Recommended Allocation</th><th>Remaining</th></tr></thead><tbody>
       ${optimizer.recommendations.map(r=>`<tr>
@@ -389,21 +389,21 @@ function renderStage8Dashboard(core){
   </div>
 
   <div class="panel" style="margin-bottom:14px;">
-    <div class="panel-head"><h3>8.4 ${core.T('Portfolio Stress Testing','Portfolio Stress Testing')}</h3></div>
+    <div class="panel-head"><h3>${core.T('Portfolio Stress Testing','Portfolio Stress Testing')}</h3></div>
     <div class="tablewrap"><table class="db" style="font-size:12px;"><thead><tr><th>Scenario</th><th>Portfolio IRR</th><th>Δ</th><th>MOIC</th><th>DSCR</th><th>Probability</th></tr></thead><tbody>
       ${stress.map(s=>`<tr><td>${core.T(s.ar,s.en)}</td><td class="num">${pctPoint(s.stressed.irr)}</td><td class="num" style="${s.delta<0?'color:var(--bad);font-weight:700;':''}">${s.delta==null?'—':(s.delta*100).toFixed(1)+' pts'}</td><td class="num">${ratio(s.stressed.moic)}</td><td class="num">${ratio(s.stressed.dscr)}</td><td>${s.key==='worst_case'?'Low / Severe':s.key==='best_case'?'Low / Upside':'Medium'}</td></tr>`).join('')}
     </tbody></table></div>
   </div>
 
   <div class="panel" style="margin-bottom:14px;">
-    <div class="panel-head"><h3>8.5 ${core.T('Early Warning Engine','Early Warning Engine')}</h3></div>
+    <div class="panel-head"><h3>${core.T('Early Warning Engine','Early Warning Engine')}</h3></div>
     <div style="display:flex;flex-direction:column;gap:6px;">
       ${warnings.slice(0,18).map(w=>`<div style="padding:8px 10px;border-radius:8px;border:1px solid ${w.severity==='critical'?'var(--bad)':w.severity==='warning'?'var(--warn)':'var(--border)'};background:${w.severity==='critical'?'var(--bad-soft)':w.severity==='warning'?'var(--warn-soft)':'var(--surface-2)'};"><b>${w.severity==='critical'?'🔴 Critical':w.severity==='warning'?'🟡 Warning':'⚪ Info'} — ${core.esc(w.metric)}</b> | ${core.esc(w.name)} — ${core.esc(w.message)} <span class="tag">${core.esc(w.action)}</span></div>`).join('') || `<p class="note">${core.T('لا توجد تحذيرات مبكرة حالياً.','No early warnings currently.')}</p>`}
     </div>
   </div>
 
   <div class="panel" style="margin-bottom:14px;">
-    <div class="panel-head"><h3>8.7 ${core.T('Knowledge Engine','Knowledge Engine')}</h3></div>
+    <div class="panel-head"><h3>${core.T('Knowledge Engine','Knowledge Engine')}</h3></div>
     ${kv(core, [
       ['Closed/Actual Sample', knowledge.sample],
       ['Median IRR Variance', knowledge.medIrr==null?'—':(knowledge.medIrr*100).toFixed(1)+' pts'],
@@ -416,14 +416,14 @@ function renderStage8Dashboard(core){
   </div>
 
   <div class="panel" style="margin-bottom:14px;">
-    <div class="panel-head"><h3>8.8 ${core.T('Institutional Reporting','Institutional Reporting')}</h3></div>
+    <div class="panel-head"><h3>${core.T('Institutional Reporting','Institutional Reporting')}</h3></div>
     <div class="grid3">
-      ${['Board Pack','IC Pack','Fund Pack','Quarterly Pack','Asset Pack','LP Report','ESG Report'].map(name=>`<div style="padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface);"><b>${name}</b><p class="note" style="margin:4px 0 0;">${core.T('جاهز كمصدر بيانات موحد؛ يتم توليده من نفس بيانات Stage 8 وكتب IC الحالية.','Ready as a unified data source; generated from the same Stage 8 data and existing IC books.')}</p></div>`).join('')}
+      ${['Board Pack','IC Pack','Fund Pack','Quarterly Pack','Asset Pack','LP Report','ESG Report'].map(name=>`<div style="padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface);"><b>${name}</b><p class="note" style="margin:4px 0 0;">${core.T('جاهز كمصدر بيانات موحد؛ يتم توليده من نفس بيانات محرك الذكاء الاستثماري المؤسسي وكتب IC الحالية.','Ready as a unified data source; generated from the same Institutional Investment Intelligence data and existing IC books.')}</p></div>`).join('')}
     </div>
   </div>
 
   <div class="panel">
-    <div class="panel-head"><h3>${core.T('المرحلة 8 الأمنية — Simulator / Validator / Regression / Replay','Stage 8 Security — Simulator / Validator / Regression / Replay')}</h3></div>
+    <div class="panel-head"><h3>${core.T('حوكمة المحرك — Simulator / Validator / Regression / Replay','Engine Governance — Simulator / Validator / Regression / Replay')}</h3></div>
     ${kv(core, [
       ['Rule Simulator', core.T('مغطى باختبارات Firestore Emulator قبل النشر؛ آخر suite يضم سيناريوهات v4 المزيفة وMonday وappend-only.','Covered by Firestore Emulator pre-deploy tests; latest suite includes fake v4, Monday, and append-only scenarios.')],
       ['Formula Validator', failedFormulas.length ? `FAIL (${failedFormulas.length})` : 'PASS'],
@@ -446,8 +446,8 @@ function renderPassport(core, row){
   const challenge = aiChallenge(core, row);
   const gate = icReadiness(core, d, c);
 
-  return `<div class="section" data-stage8-passport="${row.rec.id}">
-    <h3>🛂 8.6 ${core.T('Investment Passport — المرجع الرسمي للأصل','Investment Passport — Official Asset Reference')}</h3>
+  return `<div class="section" data-institutional-intelligence-passport="${row.rec.id}">
+    <h3>🛂 ${core.T('Investment Passport — المرجع الرسمي للأصل','Investment Passport — Official Asset Reference')}</h3>
     <div class="grid3" style="margin-bottom:10px;">
       ${miniScore(core, 'Investment Quality', suite.investmentQuality)}
       ${miniScore(core, 'Decision Confidence', suite.decisionConfidence)}
@@ -483,24 +483,24 @@ function renderPassport(core, row){
   </div>`;
 }
 
-export function registerStage8Intelligence(core){
-  core.registerTopbarButton(()=>`<button class="btn btn-sm" data-action="stage8-open">🧠 Stage 8</button>`);
-  core.registerMainView('stage8', ()=>renderStage8Dashboard(core));
+export function registerInstitutionalInvestmentIntelligence(core){
+  core.registerTopbarButton(()=>`<button class="btn btn-sm" data-action="institutional-intelligence-open">🧠 ${core.T('محرك الذكاء الاستثماري المؤسسي','Institutional Investment Intelligence')}</button>`);
+  core.registerMainView('institutional-intelligence', ()=>renderInstitutionalInvestmentIntelligenceDashboard(core));
   core.registerDetailSection((d, c, rec)=>{
     const oppId = core.openDetailId;
     const row = opportunityIntelligenceRows(core).find(x=>x.rec.id===oppId);
     return row ? renderPassport(core, row) : '';
   });
   core.registerActionHandler(async (action, el)=>{
-    if(action==='stage8-open'){
-      core.setCoreState({ mainView:'stage8', openDetailId:null, fundsViewOpen:false, render:true });
+    if(action==='institutional-intelligence-open'){
+      core.setCoreState({ mainView:'institutional-intelligence', openDetailId:null, fundsViewOpen:false, render:true });
       return true;
     }
-    if(action==='stage8-close'){
+    if(action==='institutional-intelligence-close'){
       core.setCoreState({ mainView:null, render:true });
       return true;
     }
-    if(action==='stage8-open-opp'){
+    if(action==='institutional-intelligence-open-opp'){
       core.openOpportunityDetail(el.dataset.id);
       return true;
     }

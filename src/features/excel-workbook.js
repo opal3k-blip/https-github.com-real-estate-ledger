@@ -31,7 +31,7 @@ import { maxAcquisitionPrice } from './max-acquisition-price.js';
 import { computeInvestmentScore, scoreBand } from './investment-score.js';
 import { computeDecisionConfidence } from './decision-confidence.js';
 // دقة التدفقات النقدية (شهري/ربع سنوي) + ذروة الاحتياج + صافي النقدي من المستثمرين النقديين
-// (المرحلة الثامنة) — إعادة استخدام مباشرة لنفس دوال cash-flow-timing.js المستخدَمة في واجهة
+// إعادة استخدام مباشرة لنفس دوال cash-flow-timing.js المستخدَمة في واجهة
 // المذكرة الحية، حتى لا يتكرر منطق منحنى S/التوزيع الشهري في أكثر من مكان (يبقى مصدراً واحداً).
 import { cashFlowTimingAnalysis } from './cash-flow-timing.js';
 
@@ -508,7 +508,7 @@ async function build0809CashFlowsWithChart(core, wb, d, c){
 }
 
 /* دقة زمنية شهرية/ربع سنوية + ذروة الاحتياج النقدي الفعلي + صافي النقدي المطلوب من
-   المستثمرين النقديين بعد خصم المساهمات العينية (المرحلة الثامنة، طلب المستخدم الأول) —
+   المستثمرين النقديين بعد خصم المساهمات العينية —
    مُشتقّة بالكامل من نفس صفوف 08_Project CF / 09_Equity CF أعلاه دون أي تعديل عليها. */
 function build0809bCashFlowTiming(core, wb, d, c, oppId){
   const { fmtSAR, xlRowsBuilder, xlNewSheet } = core;

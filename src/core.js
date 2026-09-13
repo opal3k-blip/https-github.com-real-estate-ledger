@@ -768,7 +768,7 @@ const CAPITAL_CALL_STATUS_LABEL = Object.fromEntries(CAPITAL_CALL_STATUS.map(([l
 const DISTRIBUTION_TYPES = ["عائد رأس المال (Return of Capital)","عائد مفضَّل (Preferred Return)","حصة أرباح/كاري (Profit Share / Carry)","أخرى (Other)"];
 const DISTRIBUTION_STATUS = [["🟡 مُعلَنة (لم تُصرَف بعد)","declared"],["🔵 مُعتمَدة (بانتظار الصرف)","approved"],["🟢 مصروفة","paid"]];
 const DISTRIBUTION_STATUS_LABEL = Object.fromEntries(DISTRIBUTION_STATUS.map(([l,v])=>[v,l]));
-// نوع مساهمة الالتزام — استثناء ضيّق ومقصود على قاعدة "عدم لمس core.js" (المرحلة الثامنة،
+// نوع مساهمة الالتزام — استثناء ضيّق ومقصود على قاعدة "عدم لمس core.js" (محرك التدفقات النقدية،
 // بموافقة صريحة من المستخدم): مستثمر نقدي (Cash) يسدّد التزامه عبر نداءات رأسمال عادية، أو
 // مستثمر عيني (In-Kind — الحالة النموذجية: مالك الأرض يُدخل الأرض نفسها كحصته في الصندوق بدل
 // نقد). القيمة المتفَق عليها للحصة العينية تُخزَّن في نفس حقل commitmentAmount الموجود أصلاً
@@ -4514,7 +4514,7 @@ document.addEventListener('click', async (e)=>{
     if(isNew && (kind==='capitalCall' || kind==='distribution')){
       await logIfTransaction({ type:kind, action:'create', relatedId:id, fundId:ifForm.draft.fundId, investorId:ifForm.draft.investorId, amount:ifForm.draft.amount });
     }
-    // مساهمة عينية (In-Kind) — استثناء core.js الضيّق نفسه (المرحلة الثامنة): بدل تعديل
+    // مساهمة عينية (In-Kind) — استثناء core.js الضيّق نفسه (محرك التدفقات النقدية): بدل تعديل
     // fundLedgerSummary/investorLedgerRows لفهم نوعين من الالتزام، نُبقيهما بلا تغيير عبر
     // توليد/تحديث/حذف سجل capitalCalls واحد مربوط (linkedCommitmentId) ومُعلَّم 'paid' تلقائياً
     // يمثّل نقل ملكية الأرض دفعة واحدة — فيستمر كل حساب PIC/DPI/TVPI القائم يعمل بلا لمس.
@@ -5199,7 +5199,7 @@ async function exportInvestorLedgerExcel(){
     // ---- شيت الالتزامات (Investor↔Fund Commitments) ----
     // أعمدة "نوع المساهمة"/"وصف المساهمة العينية" مُضافة في النهاية (وليس بينها وبين المبلغ)
     // عمداً — حتى تبقى معادلات SUMIFS في شيت "دفتر المستثمرين" أدناه المشيرة لعمودي C/D
-    // (المستثمر/المبلغ) صحيحة بلا أي تغيير (المرحلة الثامنة — نوع مساهمة الالتزام).
+    // (المستثمر/المبلغ) صحيحة بلا أي تغيير (نوع مساهمة الالتزام).
     // عمود "عكس لسجل" (المرحلة السادسة، دفتر مُرحَّل posted/locked/reversal) مُضاف في آخر كل شيت
     // من الثلاثة أدناه — بعد كل الأعمدة القائمة، لا بينها — لنفس السبب المذكور أعلاه بالضبط: أي
     // SUMIFS يشير لعمود بحرفه (D/C في الالتزامات، F/C/G في نداءات رأس المال، E/C/G في
@@ -5256,7 +5256,7 @@ async function exportInvestorLedgerExcel(){
       xlSetFormula(wsLedger, r, 6, `MAX(0,D${r}-E${r})`);
       xlSetFormula(wsLedger, r, 7, `SUMIFS('التوزيعات'!$E:$E,'التوزيعات'!$C:$C,${idCellRef},'التوزيعات'!$G:$G,"paid")`);
       xlSetFormula(wsLedger, r, 8, `IFERROR(G${r}/E${r},0)`, '0.00"×";;"-"');
-      // منها عيني/نقدي (المرحلة الثامنة) — تُشير لعمود F الجديد في شيت "الالتزامات" (نوع المساهمة)
+      // منها عيني/نقدي — تُشير لعمود F الجديد في شيت "الالتزامات" (نوع المساهمة)
       xlSetFormula(wsLedger, r, 9, `SUMIFS('الالتزامات'!$D:$D,'الالتزامات'!$C:$C,${idCellRef},'الالتزامات'!$F:$F,"In-Kind")`);
       xlSetFormula(wsLedger, r, 10, `SUMIFS('الالتزامات'!$D:$D,'الالتزامات'!$C:$C,${idCellRef},'الالتزامات'!$F:$F,"Cash")`);
     });

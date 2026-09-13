@@ -16,7 +16,7 @@
    Firestore)، فأي مجموعة بيانات إضافية (registerDataCollection) يجب أن تكون مُسجَّلة قبلها
    حتى تُحمَّل من أول تشغيل.
    ========================================================================= */
-import * as core from './core.js?v=20260913-stage8';
+import * as core from './core.js?v=20260913-institutional-intelligence';
 
 // إتاحة كل صادرات core.js على window — للتوافق الخلفي الكامل مع كل سكربتات
 // الاختبار (Playwright) المكتوبة طوال هذا المشروع (تستدعي
@@ -243,7 +243,7 @@ import { registerUnderwritingVersions } from './features/underwriting-versions.j
 registerUnderwritingVersions(core);
 
 // دقة زمنية للتدفقات النقدية (شهري/ربع سنوي/سنوي) + ذروة الاحتياج النقدي الفعلي + صافي
-// النقدي المطلوب من المستثمرين النقديين بعد خصم المساهمات العينية (المرحلة الثامنة)
+// النقدي المطلوب من المستثمرين النقديين بعد خصم المساهمات العينية.
 import { registerCashFlowTiming } from './features/cash-flow-timing.js';
 registerCashFlowTiming(core);
 
@@ -264,12 +264,12 @@ registerCapitalAllocationEngine(core);
 import { registerMondayIntegration } from './features/monday-integration.js';
 registerMondayIntegration(core);
 
-/* ---------------- المرحلة الثامنة (الذكاء الاستثماري المؤسسي) ---------------- */
-// لوحة Stage 8 الموحدة: Investment Intelligence، Portfolio Intelligence، Allocation
+/* ---------------- محرك الذكاء الاستثماري المؤسسي ---------------- */
+// لوحة موحدة: Investment Intelligence، Portfolio Intelligence، Allocation
 // Optimizer، Portfolio Stress Testing، Early Warning Engine، Investment Passport،
 // Knowledge Engine، Reporting Hub، وRegression/Security dashboards.
-import { registerStage8Intelligence } from './features/stage8-intelligence.js?v=20260913-stage8';
-registerStage8Intelligence(core);
+import { registerInstitutionalInvestmentIntelligence } from './features/institutional-investment-intelligence.js?v=20260913-institutional-intelligence';
+registerInstitutionalInvestmentIntelligence(core);
 
 /* ---------------- التهيئة ---------------- */
 core.initDb();
