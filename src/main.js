@@ -16,7 +16,7 @@
    Firestore)، فأي مجموعة بيانات إضافية (registerDataCollection) يجب أن تكون مُسجَّلة قبلها
    حتى تُحمَّل من أول تشغيل.
    ========================================================================= */
-import * as core from './core.js?v=20260913-stage7a';
+import * as core from './core.js?v=20260913-stage8';
 
 // إتاحة كل صادرات core.js على window — للتوافق الخلفي الكامل مع كل سكربتات
 // الاختبار (Playwright) المكتوبة طوال هذا المشروع (تستدعي
@@ -263,6 +263,13 @@ registerCapitalAllocationEngine(core);
 // إعداد جانب التطبيق فقط: لوحة أدمن وقائمة انتظار مزامنة بلا أي رمز API في العميل.
 import { registerMondayIntegration } from './features/monday-integration.js';
 registerMondayIntegration(core);
+
+/* ---------------- المرحلة الثامنة (الذكاء الاستثماري المؤسسي) ---------------- */
+// لوحة Stage 8 الموحدة: Investment Intelligence، Portfolio Intelligence، Allocation
+// Optimizer، Portfolio Stress Testing، Early Warning Engine، Investment Passport،
+// Knowledge Engine، Reporting Hub، وRegression/Security dashboards.
+import { registerStage8Intelligence } from './features/stage8-intelligence.js?v=20260913-stage8';
+registerStage8Intelligence(core);
 
 /* ---------------- التهيئة ---------------- */
 core.initDb();
