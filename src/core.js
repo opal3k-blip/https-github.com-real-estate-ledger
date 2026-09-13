@@ -939,7 +939,8 @@ function fundLedgerSummary(fundId){
   const cmts = commitmentsForFund(fundId);
   const committed = cmts.reduce((a,c)=>a+n(c.data.commitmentAmount),0);
   const calls = capitalCallsFor(fundId);
-  const called = calls.reduce((a,c)=>a+n(c.data.amount),0);
+  const activeCalls = calls.filter(c=>c.data.status!=='waived');
+  const called = activeCalls.reduce((a,c)=>a+n(c.data.amount),0);
   const paidIn = calls.filter(c=>c.data.status==='paid').reduce((a,c)=>a+n(c.data.amount),0);
   const dists = distributionsFor(fundId);
   const distPaid = dists.filter(d=>d.data.status==='paid').reduce((a,d)=>a+n(d.data.amount),0);

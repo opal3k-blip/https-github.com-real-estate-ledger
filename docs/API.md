@@ -26,6 +26,9 @@
 |---|---|---|
 | `mirrorOpportunityAuditLog` | `onDocumentWritten('opportunities/{oppId}')` | إنشاء سجل تدقيق غير قابل لتلاعب العميل |
 | `processMondayTaskQueue` | `onDocumentCreated('mondayTaskQueue/{queueId}')` | إرسال مهمة إلى Monday.com باستخدام Secret Manager |
+| `approveOpportunity` | Callable HTTPS | أمر خادمي لاعتماد IC: يتحقق من دور Senior IC، يمنع الموافقة بلا readiness أو override مبرر، ويسجل `icDecisions` داخل transaction |
+| `linkAssetToFund` | Callable HTTPS | أمر خادمي لربط أصل بصندوق: يعيد فحص قرار IC، الشروط، `targetEquity`, `maxAllocation`, ورأس المال القابل للتخصيص قبل تعديل `fund.assetIds` |
+| `postCapitalCall` | Callable HTTPS | أمر خادمي لترحيل نداء رأس مال مع منع القيود السالبة العادية ومنع النداءات المدفوعة التي تتجاوز التزام المستثمر |
 
 ## Export APIs داخل المتصفح
 

@@ -12,7 +12,9 @@
    portfolioIntelligenceStats — بلا أي تكرار للحساب).
    Net IRR هنا حساب جديد كلياً (XIRR بتواريخ فعلية) لا يكرر core.irr() (الذي
    يفترض فترات سنوية صحيحة لمحرك الجدوى لكل فرصة على حدة) — هذا تجميع محفظة
-   على مستوى مختلف تماماً غير موجود في core.js أصلاً. لا تعديل على منطق
+   على مستوى مختلف تماماً غير موجود في core.js أصلاً. ملاحظة حوكمة: قيمة NAV
+   هنا تقديرية مشتقة من underwriting linked assets، وليست Current Independent
+   Valuation رسمية إلا بعد إضافة سجل تقييم حالي مستقل للأصل. لا تعديل على منطق
    core.js الداخلي — فقط عبر نقاط التوسّع المُصدَّرة (registerMainView
    المضافة سابقاً لأجل Pipeline).
    ========================================================================= */
@@ -166,7 +168,7 @@ export function registerPortfolio(core){
         <div class="k">AUM (${core.T('إجمالي الالتزامات','Total Commitments')})</div><div class="v"><b>${core.fmtSAR(s.aum)}</b></div>
         <div class="k">${core.T('رأس المال المستثمر (منشور في أصول)','Invested Capital (Deployed)')}</div><div class="v">${core.fmtSAR(s.investedCapital)}</div>
         <div class="k">${core.T('رأس المال غير المستثمر (Dry Powder)','Uninvested Capital (Dry Powder)')}</div><div class="v">${core.fmtSAR(s.uninvestedCapital)}</div>
-        <div class="k">${core.T('القيمة الصافية للأصول (NAV، تقديرية)','Net Asset Value (NAV, estimated)')}</div><div class="v"><b>${core.fmtSAR(s.nav)}</b></div>
+        <div class="k">${core.T('NAV تقديرية من الاكتتاب','Estimated Underwriting NAV')}</div><div class="v"><b>${core.fmtSAR(s.nav)}</b></div>
         <div class="k">${core.T('التوزيعات المصروفة','Distributions Paid')}</div><div class="v">${core.fmtSAR(s.distPaid)}</div>
       </div>
     </div>
@@ -175,7 +177,7 @@ export function registerPortfolio(core){
       <div class="panel-head"><h3>${core.T('العوائد','Returns')}</h3></div>
       <div class="kv">
         <div class="k">Gross IRR <span style="font-size:10.5px; color:var(--ink-faint);">(${core.T('على مستوى الأصول، مرجَّح بحقوق الملكية','asset-level, equity-weighted')})</span></div><div class="v">${s.grossIRR!=null? core.fmtPct(s.grossIRR): '—'}</div>
-        <div class="k">Net IRR <span style="font-size:10.5px; color:var(--ink-faint);">(${core.T('على مستوى المستثمر، من تدفقات النداءات/التوزيعات الفعلية + NAV الحالي','investor-level, from actual call/distribution dates + current NAV')})</span></div><div class="v">${s.netIRR!=null? core.fmtPct(s.netIRR): `<span class="note">${core.T('بيانات نداءات/توزيعات غير كافية بعد','Not enough capital call/distribution data yet')}</span>`}</div>
+        <div class="k">Indicative Net IRR <span style="font-size:10.5px; color:var(--ink-faint);">(${core.T('تدفقات فعلية + NAV تقديرية من الاكتتاب، ليست NAV رسمية','actual calls/distributions + estimated underwriting NAV, not official NAV')})</span></div><div class="v">${s.netIRR!=null? core.fmtPct(s.netIRR): `<span class="note">${core.T('بيانات نداءات/توزيعات غير كافية بعد','Not enough capital call/distribution data yet')}</span>`}</div>
         <div class="k">${core.T('مضاعف المحفظة (TVPI)','Portfolio Multiple (TVPI)')}</div><div class="v">${s.portfolioMOIC!=null? s.portfolioMOIC.toFixed(2)+'×':'—'}</div>
       </div>
     </div>

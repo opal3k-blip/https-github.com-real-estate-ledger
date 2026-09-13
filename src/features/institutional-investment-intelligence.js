@@ -362,7 +362,7 @@ function renderInstitutionalInvestmentIntelligenceDashboard(core){
   <div class="panel" style="margin-bottom:14px;">
     <div class="panel-head"><h3>${core.T('Portfolio Intelligence','Portfolio Intelligence')}</h3></div>
     ${kv(core, [
-      ['NAV', core.fmtSAR(p.nav)],
+      [core.T('NAV تقديرية من الاكتتاب','Estimated Underwriting NAV'), core.fmtSAR(p.nav)],
       ['AUM / Committed', core.fmtSAR(p.committed)],
       ['Drawn / Paid-in', core.fmtSAR(p.paidIn)],
       ['Remaining Capital', core.fmtSAR(p.uninvestedCapital)],

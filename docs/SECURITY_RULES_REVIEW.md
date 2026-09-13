@@ -74,3 +74,4 @@ ALL PASSED (against a real Firestore emulator, not a mock)
 2. عدم نسخ قواعد من Firebase Console إلى المشروع يدوياً؛ المصدر الوحيد هو `firestore.rules`.
 3. إضافة اختبارات لكل Collection جديد قبل نشره.
 4. نشر Cloud Functions حتى يكتمل سجل التدقيق الحقيقي.
+5. العمليات الحساسة الجديدة يجب نقل واجهتها تدريجياً إلى Cloud Functions: `approveOpportunity`, `linkAssetToFund`, و`postCapitalCall`. القواعد الحالية ما زالت تحمي الصلاحيات والـappend-only، بينما الدوال تضيف إعادة تحقق business invariants داخل transactions خادمية عند نشرها وربط العميل بها.

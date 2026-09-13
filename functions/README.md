@@ -4,6 +4,9 @@
 
 - `mirrorOpportunityAuditLog`: تكتب سجل تدقيق حقيقي وغير قابل للتلاعب في مجموعة `oppAuditLog`، بديلاً عن الكتابة السابقة من العميل مباشرة.
 - `processMondayTaskQueue`: تعالج قائمة انتظار `mondayTaskQueue` وترسل المهام إلى Monday.com من الخادم فقط بعد ضبط السر `MONDAY_API_TOKEN`.
+- `approveOpportunity`: أمر HTTPS callable لاعتماد IC من الخادم مع فحص دور Senior IC وreadiness/override قبل كتابة القرار.
+- `linkAssetToFund`: أمر HTTPS callable لربط أصل بصندوق بعد إعادة فحص قرار IC، الشروط، `maxAllocation`، وسعة رأس المال القابلة للتخصيص.
+- `postCapitalCall`: أمر HTTPS callable لترحيل نداء رأس مال مع منع السالب العادي ومنع over-call أعلى من الالتزام.
 
 ## لماذا هذه الدالة ضرورية
 
