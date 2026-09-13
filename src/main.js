@@ -76,7 +76,7 @@ registerRiskEngine(core);
 import { registerInvestmentScore } from './features/investment-score.js';
 registerInvestmentScore(core);
 
-import { registerICWorkflow } from './features/ic-workflow.js';
+import { registerICWorkflow } from './features/ic-workflow.js?v=20260913-stage7b';
 registerICWorkflow(core);
 
 /* ---------------- المرحلة ٢ ---------------- */
@@ -239,7 +239,7 @@ registerICDecisionGate(core);
 // التسعير الموثَّق بالإصدارات (v1→v4 + Actual vs. Underwriting) — مجموعة بيانات
 // جديدة مستقلة (underwritingVersions) + حقل جذر جديد (actuals). يستمع تلقائياً لكل
 // حفظ فرصة (registerBeforeOpportunitySave) لاكتشاف قرار لجنة اعتماد جديد.
-import { registerUnderwritingVersions } from './features/underwriting-versions.js';
+import { registerUnderwritingVersions } from './features/underwriting-versions.js?v=20260913-stage7b';
 registerUnderwritingVersions(core);
 
 // دقة زمنية للتدفقات النقدية (شهري/ربع سنوي/سنوي) + ذروة الاحتياج النقدي الفعلي + صافي

@@ -187,11 +187,39 @@ for(const coll of LEDGER_COLLECTIONS){
   assert(true, '✅ القراءة في comparables تبقى متاحة لأي عضو مصرَّح له (يستخدمها في المقارنة فقط)');
 }
 
-// ==================== ٧) التسعير الموثَّق بالإصدارات (underwritingVersions) — إضافة لأي عضو، immutable بالكامل حتى للأدمن ====================
+// ==================== ٧) التسعير الموثَّق بالإصدارات (underwritingVersions) — نزاهة إنشاء + immutable بالكامل ====================
 {
   const db = ctxFor(ANALYST_OWNER).firestore();
-  await assertSucceeds(setDoc(doc(db,'underwritingVersions','UWV1'), { oppId:'OPP-1', stage:'manual', metrics:{ price:2000 } }));
-  assert(true, '✅ محلل عادي يقدر يحفظ لقطة تسعير (نسخة موثَّقة) — append-only، ليست مكتبة مرجعية تتطلب مدير صندوق');
+  await assertSucceeds(setDoc(doc(db,'underwritingVersions','UWV1'), { oppId:'OPP-1', stage:'manual', trigger:'manual', savedBy:ANALYST_OWNER, savedAt:'2026-01-01T00:00:00.000Z', metrics:{ price:2000 } }));
+  assert(true, '✅ مالك الفرصة يقدر يحفظ لقطة تسعير يدوية فقط عندما savedBy يطابق بريده الحقيقي وترتبط بفرصة موجودة');
+}
+{
+  const db = ctxFor(ANALYST_OWNER).firestore();
+  await assertFails(setDoc(doc(db,'underwritingVersions','UWV-SPOOF'), { oppId:'OPP-1', stage:'manual', trigger:'manual', savedBy:'someone-else@x.com', savedAt:'2026-01-01T00:00:00.000Z', metrics:{ price:2000 } }));
+  assert(true, '🔒 لا يمكن إنشاء لقطة underwritingVersions بهوية savedBy مزيفة');
+}
+{
+  const db = ctxFor(ANALYST_OTHER).firestore();
+  await assertFails(setDoc(doc(db,'underwritingVersions','UWV-NONOWNER'), { oppId:'OPP-1', stage:'manual', trigger:'manual', savedBy:ANALYST_OTHER, savedAt:'2026-01-01T00:00:00.000Z', metrics:{ price:2000 } }));
+  assert(true, '🔒 محلل مصرح له لكنه لا يملك الفرصة لا يستطيع إنشاء لقطة يدوية لها عبر Firestore مباشرة');
+}
+{
+  const db = ctxFor(ANALYST_OWNER).firestore();
+  await assertFails(setDoc(doc(db,'underwritingVersions','UWV-FAKE-V4'), { oppId:'OPP-1', stage:'v4_ic_approved', trigger:'ic_decision', savedBy:ANALYST_OWNER, savedAt:'2026-01-01T00:00:00.000Z', sourceDecisionId:'ICD-NOPE', metrics:{ price:1, equityIRR:9 } }));
+  assert(true, '🔒 الثغرة المغلقة: أي محلل مصرح له لا يستطيع إنشاء v4_ic_approved مصطنعة تصبح baseline للأداء الفعلي');
+}
+{
+  const db = ctxFor(SENIOR_IC).firestore();
+  await assertFails(setDoc(doc(db,'underwritingVersions','UWV-V4-NOSOURCE'), { oppId:'OPP-1', stage:'v4_ic_approved', trigger:'ic_decision', savedBy:SENIOR_IC, savedAt:'2026-01-01T00:00:00.000Z', metrics:{ price:1, equityIRR:9 } }));
+  assert(true, '🔒 حتى Senior IC لا يستطيع إنشاء v4 بلا sourceDecisionId يربطها بسجل قرار IC موجود');
+}
+{
+  await testEnv.withSecurityRulesDisabled(async (ctx)=>{
+    await setDoc(doc(ctx.firestore(),'icDecisions','ICD-UWV-OK'), { oppId:'OPP-1', decision:{ decision:'approve' }, recordedAt:'2026-01-01T00:00:00.000Z', recordedBy:SENIOR_IC });
+  });
+  const db = ctxFor(SENIOR_IC).firestore();
+  await assertSucceeds(setDoc(doc(db,'underwritingVersions','UWV-V4-OK'), { oppId:'OPP-1', stage:'v4_ic_approved', trigger:'ic_decision', savedBy:SENIOR_IC, savedAt:'2026-01-01T00:00:01.000Z', sourceDecisionId:'ICD-UWV-OK', metrics:{ price:2000, equityIRR:0.16 } }));
+  assert(true, '✅ v4_ic_approved تُقبل فقط عندما تكون من Senior IC ومربوطة بسجل icDecisions صالح لنفس الفرصة ونفس المسجّل');
 }
 {
   const db = ctxFor(SENIOR_IC).firestore();
@@ -214,8 +242,13 @@ for(const coll of LEDGER_COLLECTIONS){
 // عضو مصرَّح له، immutable بالكامل حتى للأدمن، ولا يجوز إعادة استخدام نفس id لسجل موجود ====================
 {
   const db = ctxFor(ANALYST_OWNER).firestore();
-  await assertSucceeds(setDoc(doc(db,'assetActuals','ACT1'), { oppId:'OPP-1', period:'2027 Q1', asOfDate:'2027-03-31', actualEquityIRR:0.12, actualMOIC:1.1, actualDSCR:1.3, notes:'' }));
-  assert(true, '✅ محلل عادي يقدر يضيف إدخال أداء فعلي جديد — append-only، ليست مكتبة مرجعية تتطلب مدير صندوق');
+  await assertSucceeds(setDoc(doc(db,'assetActuals','ACT1'), { oppId:'OPP-1', period:'2027 Q1', asOfDate:'2027-03-31', actualEquityIRR:0.12, actualMOIC:1.1, actualDSCR:1.3, notes:'', enteredBy:ANALYST_OWNER, enteredAt:'2027-03-31T00:00:00.000Z' }));
+  assert(true, '✅ محلل عادي يقدر يضيف إدخال أداء فعلي جديد عندما enteredBy يطابق بريده الحقيقي وترتبط الوثيقة بفرصة موجودة');
+}
+{
+  const db = ctxFor(ANALYST_OWNER).firestore();
+  await assertFails(setDoc(doc(db,'assetActuals','ACT-SPOOF'), { oppId:'OPP-1', period:'2027 Q1', asOfDate:'2027-03-31', actualEquityIRR:0.12, enteredBy:'someone-else@x.com', enteredAt:'2027-03-31T00:00:00.000Z' }));
+  assert(true, '🔒 لا يمكن إنشاء إدخال أداء فعلي بهوية enteredBy مزيفة');
 }
 {
   const db = ctxFor(ANALYST_OWNER).firestore();

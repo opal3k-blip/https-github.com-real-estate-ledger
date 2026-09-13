@@ -12,8 +12,9 @@
 
    مجموعة Firestore مستقلة ومسطَّحة (underwritingVersions، بحقل oppId — نفس
    نمط oppAuditLog بالضبط لا subcollection) — append-only بتصميم firestore.rules
-   (create لأي عضو مصرَّح له، update/delete للأدمن فقط — نفس فكرة "تعديل
-   السجل التاريخي نادر واستثنائي، لا إجراء اعتيادي").
+   مع قيود نزاهة إنشاء: اللقطة اليدوية يكتبها مالك الفرصة/الأدمن فقط، ولقطة
+   v4_ic_approved لا تُقبل إلا من Senior IC/Admin ومربوطة بسجل icDecisions
+   موجود فعلاً؛ update/delete ممنوعان بالكامل.
 
    ---------------------------------------------------------------------------
    إضافة "المرحلة السابعة — الأداء الفعلي المتكرر + نسخ الأطروحة" (بطلب
@@ -24,8 +25,8 @@
       المبدأ المحاسبي المُطبَّق في كل مكان آخر بالمشروع (المرحلة ٦/٦-ب: كل
       حقيقة مالية مُسجَّلة سجل ثابت append-only، لا تُستبدَل). الحل: مجموعة
       Firestore جديدة (assetActuals) — append-only بالضبط بنفس نمط
-      underwritingVersions (create فقط، لا تعديل ولا حذف، id لا يتكرر) — كل
-      إدخال "فعلي" لفترة جديدة سجل ثابت مستقل، فتُبنى سلسلة زمنية حقيقية
+      assetActuals (create فقط، لا تعديل ولا حذف، id لا يتكرر، وenteredBy
+      يطابق المستخدم المصادَق عليه) — كل إدخال "فعلي" لفترة جديدة سجل ثابت مستقل، فتُبنى سلسلة زمنية حقيقية
       (Timeline) بدل لقطة واحدة تُمحى بالحفظ التالي. الحقل القديم d.actuals لم
       يُحذَف (تفادياً لأي فقد بيانات لمن استخدمه قبل هذا التعديل) ويظهر تلقائياً
       كأول صف "لقطة قديمة (نظام سابق)" فقط للقراءة في الجدول الجديد.
@@ -67,6 +68,20 @@ function snapshotMetrics(core, d){
   };
 }
 
+export function buildUnderwritingVersionRecord(core, oppId, d, stage, trigger, sourceDecisionId){
+  return { id: core.uid('UWV'), data: {
+    oppId,
+    stage,
+    label: STAGE_LABELS[stage] ? STAGE_LABELS[stage].ar : stage,
+    savedAt: new Date().toISOString(),
+    savedBy: core.currentUser ? core.currentUser.email : (core.DEMO_MODE ? 'زائر تجريبي' : 'محلي'),
+    trigger,
+    sourceDecisionId: sourceDecisionId || null,
+    metrics: snapshotMetrics(core, d),
+    thesisSnapshot: (d.thesis||'').trim(),
+  }};
+}
+
 function fmtMetric(core, key, v){
   if(v==null) return '—';
   if(key==='price') return core.fmtSAR(v);
@@ -94,32 +109,6 @@ export function registerUnderwritingVersions(core){
     actuals: { enabled:false, asOfDate:'', actualPrice:null, actualEquityIRR:null, actualMOIC:null, notes:'' },
     thesis: '',
   }));
-
-  // لقطة تلقائية عند كل قرار لجنة جديد — نكتشف ذلك بمقارنة عدد قرارات
-  // ic.decisions قبل/بعد الحفظ (لا حاجة لأي حقل جديد أو تعديل على ic-workflow.js).
-  core.registerBeforeOpportunitySave(async (oldData, newData, oppId)=>{
-    const oldCount = (oldData && oldData.ic && oldData.ic.decisions) ? oldData.ic.decisions.length : 0;
-    const newCount = (newData.ic && newData.ic.decisions) ? newData.ic.decisions.length : 0;
-    if(newCount <= oldCount) return; // لا قرار جديد في هذا الحفظ
-
-    const latestDecision = newData.ic.decisions[newData.ic.decisions.length-1];
-    const stage = (latestDecision && (latestDecision.decision==='approve' || latestDecision.decision==='approve_conditions')) ? 'v4_ic_approved' : null;
-    // نسجّل لقطة فقط عند اعتماد/اعتماد بشروط — قرارات المراجعة/التعليق/الرفض
-    // ليست "تسعيراً مُعتمَداً" يستحق نسخة v4، لكنها تبقى ظاهرة في سجل قرارات
-    // اللجنة (ic-workflow.js) نفسه دون تكرار.
-    if(!stage) return;
-
-    const rec = { id: core.uid('UWV'), data: {
-      oppId, stage,
-      label: STAGE_LABELS[stage].ar,
-      savedAt: new Date().toISOString(),
-      savedBy: core.currentUser ? core.currentUser.email : (core.DEMO_MODE ? 'زائر تجريبي' : 'محلي'),
-      trigger: 'ic_decision',
-      metrics: snapshotMetrics(core, newData),
-      thesisSnapshot: (newData.thesis||'').trim(),
-    }};
-    await core.persistIfRecord(UW_COLLECTION, rec);
-  });
 
   core.registerDetailSection((d, c)=>{
     const oppId = core.openDetailId;
@@ -269,14 +258,7 @@ export function registerUnderwritingVersions(core){
       const rec = core.opportunities.find(o=>o.id===oppId);
       if(!rec || !core.canEditOpp(rec)) return true;
       const draft = core.withDefaults(rec.data);
-      const versionRec = { id: core.uid('UWV'), data: {
-        oppId, stage:'manual', label: STAGE_LABELS.manual.ar,
-        savedAt: new Date().toISOString(),
-        savedBy: core.currentUser ? core.currentUser.email : (core.DEMO_MODE ? 'زائر تجريبي' : 'محلي'),
-        trigger: 'manual',
-        metrics: snapshotMetrics(core, draft),
-        thesisSnapshot: (draft.thesis||'').trim(),
-      }};
+      const versionRec = buildUnderwritingVersionRecord(core, oppId, draft, 'manual', 'manual');
       await core.persistIfRecord(UW_COLLECTION, versionRec);
       core.render();
       return true;

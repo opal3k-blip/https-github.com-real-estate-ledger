@@ -37,6 +37,7 @@
 import { dataQualityStats } from './data-quality.js';
 import { ddStats, defaultItemsDict as ddDefaultItemsDict } from './due-diligence.js';
 import { canApproveIC } from './roles-permissions.js';
+import { buildUnderwritingVersionRecord } from './underwriting-versions.js?v=20260913-stage7b';
 import { icReadiness } from './ic-decision-gate.js';
 
 const APPROVAL_DECISIONS = ['approve', 'approve_conditions'];
@@ -183,12 +184,19 @@ export function registerICWorkflow(core){
 
       const saved = await core.persistOpportunity({ id: oppId, data: draft });
       if(saved && core.persistIfRecord){
+        const latestDecision = draft.ic.decisions[draft.ic.decisions.length-1];
         const decisionRecord = { id: core.uid('ICD'), data: {
           oppId, decision: JSON.parse(JSON.stringify(draft.ic.decisions[draft.ic.decisions.length-1])),
           recordedAt: new Date().toISOString(), recordedBy: decidedBy,
           source:'opportunity.ic.decisions', version:1,
         }};
         await core.persistIfRecord('icDecisions', decisionRecord);
+        if(APPROVAL_DECISIONS.includes(latestDecision.decision)){
+          await core.persistIfRecord(
+            'underwritingVersions',
+            buildUnderwritingVersionRecord(core, oppId, draft, 'v4_ic_approved', 'ic_decision', decisionRecord.id)
+          );
+        }
       }
       await core.loadAll();
       core.render();

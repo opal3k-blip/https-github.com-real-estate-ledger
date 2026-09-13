@@ -58,6 +58,9 @@ service cloud.firestore {
     function isFundManagerOrAbove() {
       return isAdminEmail() || (isAllowlisted() && currentRole() == 'fund_manager');
     }
+    function requestEmail() {
+      return request.auth.token.email.lower();
+    }
 
     // نقطة ٧-٢: صلاحية اعتماد لجنة الاستثمار (canApproveIC في roles-permissions.js) — عضو لجنة
     // استثمار أول فأعلى. مطلوبة هنا (لا فقط في واجهة العميل) لأن ic-workflow.js يسمح لعضو لجنة
@@ -68,6 +71,9 @@ service cloud.firestore {
     // الحالة، لا يفتح الفرصة كاملة للتعديل من غير مالكها.
     function currentRoleIsSeniorICOrAbove() {
       return isAllowlisted() && currentRole() in ['senior_ic','fund_manager'];
+    }
+    function currentRoleIsSeniorICOrAdmin() {
+      return isAdminEmail() || currentRoleIsSeniorICOrAbove();
     }
 
     // نقطة ٧-٣: تحقّق أن التعديل من عضو لجنة الاستثمار (غير المالك) لم يغيّر إلا حقل قرارات
@@ -330,14 +336,49 @@ service cloud.firestore {
     }
 
     // سجلات نسخ الاكتتاب (Versioned Underwriting، underwriting-versions.js، المرحلة السابعة) —
-    // لقطة (Snapshot) كاملة لبيانات وحسابات الفرصة عند لحظة مهمة (إنشاء، قرار لجنة استثمار،
-    // حفظ يدوي). سجل إضافة فقط بنفس فلسفة oppAuditLog (لا داعي هنا لـCloud Function لأن الخطر
-    // أقل جوهرياً — هذه لقطات تحليلية داعمة للقرار، لا سجل تدقيق رسمي مُلزِم قانونياً)، فتبقى
-    // القراءة/الإنشاء لأي عضو مصرَّح له (لأي فرصة يقدر يقرأها فعلاً). اللقطة
-    // التاريخية immutable بالكامل؛ التصحيح ينشئ نسخة جديدة مع سبب تصحيح بدلاً من تعديلها.
+    // لقطة (Snapshot) كاملة لبيانات وحسابات الفرصة عند لحظة مهمة. إصلاح حوكمة مهم:
+    // immutability بعد الإنشاء لا تكفي إذا كان الإنشاء نفسه مفتوحاً؛ لذلك لم يعد أي عضو
+    // مصرّح له قادراً على إنشاء v4_ic_approved مصطنعة تصبح baseline للأداء الفعلي.
+    // القواعد الآن تفرض: فرصة موجودة، savedBy يطابق المستخدم الحقيقي، stage/trigger
+    // معروفان، والـ v4 مربوطة بسجل icDecisions موجود لنفس الفرصة ومن نفس المسجّل.
+    function linkedOpportunityExists() {
+      return request.resource.data.oppId is string
+        && exists(/databases/$(database)/documents/opportunities/$(request.resource.data.oppId));
+    }
+    function createActorSavedByHonest() {
+      return request.resource.data.savedBy is string
+        && request.resource.data.savedBy.lower() == requestEmail();
+    }
+    function createActorEnteredByHonest() {
+      return request.resource.data.enteredBy is string
+        && request.resource.data.enteredBy.lower() == requestEmail();
+    }
+    function linkedDecisionValid() {
+      return request.resource.data.sourceDecisionId is string
+        && exists(/databases/$(database)/documents/icDecisions/$(request.resource.data.sourceDecisionId))
+        && get(/databases/$(database)/documents/icDecisions/$(request.resource.data.sourceDecisionId)).data.oppId == request.resource.data.oppId
+        && get(/databases/$(database)/documents/icDecisions/$(request.resource.data.sourceDecisionId)).data.recordedBy.lower() == requestEmail()
+        && get(/databases/$(database)/documents/icDecisions/$(request.resource.data.sourceDecisionId)).data.decision.decision in ['approve','approve_conditions'];
+    }
+    function underwritingVersionCreateAllowed(versionId) {
+      return isAuthorized()
+        && !exists(/databases/$(database)/documents/underwritingVersions/$(versionId))
+        && linkedOpportunityExists()
+        && createActorSavedByHonest()
+        && request.resource.data.metrics is map
+        && (
+             (request.resource.data.stage == 'v4_ic_approved'
+              && request.resource.data.trigger == 'ic_decision'
+              && currentRoleIsSeniorICOrAdmin()
+              && linkedDecisionValid())
+          || (request.resource.data.stage == 'manual'
+              && request.resource.data.trigger == 'manual'
+              && (isAdminEmail() || ownsOpp(get(/databases/$(database)/documents/opportunities/$(request.resource.data.oppId)).data)))
+        );
+    }
     match /underwritingVersions/{id} {
       allow read: if isAuthorized();
-      allow create: if isAuthorized() && !exists(/databases/$(database)/documents/underwritingVersions/$(id));
+      allow create: if underwritingVersionCreateAllowed(id);
       allow update, delete: if false;
     }
 
@@ -349,7 +390,12 @@ service cloud.firestore {
     // إدخالاً جديداً بفترة/تاريخ مختلفين، لا تعديل القديم.
     match /assetActuals/{id} {
       allow read: if isAuthorized();
-      allow create: if isAuthorized() && !exists(/databases/$(database)/documents/assetActuals/$(id));
+      allow create: if isAuthorized()
+        && !exists(/databases/$(database)/documents/assetActuals/$(id))
+        && linkedOpportunityExists()
+        && createActorEnteredByHonest()
+        && request.resource.data.period is string
+        && request.resource.data.asOfDate is string;
       allow update, delete: if false;
     }
 
