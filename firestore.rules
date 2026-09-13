@@ -77,35 +77,43 @@ service cloud.firestore {
     // المتغيّرة فيه هي فقط updatedAt/updatedBy (لا name/city/analyst/... التي تبقى بلا تغيير).
     function icOnlyChange(before, after) {
       return after.diff(before).affectedKeys().hasOnly(['ic', 'meta'])
-        && after.meta.diff(before.meta).affectedKeys().hasOnly(['updatedAt', 'updatedBy'])
-        && icDecisionAppendOnly(before, after);
+        && after.meta.diff(before.meta).affectedKeys().hasOnly(['updatedAt', 'updatedBy']);
     }
+    // ============================================================================
 
-    // سجل قرارات اللجنة append-only: قرار واحد جديد في نهاية القائمة، مع هوية
-    // العضو المصادق عليه وطابع زمني غير فارغ. لا يسمح هذا بتبديل قرار سابق أو حذفه.
-    function icDecisionAppendOnly(before, after) {
-      return before.ic.decisions is list
-        && after.ic.decisions is list
-        && after.ic.decisions.size() == before.ic.decisions.size() + 1
-        && after.ic.decisions[after.ic.decisions.size() - 1].decidedBy.lower()
-             == request.auth.token.email.lower()
-        && after.ic.decisions[after.ic.decisions.size() - 1].decidedAt is string
-        && after.ic.decisions[after.ic.decisions.size() - 1].decidedAt.size() > 0;
+    // ==================== المرحلة الخامسة (محرك ربط رأس المال) ====================
+    // نقطة ٥-١: capitalAllocation (targetEquity/maxAllocation/priority/committeeNote) حقل
+    // حجز رأسمال فعلي على مستوى الصندوق (كم من رأس مال الصندوق مخصَّص لهذه الفرصة تحديداً) —
+    // قرار حوكمي بمستوى قرار اللجنة تماماً، لا يجوز أن يبقى مفتوحاً لمالك الفرصة نفسه (محلل)
+    // عبر مسار ownsOpp العام (كان ذلك ثغرة كامنة منذ إضافة الحقل في المرحلة الثانية: الحقل موجود
+    // في المخطط بلا أي قيد Firestore خاص به، فيقدر أي محلل يعدّله بنفسه ضمن أي حفظ عادي لفرصته).
+    // الإصلاح هنا يماثل تماماً نمط icOnlyChange أعلاه: مسار إضافي ضيّق لمدير الصندوق فأعلى فقط،
+    // ومنع مسار "المالك العادي" (ownsOpp) من تغيير capitalAllocation إطلاقاً حتى لو كان هو
+    // المالك — تخصيص رأس المال قرار مدير الصندوق دائماً بصرف النظر عمّن أنشأ الفرصة.
+    function changesCapitalAllocation(before, after) {
+      return after.diff(before).affectedKeys().hasAny(['capitalAllocation']);
+    }
+    function capitalAllocationOnlyChange(before, after) {
+      return after.diff(before).affectedKeys().hasOnly(['capitalAllocation', 'meta'])
+        && after.meta.diff(before.meta).affectedKeys().hasOnly(['updatedAt', 'updatedBy']);
     }
     // ============================================================================
 
     // بيانات الفرص الاستثمارية — للفريق المصرَّح له فقط (ولسه ضمن مدة الوصول).
     // القراءة: لأي عضو مصرَّح له. الإضافة: لأي عضو مصرَّح له (بشرط نزاهة النِّسبة). التعديل:
-    // الأدمن، أو عضو الفريق لفرصته الخاصة، أو عضو لجنة استثمار أول فأعلى *لكن فقط لتسجيل قرار
-    // لجنة الاستثمار* (icOnlyChange أعلاه) — كل ذلك بشرط نزاهة النِّسبة أيضاً. الحذف: الأدمن أو
-    // مالك الفرصة فقط (لم يُوسَّع لعضو اللجنة عمداً — الحذف قرار أكبر من مجرد تسجيل قرار لجنة).
+    // الأدمن، أو عضو الفريق لفرصته الخاصة (بشرط ألا يلمس capitalAllocation — أدناه)، أو عضو لجنة
+    // استثمار أول فأعلى *لكن فقط لتسجيل قرار لجنة الاستثمار* (icOnlyChange أعلاه)، أو مدير صندوق
+    // فأعلى *لكن فقط لتخصيص رأس المال* (capitalAllocationOnlyChange أعلاه) — كل ذلك بشرط نزاهة
+    // النِّسبة أيضاً. الحذف: الأدمن أو مالك الفرصة فقط (لم يُوسَّع لعضو اللجنة أو مدير الصندوق
+    // عمداً — الحذف قرار أكبر من مجرد تسجيل قرار لجنة أو تخصيص رأس مال).
     match /opportunities/{oppId} {
       allow read: if isAuthorized();
       allow create: if isAuthorized() && attributionHonest();
       allow update: if attributionHonest() && (
              isAdminEmail()
-          || (isAllowlisted() && ownsOpp(resource.data))
+          || (isAllowlisted() && ownsOpp(resource.data) && !changesCapitalAllocation(resource.data, request.resource.data))
           || (currentRoleIsSeniorICOrAbove() && icOnlyChange(resource.data, request.resource.data))
+          || (isFundManagerOrAbove() && capitalAllocationOnlyChange(resource.data, request.resource.data))
       );
       allow delete: if isAdminEmail() || (isAllowlisted() && ownsOpp(resource.data));
     }
@@ -130,6 +138,23 @@ service cloud.firestore {
     match /settings/{docId} {
       allow read: if isAuthorized();
       allow write: if isAdminEmail();
+    }
+
+    // إعدادات Monday.com وقائمة انتظار المزامنة — لا يوجد أي رمز API في العميل.
+    // الإعدادات يراها الفريق وتُدار من الأدمن فقط، والمهام تُنشأ كطلبات pending
+    // إضافة فقط من مدير صندوق فأعلى؛ التحديث الفعلي لحالة الإرسال يتم من Cloud
+    // Function باستخدام Admin SDK بعد ضبط MONDAY_API_TOKEN في Secret Manager.
+    match /mondayConfig/{docId} {
+      allow read: if isAuthorized();
+      allow write: if isAdminEmail();
+    }
+    match /mondayTaskQueue/{id} {
+      allow read: if isAuthorized();
+      allow create: if isFundManagerOrAbove()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.queuedBy != null
+        && request.resource.data.queuedBy.lower() == request.auth.token.email.lower();
+      allow update, delete: if false;
     }
 
     // حضور لحظي ("من متصل الآن") — كل مستخدم يكتب في وثيقته الخاصة فقط، وأي مستخدم مصرَّح له
@@ -168,10 +193,76 @@ service cloud.firestore {
     // المعماري الأساسي للمشروع — ونؤكد أنها الحماية *الفعلية* بصرف النظر عن شكل الواجهة.
     match /investors/{id}      { allow read: if isAuthorized(); allow create, update, delete: if isFundManagerOrAbove(); }
     match /funds/{id}          { allow read: if isAuthorized(); allow create, update, delete: if isFundManagerOrAbove(); }
-    match /commitments/{id}    { allow read: if isAuthorized(); allow create, update, delete: if isFundManagerOrAbove(); }
-    match /capitalCalls/{id}   { allow read: if isAuthorized(); allow create, update, delete: if isFundManagerOrAbove(); }
-    match /distributions/{id}  { allow read: if isAuthorized(); allow create, update, delete: if isFundManagerOrAbove(); }
-    match /transactions/{id}   { allow read: if isAuthorized(); allow create, update, delete: if isFundManagerOrAbove(); }
+
+    // ⚠️ إعادة هندسة محاسبية كاملة (المرحلة السادسة، بطلب صريح من المستخدم بعد سؤاله مباشرةً
+    // عن حجم الخطوة وموافقته على "إعادة هندسة كاملة الآن"): commitments/capitalCalls/
+    // distributions/transactions هي دفتر محاسبي حقيقي الآن، لا سجلات CRUD عادية — أي سجل
+    // "مُرحَّل" (posted/locked) لا يمكن تعديله أو حذفه أبداً، حتى من مدير الصندوق نفسه؛ التصحيح
+    // الوحيد المسموح هو قيد عكسي جديد (سجل جديد بحقل reversalOfId يشير للأصل ومبلغ عكسي/سالب)
+    // — تماماً كمبدأ icDecisions/underwritingVersions/oppAuditLog القائم فعلاً في هذا الملف
+    // (allow create فقط، allow update/delete: if false)، مُطبَّقاً هنا حسب "حالة الترحيل" لا
+    // مجرد وجود السجل:
+    //  • commitments: التزام المستثمر "مُرحَّل" من لحظة إنشائه مباشرة (لا حقل status له أصلاً في
+    //    نموذج البيانات — الالتزام بذاته فعل محاسبي واحد، ليس مسودة قابلة للتغيير). فـ create
+    //    فقط دائماً؛ update/delete ممنوعان بالكامل.
+    //  • capitalCalls: "مسودة" فقط بينما status=='pending' (تعديل/حذف حر كما كان)، ثم تُرحَّل
+    //    (تُقفَل) نهائياً بمجرد status=='paid' أو 'waived' — النداء المرتبط تلقائياً بمساهمة
+    //    عينية (linkedCommitmentId) يُرحَّل هو أيضاً فوراً بصرف النظر عن status لأنه ناتج التزام
+    //    مُرحَّل بالفعل.
+    //  • distributions: نفس المنطق — "مسودة" بينما status=='declared'، تُرحَّل عند 'paid'.
+    //  • transactions: سجل تدقيق (Audit Trail) — كان بلا واجهة تعديل أصلاً (تحقَّقنا من هذا في
+    //    core.js قبل الكتابة هنا)؛ الآن مُلزَم في القاعدة أيضاً: append-only بالكامل، لا تعديل
+    //    ولا حذف مهما كانت الحالة — تطابق تماماً oppAuditLog.
+    // الفلترة بحقل status (لا فحص "أي تغيير أصلاً؟") مقصودة: تسمح بأي عدد من التصحيحات على
+    // المسودة قبل ترحيلها (نفس UX الحالي بلا تغيير)، وتقفلها نهائياً في اللحظة التي تصبح فيها
+    // حقيقة محاسبية منشورة — لا نافذة تعديل بعد الترحيل مهما كانت صغيرة.
+    match /commitments/{id} {
+      allow read: if isAuthorized();
+      allow create: if isFundManagerOrAbove();
+      allow update, delete: if false;
+    }
+    // بوابة اعتماد صريحة ومنفصلة (المرحلة السادسة-ب، بطلب صريح من المستخدم: "نعم، أضف بوابة
+    // اعتماد منفصلة" — بدل أن يكون "تعليم كمسدَّد" وحده هو نقطة القفل، أصبح هناك خطوة اعتماد
+    // إلزامية بينهما لا يمكن تخطّيها: pending/declared (مسودة، تعديل حر) → approved (مُعتمَد،
+    // قيمة مُثبَّتة، الحقل الوحيد القابل للتغيير الآن هو status نفسه) → paid/waived (مُرحَّل
+    // نهائياً، القفل الأصلي من المرحلة السادسة). كل هذا مفروض على مستوى الانتقال ذاته (before→
+    // after) لا مجرد "الحالة الحالية"، حتى لا يقدر أحد يقفز من pending مباشرة إلى paid عبر طلب
+    // واحد "مُخبَّأ فيه" تغيير الحالة إلى القيمة النهائية بدل 'approved'.
+    function ledgerStatusTransitionOk(before, after) {
+      return (before.status == 'pending' && (after.status == 'pending' || after.status == 'approved'))
+          || (before.status == 'declared' && (after.status == 'declared' || after.status == 'approved'))
+          || (before.status == 'approved' && after.diff(before).affectedKeys().hasOnly(['status','approvedBy','approvedAt'])
+                && (after.status == 'paid' || after.status == 'waived'));
+    }
+    match /capitalCalls/{id} {
+      allow read: if isAuthorized();
+      // إنشاء عادي (يدوي) يجب أن يبدأ 'pending' دائماً — لا يجوز تخطّي البوابة بإنشاء سجل جديد
+      // مباشرة في حالة مُعتمَدة/مُرحَّلة. استثناءان محسوبان فقط: (١) قيد عكسي (reversalOfId، من
+      // if-reverse — المرحلة السادسة) يُنشَأ عمداً بنفس حالة الأصل المُرحَّلة فوراً، و(٢) نداء
+      // النقل العيني التلقائي (linkedCommitmentId، من منطق if-save الموجود لالتزام عيني) يُنشَأ
+      // 'paid' فوراً لأنه ناتج تنفيذي للالتزام نفسه لحظة توثيقه — ليس نداءً يحتاج اعتماداً مستقلاً.
+      allow create: if isFundManagerOrAbove() && (
+             request.resource.data.get('status', null) == 'pending'
+          || request.resource.data.get('reversalOfId', null) != null
+          || request.resource.data.get('linkedCommitmentId', null) != null
+      );
+      allow update: if isFundManagerOrAbove() && ledgerStatusTransitionOk(resource.data, request.resource.data);
+      allow delete: if isFundManagerOrAbove() && resource.data.status == 'pending' && resource.data.linkedCommitmentId == null;
+    }
+    match /distributions/{id} {
+      allow read: if isAuthorized();
+      allow create: if isFundManagerOrAbove() && (
+             request.resource.data.get('status', null) == 'declared'
+          || request.resource.data.get('reversalOfId', null) != null
+      );
+      allow update: if isFundManagerOrAbove() && ledgerStatusTransitionOk(resource.data, request.resource.data);
+      allow delete: if isFundManagerOrAbove() && resource.data.status == 'declared';
+    }
+    match /transactions/{id} {
+      allow read: if isAuthorized();
+      allow create: if isFundManagerOrAbove();
+      allow update, delete: if false;
+    }
 
     // المقارنات العقارية (comparables.js) والمعايير المرجعية (benchmark-engine.js) — مكتبات
     // مرجعية بالمعنى الدقيق: أي عضو مصرَّح له يقرأها ويستخدمها في المقارنة، لكن الإضافة/التعديل/
@@ -245,37 +336,27 @@ service cloud.firestore {
     // القراءة/الإنشاء لأي عضو مصرَّح له (لأي فرصة يقدر يقرأها فعلاً). اللقطة
     // التاريخية immutable بالكامل؛ التصحيح ينشئ نسخة جديدة مع سبب تصحيح بدلاً من تعديلها.
     match /underwritingVersions/{id} {
-      allow read, create: if isAuthorized();
+      allow read: if isAuthorized();
+      allow create: if isAuthorized() && !exists(/databases/$(database)/documents/underwritingVersions/$(id));
       allow update, delete: if false;
     }
 
-    // ==================== تكامل Monday.com (src/features/monday-integration.js، المرحلة التاسعة) ====================
-    // إعداد جانب التطبيق فقط — لا رمز API مُخزَّن في أي مكان هنا (لا في هذه القواعد، ولا في أي
-    // مستند Firestore). القراءة العامة (isAuthorized) ضرورية لكل عضو فريق ليرى حالة أي مهمة أرسلها
-    // فريقه لقائمة الانتظار، والكتابة مقيَّدة بدقة كما يلي.
-
-    // إعدادات التكامل غير السرّية (معرّفات لوحات Monday، بريد مالك المهام الافتراضي) — نفس نمط
-    // مجموعة settings تماماً: قراءة لأي عضو مصرَّح له، كتابة/تعديل للأدمن فقط.
-    match /mondayConfig/{id} {
+    // الأداء الفعلي المتكرر (assetActuals، underwriting-versions.js، إضافة بطلب المستخدم بعد
+    // مراجعته لخريطة فجوات "المرحلة السابعة": الحقل القديم d.actuals كان لقطة واحدة قابلة
+    // للاستبدال بلا سجل تاريخي — يخالف مبدأ الثبات المُطبَّق في كل حقيقة مالية أخرى بالمشروع
+    // (المرحلة ٦/٦-ب). نفس فلسفة/نمط underwritingVersions أعلاه بالضبط: سجل إضافة فقط، لا
+    // Cloud Function مطلوبة (لقطات تحليلية داعمة للقرار)، immutable بالكامل؛ التصحيح يعني
+    // إدخالاً جديداً بفترة/تاريخ مختلفين، لا تعديل القديم.
+    match /assetActuals/{id} {
       allow read: if isAuthorized();
-      allow write: if isAdminEmail();
+      allow create: if isAuthorized() && !exists(/databases/$(database)/documents/assetActuals/$(id));
+      allow update, delete: if false;
     }
 
-    // قائمة انتظار مزامنة المهام — العميل يقدر فقط *يُنشئ* طلب مزامنة جديد (لا يعدّل ولا يحذف أي
-    // طلب قائم، حتى الأدمن)، بنفس فلسفة oppAuditLog: append-only حقيقي، والحالة الوحيدة المسموح
-    // للعميل بإنشائها هي 'pending' — أي تحديث لاحق لحالة الطلب (synced/failed/blocked_missing_secret)
-    // يأتي فقط من دالة سحابية موثوقة (functions/monday-sync.js) بصلاحيات Admin SDK التي تتجاوز هذه
-    // القواعد تصميماً (لا حاجة لقاعدة "allow update" مقابلة لها هنا، تماماً كما في oppAuditLog).
-    // الإنشاء مقصور على مدير صندوق فأعلى (isFundManagerOrAbove) — نفس مستوى الصلاحية المطلوب في
-    // واجهة العميل (canManageLibraries في roles-permissions.js) لزر "إرسال إلى قائمة انتظار Monday"،
-    // ونفرض أيضاً نزاهة الناشر (queuedBy يطابق بريد المستخدم المصادَق عليه فعلياً) بنفس منطق
-    // attributionHonest أعلاه على opportunities.
-    match /mondayTaskQueue/{id} {
+    // سجل قرارات لجنة الاستثمار المؤسسي — append-only: إنشاء لعضو لجنة أول فأعلى، قراءة للفريق، ولا تعديل/حذف.
+    match /icDecisions/{id} {
       allow read: if isAuthorized();
-      allow create: if isFundManagerOrAbove()
-        && request.resource.data.queuedBy != null
-        && request.resource.data.queuedBy.lower() == request.auth.token.email.lower()
-        && request.resource.data.status == 'pending';
+      allow create: if currentRoleIsSeniorICOrAbove() || isAdminEmail();
       allow update, delete: if false;
     }
   }

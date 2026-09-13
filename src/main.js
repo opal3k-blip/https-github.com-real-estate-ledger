@@ -16,7 +16,7 @@
    Firestore)، فأي مجموعة بيانات إضافية (registerDataCollection) يجب أن تكون مُسجَّلة قبلها
    حتى تُحمَّل من أول تشغيل.
    ========================================================================= */
-import * as core from './core.js?v=3fa8240';
+import * as core from './core.js?v=20260913-stage7a';
 
 // إتاحة كل صادرات core.js على window — للتوافق الخلفي الكامل مع كل سكربتات
 // الاختبار (Playwright) المكتوبة طوال هذا المشروع (تستدعي
@@ -247,14 +247,20 @@ registerUnderwritingVersions(core);
 import { registerCashFlowTiming } from './features/cash-flow-timing.js';
 registerCashFlowTiming(core);
 
+// التحصين المؤسسي (المرحلة الثانية) — سجل قرارات لجنة استثمار مستقل append-only (icDecisions)،
+// ملف تخصيص رأسمالي على مستوى الفرصة، وقسم تفصيلي يعرض Draw Profile/VAT Recovery/Variance.
+import { registerInstitutionalHardening } from './features/institutional-hardening.js';
+registerInstitutionalHardening(core);
+
+// محرك ربط رأس المال (المرحلة الخامسة) — يُسجَّل بعد institutional-hardening.js عمداً (يقرأ
+// capitalAllocation التي يضيفها ذلك الملف للمخطط)؛ يربط فعلياً IC decisions/Conditions
+// بربط الفرصة كأصل صندوق (fund.assetIds عبر بوابة registerAssetLinkGuard في core.js) وبسعة
+// دفتر الصندوق الرأسمالية (fundLedgerSummary) — يغلق الفجوة التي أثبتتها المرحلة الرابعة حياً.
+import { registerCapitalAllocationEngine } from './features/capital-allocation-engine.js';
+registerCapitalAllocationEngine(core);
+
 /* ---------------- المرحلة التاسعة (تكامل Monday.com — إعداد آمن جانب التطبيق) ---------------- */
-// طلب المستخدم: ربط Monday.com بحيث تتركّز ملكية/إسناد المهام على saeed@opalco.sa، مع مساحة
-// عمل Monday نفسها (opal3ks-team-company) مرتبطة بحساب opal3k@gmail.com (أدمن هذا التطبيق
-// أصلاً)، بالإضافة إلى "لوحة صلاحيات" تعكس roles-permissions.js. لا اتصال فعلي بـMonday.com
-// API ممكن هنا (يتطلب رمز API/تسجيل OAuth من حساب Monday نفسه — لا يُختَرع أو يُخزَّن في
-// العميل أبداً) — راجع رأس monday-integration.js وfunctions/README.md للتفاصيل الكاملة.
-// يستورد canManageRoles/canManageLibraries من roles-permissions.js (مُسجَّلة أعلاه في
-// المرحلة ٤) — لا يؤثر على ترتيب الاستيراد الفعلي، فقط على وضوح الاعتماد المنطقي بينهما.
+// إعداد جانب التطبيق فقط: لوحة أدمن وقائمة انتظار مزامنة بلا أي رمز API في العميل.
 import { registerMondayIntegration } from './features/monday-integration.js';
 registerMondayIntegration(core);
 

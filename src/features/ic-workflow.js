@@ -181,7 +181,15 @@ export function registerICWorkflow(core){
       draft.meta.updatedAt = core.todayStr();
       draft.meta.updatedBy = decidedBy;
 
-      await core.persistOpportunity({ id: oppId, data: draft });
+      const saved = await core.persistOpportunity({ id: oppId, data: draft });
+      if(saved && core.persistIfRecord){
+        const decisionRecord = { id: core.uid('ICD'), data: {
+          oppId, decision: JSON.parse(JSON.stringify(draft.ic.decisions[draft.ic.decisions.length-1])),
+          recordedAt: new Date().toISOString(), recordedBy: decidedBy,
+          source:'opportunity.ic.decisions', version:1,
+        }};
+        await core.persistIfRecord('icDecisions', decisionRecord);
+      }
       await core.loadAll();
       core.render();
       return true;

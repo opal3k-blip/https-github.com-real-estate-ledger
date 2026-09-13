@@ -1,0 +1,14 @@
+const fs=require('fs'), vm=require('vm');
+let code=fs.readFileSync(require('path').join(__dirname,'../../src/core.js'), 'utf8');
+code=code.replace(/export\s*\{/,'globalThis.__C = {');
+const ctx={console, setTimeout, clearTimeout, localStorage:{getItem(){return null},setItem(){}}, document:{documentElement:{lang:'ar'},querySelector(){return null},addEventListener(){},getElementById(){return null},querySelectorAll(){return[]},body:{},createElement(){return {}}}, window:{}, Notification:undefined, navigator:{}, URL, FileReader:function(){}, Intl, Math, JSON, Date, parseFloat, parseInt, isFinite, Number, String, Array, Object}; ctx.window=ctx; vm.createContext(ctx); vm.runInContext(code,ctx,{timeout:10000}); const C=ctx.__C;
+function cp(){return JSON.parse(JSON.stringify(C.blankOpportunity()));}
+function set(o,p,v){let a=p.split('.'),x=o;for(let i=0;i<a.length-1;i++)x=x[a[i]];x[a.at(-1)]=v;}
+function clean(o){for(const k of ['mgmt','assetMgmt','regAuditCustodian','structuring','acquisition','arrangement','cmaSetup','dueDiligence','valuation']) set(o,'fees.'+k,0); set(o,'subscription.subscriptionFee',0); for(const k of ['broker','legal','rett','exitFee'])set(o,'exitCosts.'+k,0);set(o,'fees.disposition',0);}
+function base(){const o=cp(); set(o,'meta.oppType','development'); set(o,'land.area',5000);set(o,'land.price',2000);set(o,'land.far',2);set(o,'land.bar',.5);set(o,'land.basements',0);set(o,'development.buildCost',3000);set(o,'development.salePrice',6000);set(o,'development.efficiency',.85);set(o,'development.contingency',.05);set(o,'development.constructionYears',2);set(o,'development.operationYears',0);set(o,'development.scopeType','both');set(o,'strategy.salePct',1);set(o,'financing.ltc',.6);set(o,'financing.saibor',.055);set(o,'financing.margin',.025);set(o,'financing.interestDuringConstruction','cash');clean(o);return o;}
+const b=base(), rb=C.compute(b,'base');
+const mixed=base();mixed.strategy.salePct=.5;const rm=C.compute(mixed,'base');
+const lb=cp();lb.meta.oppType='landbank';lb.land.area=5000;lb.land.price=2000;lb.land.basements=0;lb.financing.ltc=.6;lb.financing.saibor=.055;lb.financing.margin=.025;lb.landbank.holdingYears=4;lb.landbank.appreciation=.08;lb.landbank.carryAnnual=250000;lb.landbank.whiteLandFeePct=.025;clean(lb);const rl=C.compute(lb,'base');
+const op=base();op.strategy.offPlanSale.enabled=true;op.strategy.offPlanSale.escrowLagYears=1;op.development.operationYears=0;const ro=C.compute(op,'base');
+const fee=base();fee.subscription.subscriptionFee=.02;const rf=C.compute(fee,'base');
+console.log(JSON.stringify({base:{irr:rb.equityIRR,tpc:rb.TPC,equity:rb.equity,moic:rb.MOIC,cf:rb.equityCF,pcf:rb.projectCF},mixed:{irr:rm.equityIRR,project:rm.projectCF,exit:rm.projectCF.at(-1)},lb:{irr:rl.equityIRR,flows:rl.equityCF},op:{years:ro.totalYears,schedule:ro.offPlanSchedule,cf:ro.equityCF},fee:{irr:rf.equityIRR,moic:rf.MOIC,investorFee:rf.investorSideFees,distrib:rf.totalDistrib,equity:rf.equity}}));

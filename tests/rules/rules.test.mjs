@@ -107,21 +107,30 @@ function ctxFor(email){ return testEnv.authenticatedContext(email, { email }); }
 }
 
 // ==================== ٣) دفتر الصندوق (investors/funds/...) — مدير صندوق فأعلى فقط للكتابة ====================
+// ملاحظة (المرحلة ٦-ب): capitalCalls/distributions لم تعد تقبل أي شكل وثيقة عشوائي عند الإنشاء —
+// بوابة الاعتماد الصريحة تفرض أن تبدأ الوثيقة الجديدة بحالة 'pending'/'declared' (أو تحمل reversalOfId/
+// linkedCommitmentId للاستثناءين المحسوبين). لذلك نمرر شكل وثيقة صالح لهما هنا خصيصاً، مع إبقاء الاختبار
+// نفسه (رفض المحلل/عضو اللجنة، قبول مدير الصندوق، إبقاء القراءة متاحة) على حاله لبقية المجموعات.
 const LEDGER_COLLECTIONS = ['investors','funds','commitments','capitalCalls','distributions','transactions'];
+function ledgerValidCreateShape(coll){
+  if(coll==='capitalCalls') return { fundId:'FND-1', investorId:'INV-1', callNumber:99, callDate:'2026-01-01', amount:1, status:'pending', linkedCommitmentId:null, reversalOfId:null };
+  if(coll==='distributions') return { fundId:'FND-1', investorId:'INV-1', distDate:'2026-01-01', amount:1, status:'declared', reversalOfId:null };
+  return { name:'test' };
+}
 for(const coll of LEDGER_COLLECTIONS){
   {
     const db = ctxFor(ANALYST_OWNER).firestore();
-    await assertFails(setDoc(doc(db, coll, 'X1'), { name:'test' }));
+    await assertFails(setDoc(doc(db, coll, 'X1'), ledgerValidCreateShape(coll)));
     assert(true, `🔒 محلل عادي لا يقدر يكتب في ${coll} (دفتر الصندوق) — كانت مفتوحة لأي عضو مصرَّح له قبل هذا التعديل`);
   }
   {
     const db = ctxFor(SENIOR_IC).firestore();
-    await assertFails(setDoc(doc(db, coll, 'X2'), { name:'test' }));
+    await assertFails(setDoc(doc(db, coll, 'X2'), ledgerValidCreateShape(coll)));
     assert(true, `🔒 عضو لجنة استثمار أول (senior_ic) لا يقدر يكتب في ${coll} أيضاً (دون دور مدير صندوق) — الحماية على مستوى الدور لا الفرصة`);
   }
   {
     const db = ctxFor(FUND_MANAGER).firestore();
-    await assertSucceeds(setDoc(doc(db, coll, 'X3'), { name:'test' }));
+    await assertSucceeds(setDoc(doc(db, coll, 'X3'), ledgerValidCreateShape(coll)));
     assert(true, `✅ مدير صندوق (fund_manager) يقدر يكتب في ${coll} بنجاح`);
   }
   {
@@ -178,7 +187,7 @@ for(const coll of LEDGER_COLLECTIONS){
   assert(true, '✅ القراءة في comparables تبقى متاحة لأي عضو مصرَّح له (يستخدمها في المقارنة فقط)');
 }
 
-// ==================== ٧) التسعير الموثَّق بالإصدارات (underwritingVersions) — إضافة فقط لأي عضو، بلا تعديل/حذف ====================
+// ==================== ٧) التسعير الموثَّق بالإصدارات (underwritingVersions) — إضافة لأي عضو، immutable بالكامل حتى للأدمن ====================
 {
   const db = ctxFor(ANALYST_OWNER).firestore();
   await assertSucceeds(setDoc(doc(db,'underwritingVersions','UWV1'), { oppId:'OPP-1', stage:'manual', metrics:{ price:2000 } }));
@@ -192,82 +201,257 @@ for(const coll of LEDGER_COLLECTIONS){
 {
   const db = ctxFor(ADMIN).firestore();
   await assertFails(updateDoc(doc(db,'underwritingVersions','UWV1'), { 'metrics.price': 9999 }));
-  assert(true, '🔒 حتى الأدمن لا يقدر يعدّل نسخة تسعير محفوظة — أي تصحيح ينشئ نسخة جديدة، للحفاظ على سجل append-only');
-}
-
-// ==================== ٨) إعداد Monday.com (mondayConfig) — الأدمن فقط للكتابة ====================
-{
-  const db = ctxFor(ANALYST_OWNER).firestore();
-  await assertFails(setDoc(doc(db,'mondayConfig','settings'), { tasksBoardId:'1', permissionsBoardId:'2', taskOwnerEmail:'saeed@opalco.sa' }));
-  assert(true, '🔒 محلل عادي لا يقدر يكتب إعداد Monday.com (مثل settings تماماً)');
-}
-{
-  const db = ctxFor(FUND_MANAGER).firestore();
-  await assertFails(setDoc(doc(db,'mondayConfig','settings'), { tasksBoardId:'1', permissionsBoardId:'2', taskOwnerEmail:'saeed@opalco.sa' }));
-  assert(true, '🔒 مدير صندوق أيضاً لا يقدر يكتب إعداد Monday.com — هذه اللوحة أدمن فقط، ليست مثل دفتر الصندوق');
+  assert(true, '🔒 حتى الأدمن لا يقدر يعدّل/يحذف نسخة تسعير محفوظة — immutable بالكامل بلا استثناء؛ التصحيح ينشئ لقطة (Snapshot) جديدة بدلاً من تعديل القديمة');
 }
 {
   const db = ctxFor(ADMIN).firestore();
-  await assertSucceeds(setDoc(doc(db,'mondayConfig','settings'), { tasksBoardId:'1', permissionsBoardId:'2', taskOwnerEmail:'saeed@opalco.sa' }));
-  assert(true, '✅ الأدمن يقدر يكتب/يعدّل إعداد Monday.com بنجاح');
+  await assertFails(deleteDoc(doc(db,'underwritingVersions','UWV1')));
+  assert(true, '🔒 حتى الأدمن لا يقدر يحذف نسخة تسعير محفوظة');
+}
+
+// ==================== ٧-ب) الأداء الفعلي المتكرر (assetActuals) — نفس نمط underwritingVersions
+// بالضبط بالضبط (إضافة بطلب المستخدم بعد مراجعته لخريطة فجوات "المرحلة السابعة"): إضافة لأي
+// عضو مصرَّح له، immutable بالكامل حتى للأدمن، ولا يجوز إعادة استخدام نفس id لسجل موجود ====================
+{
+  const db = ctxFor(ANALYST_OWNER).firestore();
+  await assertSucceeds(setDoc(doc(db,'assetActuals','ACT1'), { oppId:'OPP-1', period:'2027 Q1', asOfDate:'2027-03-31', actualEquityIRR:0.12, actualMOIC:1.1, actualDSCR:1.3, notes:'' }));
+  assert(true, '✅ محلل عادي يقدر يضيف إدخال أداء فعلي جديد — append-only، ليست مكتبة مرجعية تتطلب مدير صندوق');
+}
+{
+  const db = ctxFor(ANALYST_OWNER).firestore();
+  await assertFails(setDoc(doc(db,'assetActuals','ACT1'), { oppId:'OPP-1', period:'2027 Q1 (محاولة إعادة كتابة)', asOfDate:'2027-03-31', actualEquityIRR:0.99 }));
+  assert(true, '🔒 لا يجوز إعادة استخدام نفس id لسجل أداء فعلي موجود بالفعل — إنشاء فقط لسجل جديد حقاً، لا استبدال لسجل قائم عبر create');
+}
+{
+  const db = ctxFor(SENIOR_IC).firestore();
+  await assertFails(updateDoc(doc(db,'assetActuals','ACT1'), { actualEquityIRR: 0.99 }));
+  assert(true, '🔒 عضو لجنة استثمار أول لا يقدر يعدّل إدخال أداء فعلي محفوظاً سابقاً — append-only حقيقي، حتى لدور رفيع');
+}
+{
+  const db = ctxFor(ADMIN).firestore();
+  await assertFails(updateDoc(doc(db,'assetActuals','ACT1'), { actualEquityIRR: 0.99 }));
+  assert(true, '🔒 حتى الأدمن لا يقدر يعدّل إدخال أداء فعلي محفوظ — immutable بالكامل بلا استثناء؛ التصحيح إدخال جديد بفترة/تاريخ مختلفين، لا تعديل القديم');
+}
+{
+  const db = ctxFor(ADMIN).firestore();
+  await assertFails(deleteDoc(doc(db,'assetActuals','ACT1')));
+  assert(true, '🔒 حتى الأدمن لا يقدر يحذف إدخال أداء فعلي محفوظ');
+}
+
+// ==================== ٨) سجل قرارات لجنة الاستثمار المؤسسي (icDecisions) — append-only ====================
+{
+  const db = ctxFor(ANALYST_OWNER).firestore();
+  await assertFails(setDoc(doc(db,'icDecisions','ICD-ANALYST'), { oppId:'OPP-1', decision:{decision:'approve'} }));
+  assert(true, '🔒 محلل عادي لا يقدر إنشاء سجل قرار IC مؤسسي');
+}
+{
+  const db = ctxFor(SENIOR_IC).firestore();
+  await assertSucceeds(setDoc(doc(db,'icDecisions','ICD-1'), { oppId:'OPP-1', decision:{decision:'approve'}, recordedBy:SENIOR_IC }));
+  assert(true, '✅ Senior IC يقدر إنشاء سجل قرار IC مؤسسي');
+  await assertFails(updateDoc(doc(db,'icDecisions','ICD-1'), { 'decision.decision':'reject' }));
+  assert(true, '🔒 سجل قرار IC غير قابل للتعديل');
+  await assertFails(deleteDoc(doc(db,'icDecisions','ICD-1')));
+  assert(true, '🔒 سجل قرار IC غير قابل للحذف');
+}
+
+// ==================== ٩) محرك ربط رأس المال (المرحلة الخامسة): capitalAllocation — مدير صندوق فأعلى فقط، حتى لمالك الفرصة نفسه ====================
+{
+  // إعادة الفرصة لحالتها الأساسية أولاً
+  await testEnv.withSecurityRulesDisabled(async (ctx)=>{
+    await setDoc(doc(ctx.firestore(),'opportunities','OPP-1'), baseOpp(ANALYST_OWNER, []));
+  });
+  const db = ctxFor(ANALYST_OWNER).firestore();
+  const attempt = { ...baseOpp(ANALYST_OWNER, []), capitalAllocation:{ targetEquity:5000000, maxAllocation:null, priority:'normal', committeeNote:'' } };
+  attempt.meta.updatedBy = ANALYST_OWNER;
+  await assertFails(setDoc(doc(db,'opportunities','OPP-1'), attempt));
+  assert(true, '🔒 مالك الفرصة نفسه (محلل) لا يقدر يعدّل capitalAllocation عبر مسار ownsOpp العادي — قرار حوكمي يخص مدير الصندوق حتى لو كانت فرصته هو');
+}
+{
+  const db = ctxFor(FUND_MANAGER).firestore();
+  const attempt = { ...baseOpp(ANALYST_OWNER, []), capitalAllocation:{ targetEquity:5000000, maxAllocation:8000000, priority:'high', committeeNote:'أولوية عالية' } };
+  attempt.meta.updatedBy = FUND_MANAGER;
+  await assertSucceeds(setDoc(doc(db,'opportunities','OPP-1'), attempt));
+  assert(true, '✅ مدير صندوق (fund_manager)، وهو *ليس* مالك الفرصة، يقدر يخصّص رأس مال (capitalAllocation فقط) — بالضبط نفس نمط icOnlyChange لكن لمستوى مدير الصندوق');
+}
+{
+  // مدير الصندوق يحاول (في نفس الطلب) تمرير تغيير حقل مالي آخر بجانب capitalAllocation — يجب أن يُرفض بالكامل
+  await testEnv.withSecurityRulesDisabled(async (ctx)=>{
+    await setDoc(doc(ctx.firestore(),'opportunities','OPP-1'), baseOpp(ANALYST_OWNER, []));
+  });
+  const db = ctxFor(FUND_MANAGER).firestore();
+  const sneaky = { ...baseOpp(ANALYST_OWNER, []), capitalAllocation:{ targetEquity:1, maxAllocation:null, priority:'normal', committeeNote:'' } };
+  sneaky.land.price = 1; // محاولة تغيير حقل مالي بجانب التخصيص
+  sneaky.meta.updatedBy = FUND_MANAGER;
+  await assertFails(setDoc(doc(db,'opportunities','OPP-1'), sneaky));
+  assert(true, '🔒 capitalAllocationOnlyChange تمنع مدير الصندوق من تمرير أي تغيير مالي/تشغيلي آخر (land.price هنا) "مُخبَّأً" بجانب تخصيص رأس المال في نفس الطلب');
+}
+{
+  // عضو لجنة أول (senior_ic) — دون دور مدير صندوق — يحاول نفس مسار capitalAllocation فقط
+  await testEnv.withSecurityRulesDisabled(async (ctx)=>{
+    await setDoc(doc(ctx.firestore(),'opportunities','OPP-1'), baseOpp(ANALYST_OWNER, []));
+  });
+  const db = ctxFor(SENIOR_IC).firestore();
+  const attempt = { ...baseOpp(ANALYST_OWNER, []), capitalAllocation:{ targetEquity:5000000, maxAllocation:null, priority:'normal', committeeNote:'' } };
+  attempt.meta.updatedBy = SENIOR_IC;
+  await assertFails(setDoc(doc(db,'opportunities','OPP-1'), attempt));
+  assert(true, '🔒 عضو لجنة استثمار أول (senior_ic) لا يقدر يخصّص رأس مال أيضاً (دون دور مدير صندوق) — الحماية على مستوى الدور نفسه لا مجرد "أعلى من محلل"');
+}
+
+// ==================== ١٠) دفتر الصندوق المحاسبي المُرحَّل (المرحلة السادسة، "إعادة هندسة
+// كاملة" بطلب صريح من المستخدم): commitments/capitalCalls/distributions/transactions posted/
+// locked/reversal — لا تعديل ولا حذف لسجل مُرحَّل مهما كان الدور، حتى مدير الصندوق نفسه ====================
+{
+  // commitments: مُرحَّل من لحظة الإنشاء مباشرة — لا حقل status له أصلاً
+  await testEnv.withSecurityRulesDisabled(async (ctx)=>{
+    await setDoc(doc(ctx.firestore(),'commitments','CMT-1'), { fundId:'FND-1', investorId:'INV-1', commitmentAmount:1000000, dateCommitted:'2026-01-01', contributionType:'cash', reversalOfId:null });
+  });
+  const dbFM = ctxFor(FUND_MANAGER).firestore();
+  await assertFails(updateDoc(doc(dbFM,'commitments','CMT-1'), { commitmentAmount: 2000000 }));
+  assert(true, '🔒 حتى مدير الصندوق لا يقدر يعدّل التزام (commitment) — مُرحَّل من لحظة إنشائه، لا نافذة تعديل بعده مهما كانت صغيرة');
+  await assertFails(deleteDoc(doc(dbFM,'commitments','CMT-1')));
+  assert(true, '🔒 حتى مدير الصندوق لا يقدر يحذف التزام — التصحيح الوحيد المسموح هو قيد عكسي جديد');
+  await assertSucceeds(setDoc(doc(dbFM,'commitments','CMT-1-REV'), { fundId:'FND-1', investorId:'INV-1', commitmentAmount:-1000000, dateCommitted:'2026-01-02', contributionType:'cash', notes:'تصحيح', reversalOfId:'CMT-1' }));
+  assert(true, '✅ مدير الصندوق يقدر إنشاء قيد عكسي (سجل جديد بمبلغ سالب وreversalOfId) بدل تعديل الأصل — هذا التصحيح المحاسبي الصحيح الوحيد');
+}
+{
+  // capitalCalls: "مسودة" بينما status=='pending' (تعديل/حذف حر كما كان)، تُرحَّل نهائياً عند 'paid'/'waived'
+  await testEnv.withSecurityRulesDisabled(async (ctx)=>{
+    await setDoc(doc(ctx.firestore(),'capitalCalls','CC-1'), { fundId:'FND-1', investorId:'INV-1', callNumber:1, callDate:'2026-01-01', amount:500000, status:'pending', linkedCommitmentId:null, reversalOfId:null });
+  });
+  const dbFM = ctxFor(FUND_MANAGER).firestore();
+  await assertSucceeds(updateDoc(doc(dbFM,'capitalCalls','CC-1'), { amount: 600000 }));
+  assert(true, '✅ نداء رأسمال بحالة "pending" (مسودة لم تُرحَّل بعد) يبقى قابلاً للتعديل الحر كما كان دائماً');
+  // المرحلة ٦-ب: لا يمكن الترحيل المباشر pending → paid بعد الآن — يجب المرور ببوابة الاعتماد أولاً
+  await assertFails(updateDoc(doc(dbFM,'capitalCalls','CC-1'), { status: 'paid' }));
+  assert(true, '🔒 لا يمكن تخطّي بوابة الاعتماد: pending → paid مباشرة مرفوض حتى لمدير الصندوق');
+  await assertSucceeds(updateDoc(doc(dbFM,'capitalCalls','CC-1'), { status: 'approved', approvedBy:FUND_MANAGER, approvedAt:'2026-01-02' }));
+  assert(true, '✅ pending → approved (خطوة الاعتماد الإلزامية) مسموحة');
+  await assertSucceeds(updateDoc(doc(dbFM,'capitalCalls','CC-1'), { status: 'paid' }));
+  assert(true, '✅ ترحيل النداء (approved → paid) مسموح — هذا هو الانتقال المسموح الوحيد بعد الاعتماد، ونقطة القفل النهائي');
+  await assertFails(updateDoc(doc(dbFM,'capitalCalls','CC-1'), { amount: 700000 }));
+  assert(true, '🔒 بعد الترحيل (status=="paid") لا يقدر مدير الصندوق تعديل النداء إطلاقاً، ولو لمجرد تصحيح رقم');
+  await assertFails(deleteDoc(doc(dbFM,'capitalCalls','CC-1')));
+  assert(true, '🔒 ولا حذفه أيضاً — التصحيح الوحيد قيد عكسي جديد');
+  await assertSucceeds(setDoc(doc(dbFM,'capitalCalls','CC-1-REV'), { fundId:'FND-1', investorId:'INV-1', callNumber:1, callDate:'2026-01-03', amount:-700000, status:'paid', linkedCommitmentId:null, notes:'تصحيح', reversalOfId:'CC-1' }));
+  assert(true, '✅ إنشاء قيد نداء رأسمال عكسي (مبلغ سالب) نجح — يصفّر الأثر في fundLedgerSummary/investorLedgerRows دون لمس السجل الأصلي');
+}
+{
+  // distributions: نفس منطق capitalCalls — "مسودة" بينما status=='declared'، تُرحَّل عند 'paid'
+  await testEnv.withSecurityRulesDisabled(async (ctx)=>{
+    await setDoc(doc(ctx.firestore(),'distributions','DST-1'), { fundId:'FND-1', investorId:'INV-1', distDate:'2026-01-01', amount:300000, type:'عائد رأس المال (Return of Capital)', status:'declared', reversalOfId:null });
+  });
+  const dbFM = ctxFor(FUND_MANAGER).firestore();
+  await assertSucceeds(updateDoc(doc(dbFM,'distributions','DST-1'), { amount: 350000 }));
+  assert(true, '✅ توزيعة بحالة "declared" (مسودة) تبقى قابلة للتعديل الحر');
+  // المرحلة ٦-ب: لا يمكن الترحيل المباشر declared → paid بعد الآن — يجب المرور ببوابة الاعتماد أولاً
+  await assertFails(updateDoc(doc(dbFM,'distributions','DST-1'), { status: 'paid' }));
+  assert(true, '🔒 لا يمكن تخطّي بوابة الاعتماد: declared → paid مباشرة مرفوض حتى لمدير الصندوق');
+  await assertSucceeds(updateDoc(doc(dbFM,'distributions','DST-1'), { status: 'approved', approvedBy:FUND_MANAGER, approvedAt:'2026-01-02' }));
+  assert(true, '✅ declared → approved (خطوة الاعتماد الإلزامية) مسموحة');
+  await assertSucceeds(updateDoc(doc(dbFM,'distributions','DST-1'), { status: 'paid' }));
+  assert(true, '✅ ترحيل التوزيعة (approved → paid) مسموح — نقطة القفل النهائي بعد الاعتماد');
+  await assertFails(updateDoc(doc(dbFM,'distributions','DST-1'), { amount: 400000 }));
+  assert(true, '🔒 بعد الترحيل (status=="paid") التوزيعة غير قابلة للتعديل إطلاقاً');
+  await assertFails(deleteDoc(doc(dbFM,'distributions','DST-1')));
+  assert(true, '🔒 ولا للحذف — التصحيح الوحيد قيد عكسي جديد');
+}
+{
+  // transactions: سجل تدقيق — append-only بالكامل، تماماً مثل oppAuditLog/icDecisions/underwritingVersions
+  await testEnv.withSecurityRulesDisabled(async (ctx)=>{
+    await setDoc(doc(ctx.firestore(),'transactions','TXN-1'), { type:'capitalCall', action:'create', relatedId:'CC-1', fundId:'FND-1', amount:500000, at:'2026-01-01T00:00:00.000Z', by:FUND_MANAGER, version:1 });
+  });
+  const dbFM = ctxFor(FUND_MANAGER).firestore();
+  await assertFails(updateDoc(doc(dbFM,'transactions','TXN-1'), { amount: 999999 }));
+  assert(true, '🔒 حتى مدير الصندوق لا يقدر يعدّل سجل تدقيق (transactions) — append-only بالكامل، بلا أي استثناء دور');
+  await assertFails(deleteDoc(doc(dbFM,'transactions','TXN-1')));
+  assert(true, '🔒 ولا يقدر يحذفه — يطابق تماماً oppAuditLog/icDecisions/underwritingVersions');
+  await assertSucceeds(setDoc(doc(dbFM,'transactions','TXN-2'), { type:'assetLink', action:'create', relatedId:'OPP-1', fundId:'FND-1', amount:0, at:'2026-01-02T00:00:00.000Z', by:FUND_MANAGER, version:1 }));
+  assert(true, '✅ إنشاء سجل تدقيق جديد يبقى مسموحاً كما كان (append-only يعني إضافة حرة، لا منع كتابة)');
+}
+
+// ==================== ١١) بوابة الاعتماد الصريحة والمنفصلة (المرحلة السادسة-ب، بطلب صريح
+// من المستخدم: "نعم، أضف بوابة اعتماد منفصلة"): pending/declared → approved → paid/waived —
+// لا يمكن تخطّي 'approved' أبداً، ولا تعديل أي حقل آخر أثناء الانتقال approved→paid/waived ====================
+{
+  await testEnv.withSecurityRulesDisabled(async (ctx)=>{
+    await setDoc(doc(ctx.firestore(),'capitalCalls','CC-GATE-1'), { fundId:'FND-1', investorId:'INV-1', callNumber:1, callDate:'2026-01-01', amount:500000, status:'pending', linkedCommitmentId:null, reversalOfId:null, approvedBy:null, approvedAt:null });
+  });
+  const dbFM = ctxFor(FUND_MANAGER).firestore();
+  await assertFails(updateDoc(doc(dbFM,'capitalCalls','CC-GATE-1'), { status:'paid' }));
+  assert(true, '🔒 لا يمكن تخطّي بوابة الاعتماد: نداء "pending" لا يقدر يتحول مباشرة إلى "paid" في طلب واحد');
+  await assertFails(updateDoc(doc(dbFM,'capitalCalls','CC-GATE-1'), { status:'waived' }));
+  assert(true, '🔒 ولا مباشرة إلى "waived" أيضاً — نفس البوابة بالضبط');
+  await assertSucceeds(updateDoc(doc(dbFM,'capitalCalls','CC-GATE-1'), { status:'approved', approvedBy:FUND_MANAGER, approvedAt:'2026-01-02' }));
+  assert(true, '✅ الانتقال الوحيد المسموح من "pending": إلى "approved" فقط، مع تسجيل معتمِد/توقيت الاعتماد للتدقيق');
+  await assertFails(updateDoc(doc(dbFM,'capitalCalls','CC-GATE-1'), { status:'paid', amount:999999 }));
+  assert(true, '🔒 بعد الاعتماد، أي تغيير حقل آخر (المبلغ هنا) بجانب الترحيل إلى "paid" في نفس الطلب مرفوض بالكامل — القيمة مُثبَّتة فعلاً عند الاعتماد');
+  await assertSucceeds(updateDoc(doc(dbFM,'capitalCalls','CC-GATE-1'), { status:'paid' }));
+  assert(true, '✅ ترحيل نظيف (status فقط) من "approved" إلى "paid" ينجح — نقطة القفل النهائي كما في المرحلة السادسة');
+  await assertFails(updateDoc(doc(dbFM,'capitalCalls','CC-GATE-1'), { status:'waived' }));
+  assert(true, '🔒 بعد الترحيل النهائي (paid) لا رجوع ولا انتقال آخر إطلاقاً — يطابق قفل المرحلة السادسة تماماً');
+}
+{
+  const dbFM = ctxFor(FUND_MANAGER).firestore();
+  await assertFails(setDoc(doc(dbFM,'capitalCalls','CC-GATE-SKIP'), { fundId:'FND-1', investorId:'INV-1', callNumber:2, callDate:'2026-01-01', amount:100000, status:'paid', linkedCommitmentId:null, reversalOfId:null }));
+  assert(true, '🔒 إنشاء نداء رأسمال جديد (يدوي عادي) مباشرة بحالة "paid" مرفوض — يجب أن يبدأ "pending" دائماً ويمر عبر البوابة');
+  await assertSucceeds(setDoc(doc(dbFM,'capitalCalls','CC-GATE-PENDING-OK'), { fundId:'FND-1', investorId:'INV-1', callNumber:3, callDate:'2026-01-01', amount:100000, status:'pending', linkedCommitmentId:null, reversalOfId:null }));
+  assert(true, '✅ إنشاء نداء رأسمال جديد بحالة "pending" (البداية الصحيحة) ينجح كما هو متوقَّع');
+  await assertSucceeds(setDoc(doc(dbFM,'capitalCalls','CC-GATE-REVERSAL-OK'), { fundId:'FND-1', investorId:'INV-1', callNumber:4, callDate:'2026-01-01', amount:-100000, status:'paid', linkedCommitmentId:null, reversalOfId:'CC-GATE-PENDING-OK' }));
+  assert(true, '✅ استثناء القيد العكسي محفوظ: قيد عكسي (reversalOfId) يُنشَأ مباشرة بحالة "paid" بلا حاجة لبوابة الاعتماد — يمثّل تصحيحاً على أمر مُنفَّذ فعلاً، لا نداءً جديداً');
+  await assertSucceeds(setDoc(doc(dbFM,'capitalCalls','CC-GATE-INKIND-OK'), { fundId:'FND-1', investorId:'INV-1', callNumber:5, callDate:'2026-01-01', amount:200000, status:'paid', linkedCommitmentId:'CMT-SOME', reversalOfId:null }));
+  assert(true, '✅ استثناء النقل العيني التلقائي محفوظ: نداء برقم linkedCommitmentId يُنشَأ مباشرة "paid" بلا بوابة اعتماد — ناتج تنفيذي لالتزام مُرحَّل بالفعل، ليس نداءً يحتاج اعتماداً مستقلاً');
+}
+{
+  await testEnv.withSecurityRulesDisabled(async (ctx)=>{
+    await setDoc(doc(ctx.firestore(),'distributions','DST-GATE-1'), { fundId:'FND-1', investorId:'INV-1', distDate:'2026-01-01', amount:300000, type:'x', status:'declared', reversalOfId:null, approvedBy:null, approvedAt:null });
+  });
+  const dbFM = ctxFor(FUND_MANAGER).firestore();
+  await assertFails(updateDoc(doc(dbFM,'distributions','DST-GATE-1'), { status:'paid' }));
+  assert(true, '🔒 نفس البوابة على التوزيعات: "declared" لا يقدر يتحول مباشرة إلى "paid"');
+  await assertSucceeds(updateDoc(doc(dbFM,'distributions','DST-GATE-1'), { status:'approved', approvedBy:FUND_MANAGER, approvedAt:'2026-01-02' }));
+  assert(true, '✅ الانتقال المسموح من "declared": إلى "approved" فقط');
+  await assertFails(updateDoc(doc(dbFM,'distributions','DST-GATE-1'), { status:'paid', amount:1 }));
+  assert(true, '🔒 بعد الاعتماد، لا يجوز تمرير تغيير حقل آخر بجانب الترحيل النهائي');
+  await assertSucceeds(updateDoc(doc(dbFM,'distributions','DST-GATE-1'), { status:'paid' }));
+  assert(true, '✅ ترحيل نظيف من "approved" إلى "paid" ينجح للتوزيعات أيضاً');
+}
+
+// ==================== ١٢) تكامل Monday.com — إعدادات أدمن + قائمة انتظار append-only ====================
+{
+  const db = ctxFor(ADMIN).firestore();
+  await assertSucceeds(setDoc(doc(db,'mondayConfig','settings'), { tasksBoardId:'123', permissionsBoardId:'456', taskOwnerEmail:'saeed@opalco.sa', teamEmails:['saeed@opalco.sa'], enabled:false, updatedBy:ADMIN }));
+  assert(true, '✅ الأدمن يقدر يضبط إعدادات Monday.com غير السرّية');
+}
+{
+  const db = ctxFor(FUND_MANAGER).firestore();
+  await assertFails(setDoc(doc(db,'mondayConfig','settings'), { tasksBoardId:'999', enabled:true, updatedBy:FUND_MANAGER }));
+  assert(true, '🔒 مدير الصندوق لا يقدر يغيّر إعدادات Monday.com العامة — الكتابة للأدمن فقط');
 }
 {
   const db = ctxFor(ANALYST_OWNER).firestore();
   await assertSucceeds(getDoc(doc(db,'mondayConfig','settings')));
-  assert(true, '✅ القراءة في mondayConfig تبقى متاحة لأي عضو مصرَّح له (لعرض معرّفات اللوحات في قسم الفرصة)');
+  assert(true, '✅ قراءة إعدادات Monday.com غير السرّية متاحة لأي عضو مصرّح له');
+}
+{
+  const db = ctxFor(ANALYST_OWNER).firestore();
+  await assertFails(setDoc(doc(db,'mondayTaskQueue','MND-ANALYST'), { oppId:'OPP-1', title:'x', ownerEmail:'saeed@opalco.sa', status:'pending', queuedBy:ANALYST_OWNER, queuedAt:'2026-01-01T00:00:00.000Z' }));
+  assert(true, '🔒 محلل عادي لا يقدر يضيف مهمة إلى قائمة انتظار Monday — يتطلب مدير صندوق فأعلى');
+}
+{
+  const db = ctxFor(FUND_MANAGER).firestore();
+  await assertFails(setDoc(doc(db,'mondayTaskQueue','MND-SPOOF'), { oppId:'OPP-1', title:'x', ownerEmail:'saeed@opalco.sa', status:'pending', queuedBy:'someone-else@x.com', queuedAt:'2026-01-01T00:00:00.000Z' }));
+  assert(true, '🔒 مدير الصندوق لا يقدر يزيّف queuedBy عند إضافة مهمة Monday');
+}
+{
+  const db = ctxFor(FUND_MANAGER).firestore();
+  await assertSucceeds(setDoc(doc(db,'mondayTaskQueue','MND-OK'), { oppId:'OPP-1', title:'x', ownerEmail:'saeed@opalco.sa', status:'pending', queuedBy:FUND_MANAGER, queuedAt:'2026-01-01T00:00:00.000Z' }));
+  assert(true, '✅ مدير الصندوق يقدر يضيف مهمة pending إلى قائمة انتظار Monday');
+  await assertFails(updateDoc(doc(db,'mondayTaskQueue','MND-OK'), { status:'synced' }));
+  assert(true, '🔒 قائمة انتظار Monday إضافة فقط من العميل؛ تحديث حالة الإرسال يتم من Cloud Function عبر Admin SDK');
+  await assertFails(deleteDoc(doc(db,'mondayTaskQueue','MND-OK')));
+  assert(true, '🔒 قائمة انتظار Monday لا تُحذف من العميل');
 }
 
-// ==================== ٩) قائمة انتظار مزامنة Monday (mondayTaskQueue) — إنشاء فقط، مدير صندوق فأعلى، بنزاهة ناشر ====================
-{
-  const db = ctxFor(ANALYST_OWNER).firestore();
-  await assertFails(setDoc(doc(db,'mondayTaskQueue','Q1'), { oppId:'OPP-1', queuedBy:ANALYST_OWNER, status:'pending' }));
-  assert(true, '🔒 محلل عادي (حتى لو مالك الفرصة) لا يقدر يُنشئ طلب مزامنة Monday — يتطلب مدير صندوق فأعلى، مطابقاً لصلاحية زر الواجهة (canManageLibraries)');
-}
-{
-  const db = ctxFor(SENIOR_IC).firestore();
-  await assertFails(setDoc(doc(db,'mondayTaskQueue','Q2'), { oppId:'OPP-1', queuedBy:SENIOR_IC, status:'pending' }));
-  assert(true, '🔒 عضو لجنة استثمار أول أيضاً لا يقدر يُنشئ طلب مزامنة Monday (دون دور مدير صندوق)');
-}
-{
-  const db = ctxFor(FUND_MANAGER).firestore();
-  await assertFails(setDoc(doc(db,'mondayTaskQueue','Q3'), { oppId:'OPP-1', queuedBy:ANALYST_OWNER, status:'pending' }));
-  assert(true, '🔒 مدير صندوق لا يقدر ينتحل بريداً آخر في queuedBy (نزاهة الناشر attributionHonest-style) — حتى لو كان دوره كافياً');
-}
-{
-  const db = ctxFor(FUND_MANAGER).firestore();
-  await assertFails(setDoc(doc(db,'mondayTaskQueue','Q4'), { oppId:'OPP-1', queuedBy:FUND_MANAGER, status:'synced' }));
-  assert(true, '🔒 مدير صندوق لا يقدر يُنشئ طلباً بحالة غير pending مباشرة (مثل synced) — الحالة الأولية يجب أن تكون pending فقط، والدالة السحابية وحدها تُحدِّثها لاحقاً');
-}
-{
-  const db = ctxFor(FUND_MANAGER).firestore();
-  await assertSucceeds(setDoc(doc(db,'mondayTaskQueue','Q5'), { oppId:'OPP-1', queuedBy:FUND_MANAGER, status:'pending' }));
-  assert(true, '✅ مدير صندوق يقدر يُنشئ طلب مزامنة Monday بنجاح (queuedBy = بريده الحقيقي + status: pending)');
-}
-{
-  const db = ctxFor(FUND_MANAGER).firestore();
-  await assertFails(updateDoc(doc(db,'mondayTaskQueue','Q5'), { status:'synced' }));
-  assert(true, '🔒 حتى مُنشئ الطلب نفسه لا يقدر يعدّل حالته لاحقاً (append-only حقيقي) — التحديث الوحيد عبر Cloud Function بصلاحيات Admin SDK');
-}
-{
-  const db = ctxFor(ADMIN).firestore();
-  await assertFails(updateDoc(doc(db,'mondayTaskQueue','Q5'), { status:'synced' }));
-  assert(true, '🔒 حتى الأدمن لا يقدر يعدّل حالة طلب مزامنة موجود — allow update: if false مطلقة بلا استثناء، مطابقة لفلسفة oppAuditLog');
-}
-{
-  const db = ctxFor(ADMIN).firestore();
-  await assertFails(deleteDoc(doc(db,'mondayTaskQueue','Q5')));
-  assert(true, '🔒 حتى الأدمن لا يقدر يحذف طلب مزامنة من قائمة الانتظار — لا حذف من العميل إطلاقاً');
-}
-{
-  const db = ctxFor(ANALYST_OWNER).firestore();
-  await assertSucceeds(getDoc(doc(db,'mondayTaskQueue','Q5')));
-  assert(true, '✅ القراءة في mondayTaskQueue تبقى متاحة لأي عضو مصرَّح له (لعرض حالة الطلبات في لوحة 🔗 Monday.com)');
-}
-{
-  const db = ctxFor(OUTSIDER).firestore();
-  await assertFails(getDoc(doc(db,'mondayConfig','settings')));
-  assert(true, '🔒 بريد غير مصرَّح له إطلاقاً لا يقدر حتى يقرأ إعداد Monday.com');
-}
 console.log(failures? `\n${failures} FAILURE(S)` : '\nALL PASSED (against a real Firestore emulator, not a mock)');
 await testEnv.cleanup();
 process.exit(failures?1:0);

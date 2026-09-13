@@ -1,5 +1,5 @@
 /* =========================================================================
-   مستكشف الفرص العقارية — Opal Real Estate Opportunity Explorer
+   مستكشف الفرص العقارية — Real Estate Opportunity Explorer
    Single-file interactive intake + underwriting engine + database.
    ========================================================================= */
 
@@ -45,18 +45,33 @@ let unsubscribeBranding = null;
      registerActionHandler(fn) — معالج إجراء إضافي لنقر data-action؛ يُستدعى
                                   فقط لو لم يتعرّف عليه أي معالج مدمج أعلاه
                                   (fn(action, el, e) => true لو تعامل معه).
+     registerAssetLinkGuard(fn) — بوابة خارجية (المرحلة الخامسة، محرك ربط رأس
+                                  المال) تُستشار *قبل* ربط فرصة كأصل لصندوق
+                                  (if-toggle-asset، اتجاه الربط فقط — الفك غير
+                                  مقيَّد أبداً)؛ fn(fund, oppId) تُرجع إما
+                                  null/undefined (لا اعتراض) أو {blocked:true,
+                                  reason} لمنع الربط مع رسالة توضيحية. لا تُنفَّذ
+                                  أي منطق حجب هنا في core.js نفسه — فقط الاستدعاء.
    ========================================================================= */
 const _topbarButtonHooks = [];
 const _bodyViewHooks = [];
 const _detailSectionHooks = [];
 const _actionHandlerHooks = [];
+const _assetLinkGuardHooks = [];
 function registerTopbarButton(fn){ _topbarButtonHooks.push(fn); }
 function registerBodyView(fn){ _bodyViewHooks.push(fn); }
 function registerDetailSection(fn){ _detailSectionHooks.push(fn); }
 function registerActionHandler(fn){ _actionHandlerHooks.push(fn); }
+function registerAssetLinkGuard(fn){ _assetLinkGuardHooks.push(fn); }
 function renderTopbarExtensions(){ return _topbarButtonHooks.map(fn=>{ try{ return fn()||''; }catch(e){ console.error('topbar extension error:', e); return ''; } }).join(''); }
 function renderBodyExtensions(){ return _bodyViewHooks.map(fn=>{ try{ return fn()||''; }catch(e){ console.error('body view extension error:', e); return ''; } }).join(''); }
-function renderDetailExtensions(d,c,rec){ return _detailSectionHooks.map(fn=>{ try{ return fn(d,c,rec)||''; }catch(e){ console.error('detail section extension error:', e); return ''; } }).join(''); }
+function renderDetailExtensions(d,c){ return _detailSectionHooks.map(fn=>{ try{ return fn(d,c)||''; }catch(e){ console.error('detail section extension error:', e); return ''; } }).join(''); }
+async function checkAssetLinkGuards(fund, oppId){
+  for(const fn of _assetLinkGuardHooks){
+    try{ const r = await fn(fund, oppId); if(r && r.blocked) return r; }catch(e){ console.error('asset-link guard error:', e); }
+  }
+  return { blocked:false };
+}
 async function runExternalActionHandlers(action, el, e){
   for(const fn of _actionHandlerHooks){
     try{ if(await fn(action, el, e)) return true; }catch(err){ console.error('action extension error:', err); }
@@ -456,7 +471,7 @@ function blankOpportunity(){
     // الاستخدامات السكنية معفاة (فتتحول ضريبة المدخلات غير المستردة على OpEx إلى تكلفة حقيقية إضافية تُخصم
     // من NOI)، وبقية الاستخدامات خاضعة للنسبة الأساسية (تُحصَّل فوق الإيجار وتُورَّد للجهة الضريبية — محايدة
     // على NOI بافتراض استرداد كامل لضريبة المدخلات، وتظهر فقط كبند إفصاحي). معطَّلة افتراضياً.
-    vat: { enabled:false, ratePct:0.15 },
+    vat: { enabled:false, ratePct:0.15, constructionInputVatPct:0.15, inputRecoveryPct:null, refundLagYears:1, professionalFeesVatPct:0.15 },
     // تقسيم الأراضي (Land Subdivision) — بيع القطع على مراحل متعددة عبر سنوات (امتصاص تدريجي) بدل بيعة
     // واحدة. يُفعَّل فقط لفرص التطوير بنطاق "أرض مخدَّمة فقط" (scopeType='infra_only'). عند التفعيل، يحل
     // جدول الامتصاص هذا محل نمط سداد الدين المعتاد بآلية "تحرير رهن تناسبي" (كل شريحة مباعة تُسدِّد حصتها
@@ -473,7 +488,7 @@ function blankOpportunity(){
       // الهيكل الشرعي للتمويل — وصفي/عرضي بحت: يُغيّر فقط تسمية "الفائدة/الدين" في المذكرة والتقارير إلى
       // مسمّاها الشرعي المكافئ اقتصادياً، دون أي تغيير في معادلات SAIBOR+الهامش أو التدفقات النقدية أو
       // النتائج المالية (IRR/MOIC/DSCR...) — عقد التمويل الإسلامي الفعلي يحتاج صياغة واعتماداً شرعياً منفصلاً.
-      shariahStructure:'تقليدي (فائدة تقليدية)' },
+      shariahStructure:'تقليدي (فائدة تقليدية)', drawSchedulePct:[] },
     wacc: { rf:0.045, mrp:0.065, beta:0.95, crp:0.012, sp:0.020, alpha:0.015, marketCap:0.075, growth:0.03 },
     exitCosts: { broker:0.025, legal:0.010, rett:0.05, exitFee:0.005 },
     criteria: Object.assign({}, CRITERIA_DEFAULTS, { preLeasingActual:0.30, preSaleActual:0.30 }),
@@ -745,10 +760,13 @@ const INVESTOR_CLASSES = ["مؤسسي (Institutional)","فردي مؤهَّل (Q
 const FUND_TYPES = ["دخل تأجيري (Income)","تطوير (Development)","تخزين أراضٍ (Land Banking)","مختلط (Mixed)"];
 const FUND_STATUS = [["🟡 تحت التأسيس","forming"],["🟢 مفتوح للاكتتاب","raising"],["🔵 مُغلَق ويستثمر","investing"],["⚪ في مرحلة التصفية","harvesting"],["⚫ مُصفَّى بالكامل","closed"]];
 const FUND_STATUS_LABEL = Object.fromEntries(FUND_STATUS.map(([l,v])=>[v,l]));
-const CAPITAL_CALL_STATUS = [["🟡 معلَّق (لم يُسدَّد بعد)","pending"],["🟢 مسدَّد","paid"],["⚪ معفى/مُلغى","waived"]];
+// بوابة اعتماد صريحة ومنفصلة (المرحلة السادسة-ب، بطلب صريح من المستخدم بعد سؤاله تحديداً): حالة
+// 'approved' جديدة بين pending/declared والترحيل النهائي — انظر تعليق firestore.rules عند
+// ledgerStatusTransitionOk للتفصيل الكامل لماذا لا يمكن تخطّيها.
+const CAPITAL_CALL_STATUS = [["🟡 معلَّق (لم يُسدَّد بعد)","pending"],["🔵 مُعتمَد (بانتظار السداد)","approved"],["🟢 مسدَّد","paid"],["⚪ معفى/مُلغى","waived"]];
 const CAPITAL_CALL_STATUS_LABEL = Object.fromEntries(CAPITAL_CALL_STATUS.map(([l,v])=>[v,l]));
 const DISTRIBUTION_TYPES = ["عائد رأس المال (Return of Capital)","عائد مفضَّل (Preferred Return)","حصة أرباح/كاري (Profit Share / Carry)","أخرى (Other)"];
-const DISTRIBUTION_STATUS = [["🟡 مُعلَنة (لم تُصرَف بعد)","declared"],["🟢 مصروفة","paid"]];
+const DISTRIBUTION_STATUS = [["🟡 مُعلَنة (لم تُصرَف بعد)","declared"],["🔵 مُعتمَدة (بانتظار الصرف)","approved"],["🟢 مصروفة","paid"]];
 const DISTRIBUTION_STATUS_LABEL = Object.fromEntries(DISTRIBUTION_STATUS.map(([l,v])=>[v,l]));
 // نوع مساهمة الالتزام — استثناء ضيّق ومقصود على قاعدة "عدم لمس core.js" (المرحلة الثامنة،
 // بموافقة صريحة من المستخدم): مستثمر نقدي (Cash) يسدّد التزامه عبر نداءات رأسمال عادية، أو
@@ -764,9 +782,16 @@ const CONTRIBUTION_TYPE_LABEL = Object.fromEntries(CONTRIBUTION_TYPES.map(([l,v]
 
 function blankInvestor(){ return { name:'', investorClass:INVESTOR_CLASSES[0], email:'', phone:'', notes:'', createdAt:null, updatedAt:null }; }
 function blankFund(){ return { name:'', fundType:FUND_TYPES[0], vintageYear:new Date().getFullYear(), targetSize:0, status:'forming', assetIds:[], notes:'', createdAt:null, updatedAt:null }; }
-function blankCommitment(fundId){ return { fundId:fundId||'', investorId:'', commitmentAmount:0, dateCommitted:todayStr(), contributionType:'cash', inKindDescription:'' }; }
-function blankCapitalCall(fundId){ return { fundId:fundId||'', investorId:'', callNumber:1, callDate:todayStr(), amount:0, status:'pending', notes:'', linkedCommitmentId:null }; }
-function blankDistribution(fundId){ return { fundId:fundId||'', investorId:'', distDate:todayStr(), amount:0, type:DISTRIBUTION_TYPES[0], status:'declared', notes:'' }; }
+// reversalOfId (المرحلة السادسة، بطلب صريح "إعادة هندسة كاملة الآن"): commitments/
+// capitalCalls/distributions أصبحت سجلات محاسبية مُرحَّلة (posted/locked) بمجرد ترحيلها —
+// انظر تعليق firestore.rules عند match /commitments،/capitalCalls،/distributions للتفصيل
+// الكامل. التصحيح الوحيد لسجل مُرحَّل هو قيد عكسي جديد (سجل جديد يحمل reversalOfId يشير لمعرّف
+// السجل الأصل، بمبلغ عكسي/سالب) — لا تعديل ولا حذف مطلقاً؛ null يعني "سجل أصلي، ليس عكسياً".
+// notes أُضيف لـ commitment (كان موجوداً أصلاً في capitalCall/distribution) ليحمل سبب العكس عند
+// إنشاء قيد عكسي — وإلا يبقى فارغاً كما كان.
+function blankCommitment(fundId){ return { fundId:fundId||'', investorId:'', commitmentAmount:0, dateCommitted:todayStr(), contributionType:'cash', inKindDescription:'', notes:'', reversalOfId:null }; }
+function blankCapitalCall(fundId){ return { fundId:fundId||'', investorId:'', callNumber:1, callDate:todayStr(), amount:0, status:'pending', notes:'', linkedCommitmentId:null, reversalOfId:null, approvedBy:null, approvedAt:null }; }
+function blankDistribution(fundId){ return { fundId:fundId||'', investorId:'', distDate:todayStr(), amount:0, type:DISTRIBUTION_TYPES[0], status:'declared', notes:'', reversalOfId:null, approvedBy:null, approvedAt:null }; }
 
 function ifCollFor(kind){ return {investor:'investors', fund:'funds', commitment:'commitments', capitalCall:'capitalCalls', distribution:'distributions'}[kind]; }
 function ifPrefixFor(kind){ return {investor:'INV', fund:'FND', commitment:'CMT', capitalCall:'CC', distribution:'DST'}[kind]; }
@@ -802,6 +827,31 @@ function demoSeedIfData(){
   ];
   STORE.transactions = [];
 }
+
+// هل هذا السجل "مُرحَّل نهائياً" (posted/locked — الحالة الوحيدة التي تُظهر زر "عكس")؟ — نفس
+// المنطق المطبَّق في firestore.rules تماماً (مصدر واحد للحقيقة على مستوى الواجهة، والقاعدة
+// الفعلية غير القابلة للتجاوز تبقى في firestore.rules نفسها، لا هنا؛ هذا فقط يمنع الواجهة من
+// عرض زر حذف/تعديل لسجل سيُرفَض من الخادم). commitment مُرحَّل من لحظة إنشائه دائماً. capitalCall/
+// distribution "قيد الاعتماد" (approved) مقفولة أيضاً لكنها *ليست* مُرحَّلة بعد — لا حذف ولا
+// تعديل حر لها، لكن لا زر "عكس" أيضاً (لا شيء نُفِّذ فعلياً بعد لِيُعكَس)؛ استخدم isApprovedIfRecord
+// لتلك الحالة الوسيطة تحديداً.
+function isPostedIfRecord(kind, rec){
+  if(!rec) return false;
+  if(kind==='commitment') return true;
+  if(kind==='capitalCall') return rec.data.status==='paid' || rec.data.status==='waived' || !!rec.data.linkedCommitmentId;
+  if(kind==='distribution') return rec.data.status==='paid';
+  return false;
+}
+// هل هذا السجل "قيد الاعتماد" (approved) — مُعتمَد لكن لم يُرحَّل/يُنفَّذ بعد؟ مقفول من التعديل
+// الحر والحذف تماماً كالمُرحَّل، لكن مساره للأمام فقط عبر if-mark-paid/if-waive (لا if-reverse).
+function isApprovedIfRecord(kind, rec){
+  if(!rec) return false;
+  if(kind==='capitalCall' || kind==='distribution') return rec.data.status==='approved';
+  return false;
+}
+// أي سجل مقفول عن التعديل الحر/الحذف العادي، مُرحَّلاً كان أو قيد الاعتماد فقط — الفرق بينهما
+// يهم فقط لأي زر يُعرَض (عكس مقابل ترحيل/اعتماد)، لا لسؤال "أقدر أعدّله بحرية؟".
+function isLockedIfRecord(kind, rec){ return isPostedIfRecord(kind, rec) || isApprovedIfRecord(kind, rec); }
 
 /* ---------------- حسابات دفتر المستثمرين (Investor Ledger) ---------------- */
 function commitmentsForInvestor(investorId){ return STORE.commitments.filter(c=>c.data.investorId===investorId); }
@@ -1010,14 +1060,11 @@ function compute(o, scenarioKey){
     constructionYears = o.development.constructionYears;
     // تقسيم الأراضي على مراحل: مدة "التشغيل" = مدة جدول الامتصاص نفسه (كل شريحة تُباع في سنة مختلفة)،
     // بدل قيمة operationYears العادية التي لا معنى لها هنا (لا يوجد تشغيل تأجيري، فقط بيع تدريجي).
-    // البيع على الخارطة: كل الوحدات تُباع خلال مدة الإنشاء نفسها، لكن تحرير آخر دفعة من حساب الضمان قد
-    // يقع بعد نهاية الإنشاء بمقدار "تأخير الضمان" (escrowLagYears) — فمدة الصندوق الكلية يجب أن تمتد
-    // لتشمل هذا التأخير، وإلا فإن أي دفعة تُحصَّل بعد نهاية الإنشاء تُقتَطع خطأً إلى آخر سنة إنشاء بدل أن
-    // تُحتسَب في توقيتها الفعلي (إصلاح: كانت التدفقات تُضغَط زمنياً وتُخفي فائدة/رسوماً مستحقة فعلياً خلال
-    // فترة التأخير قبل الإصلاح).
+    // البيع على الخارطة: كل الوحدات تُباع وتُسلَّم بنهاية الإنشاء نفسه (100% مُباعة عبر الشرائح) — لا توجد
+    // مدة تشغيل تأجيري لاحقة إطلاقاً، فمدة الصندوق الكلية = مدة الإنشاء فقط.
     operationYears = (scopeType==='infra_only' && o.subdivision && o.subdivision.phasedAbsorption)
       ? Math.max(1, o.subdivision.absorptionYears||4)
-      : (scopeType!=='infra_only' && strat.offPlanSale && strat.offPlanSale.enabled) ? Math.round(strat.offPlanSale.escrowLagYears||0)
+      : (scopeType!=='infra_only' && strat.offPlanSale && strat.offPlanSale.enabled) ? 0
       : o.development.operationYears;
   } else { // income
     verticalCost = scopeType==='infra_only' ? 0 : gfa * ((o.development.buildCost||3500)*costMult) * useInfo.mult * siteFactor * heightPremiumMult;
@@ -1040,9 +1087,14 @@ function compute(o, scenarioKey){
   const structuringFee = o.fees.structuring * (landCost + hardCost);
   const acquisitionFee = o.fees.acquisition * landCost;
 
+  // البيع على الخارطة قد يمتد تحصيله إلى ما بعد نهاية الإنشاء بسبب تأخير الضمان.
+  // يجب أن يمتد أفق الصندوق معه بدلاً من قصّ سنة التحصيل الأخيرة داخل سنة الإنشاء الأخيرة.
+  const offPlanLagYears = (type==='development' && scopeType!=='infra_only' && strat.offPlanSale && strat.offPlanSale.enabled)
+    ? Math.max(0, Math.round(strat.offPlanSale.escrowLagYears||0)) : 0;
+  const offPlanCollectionHorizon = constructionYears + offPlanLagYears;
   const totalYears = holdStrategy==='perpetual_hold'
-    ? Math.max(1, constructionYears + Math.max(1, refi.analysisHorizon||10))
-    : Math.max(1, constructionYears + operationYears);
+    ? Math.max(1, constructionYears + Math.max(1, refi.analysisHorizon||10), offPlanCollectionHorizon)
+    : Math.max(1, constructionYears + operationYears, offPlanCollectionHorizon);
 
   // Debt sizing — single tranche, or Senior + Mezzanine
   const preTPC = landCost + hardCost + oneTimeFixed + structuringFee + acquisitionFee;
@@ -1060,7 +1112,24 @@ function compute(o, scenarioKey){
   }
   const debt = totalDebtTarget;
   const arrangementFee = o.financing.ltc>0 ? o.fees.arrangement * debt : 0;
-  const TPC = preTPC + arrangementFee;
+  // Stage 2 institutional financing: construction debt can now have an explicit draw profile.
+  // Empty profile preserves legacy full-balance behavior; otherwise percentages are normalized
+  // across construction years and interest is charged on average beginning/ending balance.
+  const rawDraw = Array.isArray(o.financing.drawSchedulePct) ? o.financing.drawSchedulePct.map(Number).filter(v=>isFinite(v)&&v>=0) : [];
+  const drawSchedule = (constructionYears>0 && rawDraw.length)
+    ? (()=>{ const a=rawDraw.slice(0,Math.max(1,Math.round(constructionYears))); while(a.length<Math.max(1,Math.round(constructionYears))) a.push(0); const sum=a.reduce((x,y)=>x+y,0); return sum>0?a.map(x=>x/sum):null; })()
+    : null;
+  const vatEnabled = !!(o.vat && o.vat.enabled);
+  const vatRate = vatEnabled ? (o.vat.ratePct!=null?o.vat.ratePct:0.15) : 0;
+  const vatInputRate = vatEnabled ? (o.vat.constructionInputVatPct!=null?o.vat.constructionInputVatPct:vatRate) : 0;
+  const residentialVat = isResidentialUseType(meta.useType);
+  // Recovery defaults to 0% for exempt residential use and 100% for taxable use, but remains
+  // explicitly overrideable for mixed/restricted recovery cases.
+  const vatRecoveryPct = vatEnabled ? Math.max(0,Math.min(1, o.vat.inputRecoveryPct==null ? (residentialVat?0:1) : Number(o.vat.inputRecoveryPct))) : 0;
+  const vatConstructionBase = vatEnabled ? (hardCost + (o.fees.dueDiligence||0) + (o.fees.valuation||0) + structuringFee) : 0;
+  const vatInputTotal = vatConstructionBase * vatInputRate;
+  const vatIrrecoverableUpfront = vatInputTotal * (1-vatRecoveryPct);
+  const TPC = preTPC + arrangementFee + vatInputTotal;
   const equity = TPC - debt;
 
   // الرسوم المتكررة السنوية على مستوى الصندوق (إدارة الصندوق، إدارة الأصول، تنظيمي/تدقيق/أمين حفظ) —
@@ -1134,15 +1203,13 @@ function compute(o, scenarioKey){
     const escAnnualOP = strat.offPlanSale.priceEscalationAnnual||0;
     const exitCostPctOP = o.exitCosts.broker + o.exitCosts.legal + o.exitCosts.rett + o.exitCosts.exitFee + o.fees.disposition;
     const lag = Math.round(strat.offPlanSale.escrowLagYears||0);
-    // نجمع كل شريحة "نظرية" (مرتبطة بنسبة إنجاز الإنشاء) في سنة "التحصيل الفعلي" بعد تطبيق تأخير الضمان —
-    // إصلاح: كانت سنة التحصيل تُقتَطع خطأً إلى مدة الإنشاء فقط (nYears)، ما يضغط أي دفعة متأخرة إلى آخر
-    // سنة إنشاء بدل تمديد أفق الاستثمار الفعلي. الآن تُقتَطع فقط عند الحد الأقصى الحقيقي لمدة الصندوق
-    // (totalYears، والتي تمتد فعلياً بمقدار lag — انظر تعديل operationYears أعلاه)، مع تجميع أي شرائح
-    // تتقارب على نفس سنة التحصيل بدل معاملتها كإدخالات منفصلة (تفادياً لتكرار السنة).
+    // نجمع كل شريحة "نظرية" (مرتبطة بنسبة إنجاز الإنشاء) في سنة "التحصيل الفعلي" بعد تطبيق تأخير الضمان،
+    // مع تجميع أي شرائح تتقارب على نفس سنة التحصيل بدل معاملتها كإدخالات منفصلة (تفادياً لتكرار السنة).
     const buckets = {};
     pcts.forEach((pct,i)=>{
       const nominalYear = i+1;
-      const collectionYear = Math.min(totalYears, Math.max(1, nominalYear + lag));
+      // لا نقصّ سنة التحصيل عند نهاية الإنشاء: escrow lag حقيقي قد يدفع التحصيل إلى سنة لاحقة.
+      const collectionYear = Math.max(1, nominalYear + lag);
       const trancheRevenue = totalSaleValueBaseOP * pct * Math.pow(1+escAnnualOP, i);
       const trancheCosts = trancheRevenue * exitCostPctOP;
       const tranchePrincipalPay = pct * debt;
@@ -1163,11 +1230,6 @@ function compute(o, scenarioKey){
   function noiForYear(){
     if(type==='landbank') return 0;
     if(type==='development' && scopeType==='infra_only') return 0; // serviced-plot sale: no interim rental income
-    // بيع على الخارطة (وافي): 100% من الوحدات تُباع عبر الشرائح — لا يوجد إيجار تشغيلي في أي سنة إطلاقاً
-    // (بما فيها سنوات ما بعد الإنشاء أثناء تأخير تحرير الضمان)؛ إيراد كل سنة يأتي فقط من جدول الشرائح
-    // (offPlanSchedule) لا من noiForYear(). بدون هذا الحارس، أي سنة تمتد بعد نهاية الإنشاء (بسبب تأخير
-    // الضمان) كانت ستُحتسَب خطأً كسنة إيجارية عادية.
-    if(isOffPlanSale) return 0;
     if(assetClass==='hospitality'){
       const hosp = o.income.hospitality||{};
       const revPAR = (hosp.adr||0) * occupancy; // occupancy reused as hotel occupancy rate
@@ -1213,7 +1275,6 @@ function compute(o, scenarioKey){
   function revenueBreakdownForYear(){
     if(type==='landbank') return { revenue:0, vacancyLoss:0, egi:0, opexAmt:0, propMgmtFeeAmt:0 };
     if(type==='development' && scopeType==='infra_only') return { revenue:0, vacancyLoss:0, egi:0, opexAmt:0, propMgmtFeeAmt:0 };
-    if(isOffPlanSale) return { revenue:0, vacancyLoss:0, egi:0, opexAmt:0, propMgmtFeeAmt:0 }; // انظر ملاحظة الحارس المطابقة في noiForYear()
     if(assetClass==='hospitality'){
       const hosp = o.income.hospitality||{};
       const revPAR = (hosp.adr||0) * occupancy;
@@ -1283,7 +1344,14 @@ function compute(o, scenarioKey){
     }
     // بنود قائمة الدخل التفصيلية لهذه السنة (للعرض فقط في تقرير P&L — لا تُستخدم في أي حساب آخر)
     const rb = (!inConstruction && type!=='landbank') ? revenueBreakdownForYear() : { revenue:0, vacancyLoss:0, egi:0, opexAmt:0, propMgmtFeeAmt:0 };
-    const interest = remainingDebt * interestRate;
+    const drawEnd = (drawSchedule && inConstruction)
+      ? Math.min(debt, debt * drawSchedule.slice(0,yr).reduce((a,b)=>a+b,0))
+      : remainingDebt;
+    const drawStart = (drawSchedule && inConstruction)
+      ? (yr===1 ? 0 : Math.min(debt, debt * drawSchedule.slice(0,yr-1).reduce((a,b)=>a+b,0)))
+      : remainingDebt;
+    const interestBase = (drawSchedule && inConstruction) ? (drawStart + drawEnd)/2 : remainingDebt;
+    const interest = interestBase * interestRate;
     let principalPay = 0;
     if((amortType==='amortizing'||amortType==='partial_amort_balloon') && type!=='landbank' && !isPhasedSaleMode && !inConstruction && yr>constructionYears+graceYears && remainingDebt>0){
       principalPay = Math.min(remainingDebt, debt/amortYears);
@@ -1295,12 +1363,9 @@ function compute(o, scenarioKey){
     const capitalizeInterest = inConstruction && type!=='landbank' && (o.financing.interestDuringConstruction==='capitalized');
     const cashInterest = capitalizeInterest ? 0 : interest;
     const capitalizedInterestThisYear = capitalizeInterest ? interest : 0;
-    // إصلاح P0: كانت فائدة الدين لبنك الأراضي (landbank) تُحسَب (interest أعلاه) لكن تُستبعَد بالكامل من
-    // debtService، فلا تصل أبداً إلى تدفق حقوق الملكية طوال مدة الاحتفاظ (لا تُدفَع نقداً ولا تُرسمَل على
-    // رصيد الدين، لأن capitalizeInterest يستبعد landbank أيضاً) — الفائدة كانت تُحتسَب فعلياً ثم "تختفي".
-    // الآن تُدفَع نقداً سنوياً من حقوق الملكية مثل أي فرصة أخرى (السلوك الافتراضي الواقعي: قرض بنك أراضٍ
-    // بفائدة فقط، بلا استهلاك أصل خلال مدة الاحتفاظ، والأصل يُسدَّد بالكامل عند البيع في نهاية المدة).
-    const debtService = (remainingDebt>0) ? cashInterest+principalPay : 0;
+    // بنك الأراضي: الفائدة تكلفة نقدية سنوية حقيقية حتى لو لم يوجد تشغيل/NOI.
+    // أصل الدين يبقى بالوناً حتى الخروج، لكن الفائدة لا تختفي من التدفقات.
+    const debtService = remainingDebt>0 ? cashInterest+principalPay : 0;
     const isLast = (yr===totalYears);
     const yearsIntoOperation = yr - constructionYears;
     const isRefiYear = (holdStrategy==='perpetual_hold' && !inConstruction && !isLast && yearsIntoOperation>0
@@ -1330,11 +1395,9 @@ function compute(o, scenarioKey){
       } else if(type==='development'){
         const sellableArea = scopeType==='infra_only' ? land.area : gfa*efficiency;
         const saleValue = sellableArea * salePriceEff * salePct;
-        // إصلاح P0: كانت قيمة الجزء المُبقى مؤجَّراً تُحتسَب على كامل GLA (gla) بدل الجزء المتبقي فقط
-        // (1-salePct)×gla — ما يجعل القيمة المؤجَّرة مضخَّمة تقريباً بنفس نسبة الجزء المُباع مضاعفاً (مثلاً
-        // مع salePct=50%، كانت تُحتسَب قيمة إيجارية لـ100% من GLA رغم بيع نصفها فعلياً وتحصيل ثمنها في
-        // saleValue أعلاه — ازدواج جزئي في القيمة). الآن (1-salePct) مضروبة صراحة في gla قبل الترسيم.
-        const rentedValue = (1-salePct)>0 ? (gla*(1-salePct)*rentAnnual*occupancy*(1-opexPct)*(1-o.fees.propMgmt))/exitCapRateEff : 0;
+        const rentedValue = (1-salePct)>0
+          ? ((gla*(1-salePct))*rentAnnual*occupancy*(1-opexPct)*(1-o.fees.propMgmt))/exitCapRateEff
+          : 0;
         exitValue = saleValue + (scopeType==='infra_only' ? 0 : rentedValue);
         saleValueAtExit = saleValue; // الجزء المُباع فعلياً (لو تطوير مختلط) — يلزم لاحقاً لو الاستراتيجية "إعادة تمويل" بدل بيع الجزء المُبقى
       } else if(applySalePctToIncome){
@@ -1369,11 +1432,32 @@ function compute(o, scenarioKey){
     const midTrancheNet = (!isLast && thisTranche) ? (thisTranche.trancheRevenue - thisTranche.trancheCosts) : 0;
     const midTranchePrincipalPay = (!isLast && thisTranche) ? thisTranche.tranchePrincipalPay : 0;
 
-    const projFlow = noi + (isLast? (exitValue - exitCostsAmt) : 0) + midTrancheNet;
+    // VAT working-capital layer: VAT is paid with construction spend, while recoverable VAT
+    // returns after the configured refund lag. Irrecoverable VAT is already capitalized in TPC,
+    // so only the recoverable cash timing is added here to avoid double counting.
+    let vatPaidThisYear = 0, vatRefundThisYear = 0;
+    // Gross input VAT is included in TPC/initial funding. Recoverable VAT is then returned after
+    // the configured lag; irrecoverable VAT remains embedded in project cost. This avoids double
+    // counting VAT in the cash-flow model while still exposing recovery and working-capital timing.
+    if(vatEnabled && vatInputTotal>0 && (o.vat.refundLagYears||0)>0 && yr>1){
+      const sourceYear = yr - Math.max(0,Math.round(o.vat.refundLagYears||0));
+      if(sourceYear>=1 && sourceYear<=Math.max(1,Math.round(constructionYears))){
+        const ncy=Math.max(1,Math.round(constructionYears));
+        const sourceSpend=(hardCost/ncy)+(sourceYear===1?((o.fees.dueDiligence||0)+(o.fees.valuation||0)+structuringFee)/ncy:0);
+        vatRefundThisYear += sourceSpend*vatInputRate*vatRecoveryPct;
+      }
+    }
+    if(vatEnabled && vatInputTotal>0 && (o.vat.refundLagYears||0)===0 && inConstruction){
+      const ncy=Math.max(1,Math.round(constructionYears));
+      const spendShare=(hardCost/ncy)+(yr===1?((o.fees.dueDiligence||0)+(o.fees.valuation||0)+structuringFee)/ncy:0);
+      vatRefundThisYear += spendShare*vatInputRate*vatRecoveryPct;
+    }
+    const vatNetCashThisYear = vatRefundThisYear;
+    const projFlow = noi + (isLast? (exitValue - exitCostsAmt) : 0) + midTrancheNet + vatNetCashThisYear;
     // رسوم الصندوق السنوية (إدارة صندوق + إدارة أصول + تنظيمي/تدقيق) تنطبق على أي هيكل صندوق أياً كان
     // نوع الفرصة — بما فيها تخزين الأراضي (تكلفة الحمل landbank.carryAnnual تكلفة عقارية منفصلة تماماً
     // عن أتعاب مدير الصندوق نفسه، والاثنتان قد تنطبقان معاً).
-    const netOperatingCF = noi - debtService - annualFundFee; // can be negative: a shortfall is a real equity capital call, not floored to zero
+    const netOperatingCF = noi - debtService - annualFundFee + vatNetCashThisYear; // can be negative: a shortfall is a real equity capital call, not floored to zero
 
     let equityFlow, newLoanAfterRefi = null;
     if(isLast && holdStrategy==='refinance_close' && !isPhasedSaleMode){
@@ -1387,14 +1471,14 @@ function compute(o, scenarioKey){
       const refiCost = newLoan * (refi.refiCostPct||0.01);
       const oldDebtRemaining = remainingDebt - principalPay;
       const saleNetProceeds = saleValueAtExit>0 ? saleValueAtExit*(1-exitCostPctAtExit) : 0;
-      const distribution = Math.max(0, newLoan + saleNetProceeds - oldDebtRemaining - refiCost);
+      const distribution = newLoan + saleNetProceeds - oldDebtRemaining - refiCost;
       equityFlow = netOperatingCF + distribution;
     } else if(isRefiYear){
       const propertyValue = noiForYear() * Math.pow(1+o.wacc.growth, yr) / marketCapEff;
       const newLoan = propertyValue * (refi.refiLtv||0.65);
       const refiCost = newLoan * (refi.refiCostPct||0.01);
       const oldDebtRemaining = remainingDebt - principalPay;
-      const distribution = Math.max(0, newLoan - oldDebtRemaining - refiCost);
+      const distribution = newLoan - oldDebtRemaining - refiCost;
       equityFlow = netOperatingCF + distribution;
       if(distribution>0) newLoanAfterRefi = oldDebtRemaining + distribution + refiCost; // == newLoan
     } else if(isLast){
@@ -1488,12 +1572,10 @@ function compute(o, scenarioKey){
   const npvEquity = npvAt(Ke, equityCF);
   const npvProject = npvAt(WACC, projectCF);
   const totalDistrib = equityCF.slice(1).reduce((a,b)=>a+Math.max(0,b),0);
-  // إصلاح P1: رأس المال الفعلي الذي يدفعه المستثمر ليس equity فقط، بل equity + رسوم الاشتراك (subscriptionFee)
-  // التي تُخصَم منه فوراً عند الدخول (انظر initialEquityOutlay أعلاه = -equity - subscriptionFee×equity).
-  // كان المقام هنا equity الخام فقط، فيبدو MOIC للمستثمر أعلى مما يحصل عليه فعلياً (نفس التدفقات النقدية،
-  // لكن رأس المال المُستثمَر الحقيقي المُقارَن به كان أقل من المبلغ الذي دفعه المستثمر فعلياً).
-  const investorPaidInCapital = equity>0 ? equity + o.subscription.subscriptionFee*equity : equity;
-  const MOIC = investorPaidInCapital>0 ? totalDistrib/investorPaidInCapital : 0;
+  const investorSideFees = o.subscription.subscriptionFee*equity;
+  const investorCashInvested = equity + investorSideFees;
+  // MOIC للمستثمر يجب أن يعكس كل النقد المدفوع فعلياً، بما فيه رسوم الاشتراك.
+  const MOIC = investorCashInvested>0 ? totalDistrib/investorCashInvested : 0;
   const DPI = MOIC; const RVPI = 0; const TVPI = DPI+RVPI;
 
   // ---- فترة استرداد رأس المال (Payback Period) ----
@@ -1521,7 +1603,7 @@ function compute(o, scenarioKey){
 
   const equityIRRCashOnly = holdStrategy==='perpetual_hold' ? irr(equityCFCashOnly) : equityIRR;
   const totalDistribCashOnly = equityCFCashOnly.slice(1).reduce((a,b)=>a+Math.max(0,b),0);
-  const MOICCashOnly = holdStrategy==='perpetual_hold' ? (investorPaidInCapital>0 ? totalDistribCashOnly/investorPaidInCapital : 0) : MOIC;
+  const MOICCashOnly = holdStrategy==='perpetual_hold' ? (investorCashInvested>0 ? totalDistribCashOnly/investorCashInvested : 0) : MOIC;
 
   const stabilizedNOIyr1 = type!=='landbank' ? noiForYear() : 0;
   const yieldOnCost = TPC>0 ? stabilizedNOIyr1/TPC : 0;
@@ -1531,9 +1613,8 @@ function compute(o, scenarioKey){
   // ناقص الدين المتبقي وقتها — بدون خصم تكاليف بيع افتراضية (لأن NAV تقييم "ماسك للأصل"، مش عملية بيع فعلية).
   const NAV = navGrossValue - navDebt;
   // ROI بسيط (Cash-on-Cash على مدى العمر) = صافي الربح / رأس المال المستثمر — مقياس مبسّط يكمّل MOIC وIRR،
-  // بدون تسوية بالقيمة الزمنية للنقود (على عكس IRR). المقام هو رأس المال الفعلي المدفوع من المستثمر
-  // (investorPaidInCapital، يشمل رسوم الاشتراك) بنفس منطق إصلاح MOIC أعلاه.
-  const ROI = investorPaidInCapital>0 ? (totalDistrib - investorPaidInCapital)/investorPaidInCapital : 0;
+  // بدون تسوية بالقيمة الزمنية للنقود (على عكس IRR).
+  const ROI = investorCashInvested>0 ? (totalDistrib - investorCashInvested)/investorCashInvested : 0;
 
   // ---- Fees rollups ----
   const mgmtFeeTotal = o.fees.mgmt * (equity+debt)/2 * totalYears; // approx on avg NAV proxy
@@ -1541,7 +1622,6 @@ function compute(o, scenarioKey){
   const regAuditCustodianTotal = (o.fees.regAuditCustodian + o.fees.mgmt*0) * totalYears;
   const custodianTotal = 0.0015*(equity)*totalYears;
   const fundSideFees = structuringFee + arrangementFee + mgmtFeeTotal + assetMgmtTotal + regAuditCustodianTotal + oneTimeFixed + acquisitionFee;
-  const investorSideFees = o.subscription.subscriptionFee*equity;
   const dispositionFeeAmt = (equityCF[equityCF.length-1]||0) * 0; // already embedded in exit cost pct above
   const feesPctOfTPC = TPC>0 ? fundSideFees/TPC : 0;
 
@@ -1605,7 +1685,7 @@ function compute(o, scenarioKey){
     amortType, assetClass, holdStrategy, scopeType, infraCostAmt, verticalCost, balloonBalanceAtExit,
     gla, totalYears, constructionYears, operationYears,
     equityIRR, projectIRR, npvEquity, npvProject, totalDistrib, MOIC, DPI, RVPI, TVPI, paybackPeriod, dscrMin, dscrAvg,
-    equityIRRCashOnly, MOICCashOnly, totalDistribCashOnly, investorPaidInCapital,
+    equityIRRCashOnly, MOICCashOnly, totalDistribCashOnly,
     stabilizedNOIyr1, yieldOnCost, NAV, ROI,
     mgmtFeeTotal, assetMgmtTotal, regAuditCustodianTotal, fundSideFees, investorSideFees, feesPctOfTPC,
     PIC, roc, pref, catchup, lpStandard, carryPool, lpBonus, gpManager, devPromote, lpTotal, gpTotal, devTotal,
@@ -1615,7 +1695,8 @@ function compute(o, scenarioKey){
     equityIRRAfterZakat, MOICAfterZakat, totalZakatEstimate,
     isDirectSaleSplit, directSaleDeferredAmt, directSaleDeferredYear,
     vatIsResidentialExempt: isResidentialUseType(meta.useType),
-    totalVatIrrecoverableCost: pnlRows.reduce((a,r)=>a+(r.vatIrrecoverableCost||0),0),
+    totalVatIrrecoverableCost: pnlRows.reduce((a,r)=>a+(r.vatIrrecoverableCost||0),0) + vatIrrecoverableUpfront,
+    vatInputTotal, vatRecoveryPct, vatIrrecoverableUpfront, vatWorkingCapitalRefundLagYears: o.vat.refundLagYears||0, drawSchedule,
     totalVatOnRevenueInfo: pnlRows.reduce((a,r)=>a+(r.vatOnRevenueInfo||0),0),
     totalEjarFee: pnlRows.reduce((a,r)=>a+(r.ejarFeeAmt||0),0),
     totalInsurance: pnlRows.reduce((a,r)=>a+(r.insuranceAmt||0),0),
@@ -1869,7 +1950,7 @@ function runOptimizer(o){
   const ltcOptions = [o.financing.ltc, 0.55, 0.60, 0.65, 0.70].filter((v,i,a)=>a.indexOf(v)===i);
   const landDeltaOptions = [0, -0.05, -0.10];
   const priceDeltaOptions = [0, 0.03, 0.05];
-  const candidates = [];
+  const candidates = [{ ltc:o.financing.ltc, landD:0, priceD:0, irr:base.equityIRR, moic:base.MOIC, dscr:base.dscrMin }];
   ltcOptions.forEach(ltc=>{
     landDeltaOptions.forEach(landD=>{
       priceDeltaOptions.forEach(priceD=>{
@@ -3294,7 +3375,7 @@ ${T('بدلاً من بيع الأصل في نهاية المدة، يقوم ا�
 
         <div class="section">
           <h3>📊 ${T('مقارنة بمعايير السوق','Comparison with Market Benchmarks')}</h3>
-          <p class="note">${T('إصلاح حوكمة (P0): أُزيل معيار عام ثابت (15–20% IRR، 7–9% Cap Rate...) كان يظهر هنا بصرف النظر عن مدينة/نوع/استراتيجية الفرصة الفعلية — يتعارض مع مكتبة أوبال المرجعية الديناميكية (📚 الفرصة مقابل المعيار المرجعي أدناه) التي تطابق المدينة والنوع فعلياً أو تُفصح صراحة عن عدم توفر معيار مناسب بدل رقم عام مضلِّل. راجع قسم "الفرصة مقابل المعيار المرجعي" أسفل هذا القسم للمقارنة الفعلية.','Governance fix (P0): a fixed generic benchmark (15–20% IRR, 7–9% cap rate...) that used to appear here regardless of this deal\'s actual city/type/strategy has been removed — it conflicted with the dynamic OPAL Benchmark Library (see \"Your Deal vs. Benchmark\" below), which matches city+type or explicitly discloses that no suitable benchmark is available instead of showing a misleading generic number. See the \"Your Deal vs. Benchmark\" section below for the real comparison.')}</p>
+          <p class="note">${T('إصلاح حوكمة (P0): أُزيل معيار عام ثابت (15–20% IRR، 7–9% Cap Rate...) كان يظهر هنا بصرف النظر عن مدينة/نوع/استراتيجية الفرصة الفعلية — يتعارض مع مكتبة أوبال المرجعية الديناميكية (📚 الفرصة مقابل المعيار المرجعي أدناه) التي تطابق المدينة والنوع فعلياً أو تُفصح صراحة عن عدم توفر معيار مناسب بدل رقم عام مضلِّل. راجع قسم "الفرصة مقابل المعيار المرجعي" أسفل هذا القسم للمقارنة الفعلية.','Governance fix (P0): a fixed generic benchmark (15–20% IRR, 7–9% cap rate...) that used to appear here regardless of this deal\'s actual city/type/strategy has been removed — it conflicted with the dynamic OPAL Benchmark Library (see "Your Deal vs. Benchmark" below), which matches city+type or explicitly discloses that no suitable benchmark is available instead of showing a misleading generic number. See the "Your Deal vs. Benchmark" section below for the real comparison.')}</p>
         </div>
 
         <div class="section">
@@ -3321,7 +3402,7 @@ ${T('بدلاً من بيع الأصل في نهاية المدة، يقوم ا�
         </div>
       </div>
     </div>
-    ${renderDetailExtensions(d,c,rec)}
+    ${renderDetailExtensions(d,c)}
   </div>`;
 }
 
@@ -3521,8 +3602,8 @@ function renderLogin(){
           <div class="brand" style="justify-content:center; margin-bottom:14px;">
             <div class="mark"><img src="${OPAL_LOGO_MARK}" alt="Opal"></div>
             <div>
-              <h1 style="font-size:17px;">${T('مستكشف الفرص العقارية','Opal Real Estate Opportunity Explorer')}</h1>
-              <div class="sub">${T('Opal Real Estate Opportunity Explorer','مستكشف الفرص العقارية')}</div>
+              <h1 style="font-size:17px;">${T('مستكشف الفرص العقارية','Real Estate Opportunity Explorer')}</h1>
+              <div class="sub">${T('Real Estate Opportunity Explorer','مستكشف الفرص العقارية')}</div>
             </div>
           </div>
           <div class="step-title" style="font-size:16px;">${TEAM_ENTRY? T('تسجيل دخول أعضاء الفريق','Team Member Sign-in') : T('تسجيل الدخول','Sign In')}</div>
@@ -3887,38 +3968,50 @@ function renderFundDetail(fundId){
   // نفسها كحصته)؟ الإجابة: نعم — والفرز أدناه يُظهر ذلك بوضوح في لوحة الصندوق.
   const cashCommitted = cmts.filter(c=>c.data.contributionType!=='in_kind').reduce((a,c)=>a+n(c.data.commitmentAmount),0);
   const inKindCommitted = cmts.filter(c=>c.data.contributionType==='in_kind').reduce((a,c)=>a+n(c.data.commitmentAmount),0);
+  // شارة "قيد عكسي" أعلى أي نموذج مفتوح بفعل زر ↩️ (if-reverse) — نفس البانر لكل الأنواع
+  // الثلاثة. reversalOfId موجود دائماً في draft القيد العكسي نفسه (وضعه معالج if-reverse قبل
+  // فتح النموذج)؛ لا نعرضه أبداً عند الإنشاء العادي (يبقى null).
+  const reversalBanner = ifForm && ifForm.draft.reversalOfId ? `<p class="note" style="margin:0 0 8px; padding:6px 10px; background:var(--surface-3,#fff3cd); border-radius:6px;">↩️ ${T('قيد عكسي لتصحيح السجل المُرحَّل','Reversal entry correcting posted record')} <code>${esc(ifForm.draft.reversalOfId)}</code> — ${T('لا يمكن تعديل السجل الأصلي؛ هذا القيد الجديد هو التصحيح المحاسبي الرسمي.','the original record cannot be edited; this new entry is the official accounting correction.')}</p>` : '';
   const cmtForm = ifForm && ifForm.kind==='commitment' ? `
     <div class="panel" style="margin:10px 0; background:var(--surface-2);">
+      ${reversalBanner}
       <div class="grid3">
         ${ifField('المستثمر','Investor','investorId', ifForm.draft.investorId, {select:[[T('اختر مستثمر...','Select investor...'),'']].concat(STORE.investors.map(i=>[i.data.name,i.id]))})}
         ${ifField('نوع المساهمة','Contribution Type','contributionType', ifForm.draft.contributionType, {select:CONTRIBUTION_TYPES})}
         ${ifField(ifForm.draft.contributionType==='in_kind'?'القيمة المتفَق عليها':'مبلغ الالتزام', ifForm.draft.contributionType==='in_kind'?'Agreed Value':'Commitment Amount','commitmentAmount', ifForm.draft.commitmentAmount, {type:'number'})}
         ${ifField('تاريخ الالتزام','Date Committed','dateCommitted', ifForm.draft.dateCommitted, {type:'date'})}
         ${ifForm.draft.contributionType==='in_kind'? ifField('وصف المساهمة العينية (مثال: أرض المشروع)','In-Kind Description (e.g. project land)','inKindDescription', ifForm.draft.inKindDescription) : ''}
+        ${ifForm.draft.reversalOfId? ifField('سبب العكس/التصحيح','Reversal / Correction Reason','notes', ifForm.draft.notes) : ''}
       </div>
       ${ifForm.draft.contributionType==='in_kind'? `<p class="note" style="margin:6px 0 0;">${T('تُسجَّل المساهمة العينية كمنقولة بالكامل عند الحفظ (بلا نداءات رأسمال تدريجية) — نفس منطق نقل ملكية الأرض دفعة واحدة عند إغلاق الصندوق.','An in-kind contribution is recorded as fully transferred on save (no gradual capital calls) — same logic as a one-time land ownership transfer at fund closing.')}</p>` : ''}
       <div style="display:flex; gap:8px; margin-top:8px;"><button class="btn btn-primary btn-sm" data-action="if-save" data-kind="commitment">💾 ${T('حفظ','Save')}</button><button class="btn btn-ghost btn-sm" data-action="if-cancel-form">${T('إلغاء','Cancel')}</button></div>
     </div>` : '';
   const ccForm = ifForm && ifForm.kind==='capitalCall' ? `
     <div class="panel" style="margin:10px 0; background:var(--surface-2);">
+      ${reversalBanner}
       <div class="grid3">
         ${ifField('المستثمر','Investor','investorId', ifForm.draft.investorId, {select:[[T('اختر مستثمر...','Select investor...'),'']].concat(STORE.investors.map(i=>[i.data.name,i.id]))})}
         ${ifField('رقم النداء','Call #','callNumber', ifForm.draft.callNumber, {type:'number'})}
         ${ifField('تاريخ النداء','Call Date','callDate', ifForm.draft.callDate, {type:'date'})}
         ${ifField('المبلغ','Amount','amount', ifForm.draft.amount, {type:'number'})}
-        ${ifField('الحالة','Status','status', ifForm.draft.status, {select:CAPITAL_CALL_STATUS})}
+        ${ifForm.draft.reversalOfId? ifField('الحالة','Status','status', ifForm.draft.status, {select:CAPITAL_CALL_STATUS}) : ''}
+        ${ifForm.draft.reversalOfId? ifField('سبب العكس/التصحيح','Reversal / Correction Reason','notes', ifForm.draft.notes) : ''}
       </div>
+      ${!ifForm.draft.reversalOfId? `<p class="note" style="margin:6px 0 0;">${T('يبدأ النداء الجديد دائماً "معلَّق" — استخدم زر ✅ اعتماد ثم ✓ تعليم كمسدَّد لترحيله (بوابة اعتماد إلزامية).','A new call always starts "pending" — use the ✅ Approve button then the ✓ Mark Paid button to post it (mandatory approval gate).')}</p>` : ''}
       <div style="display:flex; gap:8px;"><button class="btn btn-primary btn-sm" data-action="if-save" data-kind="capitalCall">💾 ${T('حفظ','Save')}</button><button class="btn btn-ghost btn-sm" data-action="if-cancel-form">${T('إلغاء','Cancel')}</button></div>
     </div>` : '';
   const dsForm = ifForm && ifForm.kind==='distribution' ? `
     <div class="panel" style="margin:10px 0; background:var(--surface-2);">
+      ${reversalBanner}
       <div class="grid3">
         ${ifField('المستثمر','Investor','investorId', ifForm.draft.investorId, {select:[[T('اختر مستثمر...','Select investor...'),'']].concat(STORE.investors.map(i=>[i.data.name,i.id]))})}
         ${ifField('تاريخ التوزيع','Distribution Date','distDate', ifForm.draft.distDate, {type:'date'})}
         ${ifField('المبلغ','Amount','amount', ifForm.draft.amount, {type:'number'})}
         ${ifField('النوع','Type','type', ifForm.draft.type, {select:DISTRIBUTION_TYPES})}
-        ${ifField('الحالة','Status','status', ifForm.draft.status, {select:DISTRIBUTION_STATUS})}
+        ${ifForm.draft.reversalOfId? ifField('الحالة','Status','status', ifForm.draft.status, {select:DISTRIBUTION_STATUS}) : ''}
+        ${ifForm.draft.reversalOfId? ifField('سبب العكس/التصحيح','Reversal / Correction Reason','notes', ifForm.draft.notes) : ''}
       </div>
+      ${!ifForm.draft.reversalOfId? `<p class="note" style="margin:6px 0 0;">${T('تبدأ التوزيعة الجديدة دائماً "مُعلَنة" — استخدم زر ✅ اعتماد ثم ✓ تعليم كمصروف لترحيلها (بوابة اعتماد إلزامية).','A new distribution always starts "declared" — use the ✅ Approve button then the ✓ Mark Paid button to post it (mandatory approval gate).')}</p>` : ''}
       <div style="display:flex; gap:8px;"><button class="btn btn-primary btn-sm" data-action="if-save" data-kind="distribution">💾 ${T('حفظ','Save')}</button><button class="btn btn-ghost btn-sm" data-action="if-cancel-form">${T('إلغاء','Cancel')}</button></div>
     </div>` : '';
   return `
@@ -3953,10 +4046,10 @@ function renderFundDetail(fundId){
       <thead><tr><th>${T('المستثمر','Investor')}</th><th>${T('النوع','Type')}</th><th>${T('المبلغ / القيمة','Amount / Value')}</th><th>${T('التاريخ','Date')}</th><th></th></tr></thead>
       <tbody>
         ${cmts.length===0? `<tr><td colspan="5" style="text-align:center; color:var(--ink-faint); padding:16px;">${T('لا توجد التزامات بعد','No commitments yet')}</td></tr>` : cmts.map(c=>`
-          <tr><td>${esc(investorName(c.data.investorId))}</td>
+          <tr><td>${esc(investorName(c.data.investorId))}${c.data.reversalOfId? ` <span class="note" style="font-size:11px;" title="${T('قيد عكسي','reversal entry')}">↩️</span>`:''}</td>
           <td>${c.data.contributionType==='in_kind'? `<span class="badge" title="${esc(c.data.inKindDescription||'')}">🏗️ ${T('عيني','In-Kind')}</span>${c.data.inKindDescription? ` <span class="note" style="font-size:11px;">— ${esc(c.data.inKindDescription)}</span>`:''}` : `<span class="badge">💵 ${T('نقدي','Cash')}</span>`}</td>
           <td class="num mono">${fmtSAR(c.data.commitmentAmount)}</td><td class="mono">${esc(c.data.dateCommitted)}</td>
-          <td><button class="btn btn-sm btn-ghost" data-action="if-delete" data-kind="commitment" data-id="${c.id}">🗑️</button></td></tr>
+          <td><button class="btn btn-sm btn-ghost" data-action="if-reverse" data-kind="commitment" data-id="${c.id}" title="${T('التزام مُرحَّل — لا يمكن حذفه؛ أنشئ قيد عكسي بدل ذلك','Posted commitment — cannot be deleted; create a reversal entry instead')}">↩️</button></td></tr>
         `).join('')}
       </tbody>
     </table></div>
@@ -3968,11 +4061,14 @@ function renderFundDetail(fundId){
       <thead><tr><th>${T('المستثمر','Investor')}</th><th>#</th><th>${T('التاريخ','Date')}</th><th>${T('المبلغ','Amount')}</th><th>${T('الحالة','Status')}</th><th></th></tr></thead>
       <tbody>
         ${calls.length===0? `<tr><td colspan="6" style="text-align:center; color:var(--ink-faint); padding:16px;">${T('لا توجد نداءات بعد','No capital calls yet')}</td></tr>` : calls.map(c=>`
-          <tr><td>${esc(investorName(c.data.investorId))}${c.data.linkedCommitmentId? ` <span class="note" style="font-size:11px;">(🏗️ ${T('نقل عيني تلقائي','auto in-kind transfer')})</span>`:''}</td><td class="mono">${c.data.callNumber}</td><td class="mono">${esc(c.data.callDate)}</td><td class="num mono">${fmtSAR(c.data.amount)}</td>
+          <tr><td>${esc(investorName(c.data.investorId))}${c.data.linkedCommitmentId? ` <span class="note" style="font-size:11px;">(🏗️ ${T('نقل عيني تلقائي','auto in-kind transfer')})</span>`:''}${c.data.reversalOfId? ` <span class="note" style="font-size:11px;" title="${T('قيد عكسي','reversal entry')}">↩️</span>`:''}</td><td class="mono">${c.data.callNumber}</td><td class="mono">${esc(c.data.callDate)}</td><td class="num mono">${fmtSAR(c.data.amount)}</td>
           <td><span class="tag">${CAPITAL_CALL_STATUS_LABEL[c.data.status]||c.data.status}</span></td>
           <td style="display:flex; gap:4px;">
-            ${(!c.data.linkedCommitmentId && c.data.status!=='paid')? `<button class="btn btn-sm btn-ghost" data-action="if-mark-paid" data-kind="capitalCall" data-id="${c.id}" title="${T('تعليم كمسدَّد','Mark paid')}">✓</button>`:''}
-            ${!c.data.linkedCommitmentId? `<button class="btn btn-sm btn-ghost" data-action="if-delete" data-kind="capitalCall" data-id="${c.id}">🗑️</button>` : `<span class="note" style="font-size:11px;" title="${T('احذف الالتزام نفسه لحذف هذه الدفعة','Delete the commitment itself to remove this call')}">🔒</span>`}
+            ${(!c.data.linkedCommitmentId && c.data.status==='pending')? `<button class="btn btn-sm btn-ghost" data-action="if-approve" data-kind="capitalCall" data-id="${c.id}" title="${T('اعتماد (بوابة إلزامية قبل الترحيل)','Approve (mandatory gate before posting)')}">✅</button>`:''}
+            ${(!c.data.linkedCommitmentId && c.data.status==='pending')? `<button class="btn btn-sm btn-ghost" data-action="if-delete" data-kind="capitalCall" data-id="${c.id}">🗑️</button>`:''}
+            ${(!c.data.linkedCommitmentId && c.data.status==='approved')? `<button class="btn btn-sm btn-ghost" data-action="if-mark-paid" data-kind="capitalCall" data-id="${c.id}" title="${T('تعليم كمسدَّد (ترحيل نهائي)','Mark paid (final posting)')}">✓</button>`:''}
+            ${(!c.data.linkedCommitmentId && c.data.status==='approved')? `<button class="btn btn-sm btn-ghost" data-action="if-waive" data-kind="capitalCall" data-id="${c.id}" title="${T('تعليم كمعفى/مُلغى (ترحيل نهائي)','Mark waived (final posting)')}">⛔</button>`:''}
+            ${c.data.linkedCommitmentId? `<span class="note" style="font-size:11px;" title="${T('نداء مرتبط بمساهمة عينية — عكس الالتزام نفسه يُنشئ عكساً لهذه الدفعة تلقائياً','Call linked to an in-kind commitment — reversing the commitment auto-generates a reversal for this call')}">🔒</span>` : ((c.data.status==='paid'||c.data.status==='waived')? `<button class="btn btn-sm btn-ghost" data-action="if-reverse" data-kind="capitalCall" data-id="${c.id}" title="${T('نداء مُرحَّل — لا يمكن حذفه؛ أنشئ قيد عكسي بدل ذلك','Posted capital call — cannot be deleted; create a reversal entry instead')}">↩️</button>` : '')}
           </td></tr>
         `).join('')}
       </tbody>
@@ -3985,11 +4081,13 @@ function renderFundDetail(fundId){
       <thead><tr><th>${T('المستثمر','Investor')}</th><th>${T('التاريخ','Date')}</th><th>${T('المبلغ','Amount')}</th><th>${T('النوع','Type')}</th><th>${T('الحالة','Status')}</th><th></th></tr></thead>
       <tbody>
         ${dists.length===0? `<tr><td colspan="6" style="text-align:center; color:var(--ink-faint); padding:16px;">${T('لا توجد توزيعات بعد','No distributions yet')}</td></tr>` : dists.map(d=>`
-          <tr><td>${esc(investorName(d.data.investorId))}</td><td class="mono">${esc(d.data.distDate)}</td><td class="num mono">${fmtSAR(d.data.amount)}</td><td>${esc(d.data.type)}</td>
+          <tr><td>${esc(investorName(d.data.investorId))}${d.data.reversalOfId? ` <span class="note" style="font-size:11px;" title="${T('قيد عكسي','reversal entry')}">↩️</span>`:''}</td><td class="mono">${esc(d.data.distDate)}</td><td class="num mono">${fmtSAR(d.data.amount)}</td><td>${esc(d.data.type)}</td>
           <td><span class="tag">${DISTRIBUTION_STATUS_LABEL[d.data.status]||d.data.status}</span></td>
           <td style="display:flex; gap:4px;">
-            ${d.data.status!=='paid'? `<button class="btn btn-sm btn-ghost" data-action="if-mark-paid" data-kind="distribution" data-id="${d.id}" title="${T('تعليم كمصروف','Mark paid')}">✓</button>`:''}
-            <button class="btn btn-sm btn-ghost" data-action="if-delete" data-kind="distribution" data-id="${d.id}">🗑️</button>
+            ${d.data.status==='declared'? `<button class="btn btn-sm btn-ghost" data-action="if-approve" data-kind="distribution" data-id="${d.id}" title="${T('اعتماد (بوابة إلزامية قبل الترحيل)','Approve (mandatory gate before posting)')}">✅</button>`:''}
+            ${d.data.status==='declared'? `<button class="btn btn-sm btn-ghost" data-action="if-delete" data-kind="distribution" data-id="${d.id}">🗑️</button>`:''}
+            ${d.data.status==='approved'? `<button class="btn btn-sm btn-ghost" data-action="if-mark-paid" data-kind="distribution" data-id="${d.id}" title="${T('تعليم كمصروف (ترحيل نهائي)','Mark paid (final posting)')}">✓</button>`:''}
+            ${d.data.status==='paid'? `<button class="btn btn-sm btn-ghost" data-action="if-reverse" data-kind="distribution" data-id="${d.id}" title="${T('توزيعة مُرحَّلة — لا يمكن حذفها؛ أنشئ قيد عكسي بدل ذلك','Posted distribution — cannot be deleted; create a reversal entry instead')}">↩️</button>` : ''}
           </td></tr>
         `).join('')}
       </tbody>
@@ -4044,8 +4142,8 @@ function render(){
       <div class="brand">
         <div class="mark"><img src="${OPAL_LOGO_MARK}" alt="Opal"></div>
         <div>
-          <h1>${T('مستكشف الفرص العقارية','Opal Real Estate Opportunity Explorer')}</h1>
-          <div class="sub">${T('Opal Real Estate Opportunity Explorer — SAR','مستكشف الفرص العقارية — ر.س')}</div>
+          <h1>${T('مستكشف الفرص العقارية','Real Estate Opportunity Explorer')}</h1>
+          <div class="sub">${T('Real Estate Opportunity Explorer — SAR','مستكشف الفرص العقارية — ر.س')}</div>
         </div>
       </div>
       <div class="badge-row">
@@ -4345,7 +4443,45 @@ document.addEventListener('click', async (e)=>{
     const kind = el.dataset.kind, id = el.dataset.id;
     const rec = STORE[ifCollFor(kind)].find(r=>r.id===id);
     if(!rec) return;
+    // حارس دفاعي (المرحلة السادسة، ومُوسَّع في السادسة-ب ليشمل "قيد الاعتماد" أيضاً): لا واجهة
+    // تفتح تعديلاً على commitment/capitalCall/distribution مُرحَّل أو مُعتمَد أصلاً (لا يوجد زر
+    // "if-edit" لهذه الأنواع في renderFundDetail — تحقَّقنا من هذا قبل الكتابة هنا)، لكن نمنعه
+    // هنا أيضاً دفاعياً؛ الحماية الحقيقية غير القابلة للتجاوز تبقى في firestore.rules.
+    if((kind==='commitment'||kind==='capitalCall'||kind==='distribution') && isLockedIfRecord(kind, rec)){
+      alert(T('سجل مُرحَّل أو مُعتمَد — لا يمكن تعديله. أنشئ قيد عكسي بدل ذلك.','Posted or approved record — cannot be edited. Create a reversal entry instead.'));
+      return;
+    }
     ifForm = { kind, draft: JSON.parse(JSON.stringify(rec.data)), editId:id };
+    render();
+    return;
+  }
+  if(action==='if-reverse'){
+    // إنشاء قيد عكسي (المرحلة السادسة) — يفتح نموذج الإنشاء العادي (editId:null، فيُنشئ سجلاً
+    // جديداً دائماً عبر if-save، لا يعدّل الأصل) مع مبلغ عكسي/سالب وreversalOfId يشير للأصل.
+    // لماذا نفتح النموذج بدل الحفظ فوراً: يحتاج مدير الصندوق فرصة كتابة سبب العكس (notes) قبل
+    // ترحيل التصحيح — نفس مبدأ أي قيد محاسبي حقيقي يحتاج تبريراً مكتوباً، لا مجرد ضغطة زر.
+    const kind = el.dataset.kind, id = el.dataset.id;
+    const coll = ifCollFor(kind);
+    const rec = STORE[coll].find(r=>r.id===id);
+    if(!rec) return;
+    if(!isPostedIfRecord(kind, rec)){
+      const msg = isApprovedIfRecord(kind, rec)
+        ? T('هذا السجل "مُعتمَد" لكنه لم يُرحَّل (يُنفَّذ) بعد — أكمل ترحيله (تعليم كمسدَّد/معفى) أولاً، ثم اعكسه بعد ذلك إن لزم.','This record is "approved" but not yet posted (executed) — complete posting it (mark paid/waived) first, then reverse it afterward if needed.')
+        : T('هذا السجل لم يُرحَّل بعد — يمكن حذفه مباشرة بدل عكسه.','This record is not yet posted — it can be deleted directly instead of reversed.');
+      alert(msg);
+      return;
+    }
+    const draft = JSON.parse(JSON.stringify(rec.data));
+    draft.reversalOfId = id;
+    if(kind==='commitment'){
+      draft.commitmentAmount = -n(rec.data.commitmentAmount);
+      draft.notes = '';
+    } else {
+      draft.amount = -n(rec.data.amount);
+      draft.notes = '';
+      draft.linkedCommitmentId = null; // القيد العكسي لدفعة نداء تلقائية يبقى قائماً بذاته — لا يُعاد ربطه بذات الالتزام تلقائياً
+    }
+    ifForm = { kind, draft, editId:null };
     render();
     return;
   }
@@ -4359,6 +4495,20 @@ document.addEventListener('click', async (e)=>{
       ifForm.draft.updatedAt = now;
     }
     const isNew = !ifForm.editId;
+    // حارس دفاعي مركزي (المرحلة السادسة): يعمل بصرف النظر عن المسار الذي وصل به الطلب هنا
+    // (زر if-edit الحقيقي — غير موجود لهذه الأنواع أصلاً — أو أي استدعاء آخر يضع editId مباشرة)،
+    // لا نسمح بحفظ *تعديل* (isNew=false) على سجل كان مُرحَّلاً *قبل* هذا الحفظ. القيد العكسي
+    // نفسه (isNew=true دائماً — انظر if-reverse) لا يتأثر بهذا الحارس؛ الحماية الحقيقية غير
+    // القابلة للتجاوز تبقى في firestore.rules.
+    if(!isNew && (kind==='commitment'||kind==='capitalCall'||kind==='distribution')){
+      const before = STORE[coll].find(r=>r.id===ifForm.editId);
+      if(isLockedIfRecord(kind, before)){
+        alert(T('سجل مُرحَّل أو مُعتمَد — لا يمكن تعديله. أنشئ قيد عكسي بدل ذلك.','Posted or approved record — cannot be edited. Create a reversal entry instead.'));
+        ifForm = null;
+        render();
+        return;
+      }
+    }
     const id = ifForm.editId || uid(ifPrefixFor(kind));
     await persistIfRecord(coll, { id, data: ifForm.draft });
     if(isNew && (kind==='capitalCall' || kind==='distribution')){
@@ -4410,6 +4560,21 @@ document.addEventListener('click', async (e)=>{
         return;
       }
     }
+    // حارس دفاعي (المرحلة السادسة، ومُوسَّع في السادسة-ب): لا زر حذف يُعرَض أصلاً لسجل مُرحَّل أو
+    // مُعتمَد (renderFundDetail يُظهر ↩️ if-reverse أو لا يُظهر شيئاً بدلاً منه) — هذا فقط يمنع أي
+    // استدعاء مباشر للإجراء (مثلاً من الكونسول) بدل الاعتماد على غياب الزر فقط. الحماية الحقيقية
+    // غير القابلة للتجاوز في firestore.rules.
+    if((kind==='commitment'||kind==='capitalCall'||kind==='distribution')){
+      const rec = STORE[ifCollFor(kind)].find(r=>r.id===id);
+      if(isApprovedIfRecord(kind, rec)){
+        alert(T('سجل قيد الاعتماد — لا يمكن حذفه. أكمل ترحيله أولاً (أو انتظر ترحيله ثم اعكسه إن لزم).','Record is pending approval-to-post — cannot be deleted. Complete posting it first (or reverse it after posting, if needed).'));
+        return;
+      }
+      if(isPostedIfRecord(kind, rec)){
+        alert(T('سجل مُرحَّل — لا يمكن حذفه. استخدم زر العكس (↩️) لإنشاء قيد تصحيحي.','Posted record — cannot be deleted. Use the reverse (↩️) button to create a correcting entry.'));
+        return;
+      }
+    }
     if(!confirm(T('هل أنت متأكد من الحذف؟ لا يمكن التراجع عن هذا الإجراء.','Are you sure you want to delete this? This cannot be undone.'))) return;
     await deleteIfRecord(ifCollFor(kind), id);
     if(kind==='commitment'){
@@ -4425,9 +4590,47 @@ document.addEventListener('click', async (e)=>{
     if(!fund) return;
     const ids = fund.data.assetIds||(fund.data.assetIds=[]);
     const i = ids.indexOf(oppId);
+    const linking = i<0;
+    // محرك ربط رأس المال (المرحلة الخامسة) — بوابة خارجية *قبل* الربط فقط (فكّ الربط يبقى غير
+    // مقيَّد كما كان دائماً، حتى لا يُحبَس صندوق في حالة لا يقدر الخروج منها). لا منطق حجب هنا،
+    // فقط استدعاء registerAssetLinkGuard المُسجَّلة من capital-allocation-engine.js.
+    if(linking){
+      const guard = await checkAssetLinkGuards(fund, oppId);
+      if(guard.blocked){ alert(guard.reason || T('لا يمكن ربط هذه الفرصة بالصندوق حالياً.','This opportunity cannot be linked to the fund right now.')); return; }
+    }
     if(i>=0) ids.splice(i,1); else ids.push(oppId);
     fund.data.updatedAt = todayStr();
     await persistIfRecord('funds', fund);
+    if(linking){
+      const oppRec = opportunities.find(o=>o.id===oppId);
+      const allocAmt = n(oppRec && oppRec.data.capitalAllocation && oppRec.data.capitalAllocation.targetEquity);
+      await logIfTransaction({ type:'assetLink', action:'create', relatedId:oppId, fundId, amount:allocAmt });
+    } else {
+      await logIfTransaction({ type:'assetLink', action:'delete', relatedId:oppId, fundId, amount:0 });
+    }
+    render();
+    return;
+  }
+  if(action==='if-approve'){
+    // بوابة الاعتماد (المرحلة السادسة-ب) — الانتقال الإلزامي الوحيد من مسودة (pending/declared)
+    // نحو الترحيل: pending/declared → approved. لا يقدر أحد يقفز فوقها (انظر ledgerStatusTransitionOk
+    // في firestore.rules — نفس القيد مُطبَّق هناك كمصدر الحقيقة الحقيقي، وهنا فقط نسجّل
+    // معتمِد/توقيت الاعتماد للتدقيق). يعمل فقط لـ capitalCall/distribution (commitments لا مسودة
+    // لها أصلاً — مُرحَّلة من لحظة الإنشاء كما صُمِّمت في المرحلة السادسة).
+    const kind = el.dataset.kind, id = el.dataset.id;
+    const coll = ifCollFor(kind);
+    const rec = STORE[coll].find(r=>r.id===id);
+    if(!rec) return;
+    const initial = kind==='distribution' ? 'declared' : 'pending';
+    if(rec.data.status !== initial){
+      alert(T('لا يمكن اعتماد سجل ليس في حالة المسودة الأولية.','Cannot approve a record that is not in its initial draft state.'));
+      return;
+    }
+    rec.data.status = 'approved';
+    rec.data.approvedBy = currentUser? currentUser.email : (DEMO_MODE? T('زائر تجريبي','Demo visitor') : null);
+    rec.data.approvedAt = todayStr();
+    await persistIfRecord(coll, rec);
+    await logIfTransaction({ type:kind, action:'approve', relatedId:id, fundId:rec.data.fundId, investorId:rec.data.investorId, amount:rec.data.amount });
     render();
     return;
   }
@@ -4436,9 +4639,34 @@ document.addEventListener('click', async (e)=>{
     const coll = ifCollFor(kind);
     const rec = STORE[coll].find(r=>r.id===id);
     if(!rec) return;
+    // بوابة الاعتماد (المرحلة السادسة-ب): الترحيل النهائي (paid) لا يُسمَح به إلا من حالة
+    // "مُعتمَد" — لا يجوز تخطّي الاعتماد والترحيل مباشرة من المسودة. نداء النقل العيني التلقائي
+    // (linkedCommitmentId) يُستثنى تماماً (يُنشَأ 'paid' مباشرة من if-save، لا يمر بهذا المعالج
+    // إطلاقاً في تدفق الواجهة الحالي، فهذا الشرط هنا دفاعي بحت لذلك المسار أيضاً).
+    if(rec.data.status !== 'approved'){
+      alert(T('يجب اعتماد السجل أولاً (زر ✅) قبل ترحيله كمسدَّد.','The record must be approved (✅ button) before it can be posted as paid.'));
+      return;
+    }
     rec.data.status = 'paid';
     await persistIfRecord(coll, rec);
-    await logIfTransaction({ type:kind, action:'update', relatedId:id, fundId:rec.data.fundId, investorId:rec.data.investorId, amount:rec.data.amount });
+    await logIfTransaction({ type:kind, action:'post', relatedId:id, fundId:rec.data.fundId, investorId:rec.data.investorId, amount:rec.data.amount });
+    render();
+    return;
+  }
+  if(action==='if-waive'){
+    // مسار الترحيل الثاني الوحيد لنداء رأس المال (capitalCall فقط — لا مقابل له في
+    // DISTRIBUTION_STATUS): إعفاء/إلغاء بدل السداد، لكن بعد الاعتماد أيضاً — نفس البوابة تماماً.
+    const kind = el.dataset.kind, id = el.dataset.id;
+    if(kind!=='capitalCall') return;
+    const rec = STORE.capitalCalls.find(r=>r.id===id);
+    if(!rec) return;
+    if(rec.data.status !== 'approved'){
+      alert(T('يجب اعتماد النداء أولاً (زر ✅) قبل تعليمه كمعفى/مُلغى.','The call must be approved (✅ button) before it can be marked waived.'));
+      return;
+    }
+    rec.data.status = 'waived';
+    await persistIfRecord('capitalCalls', rec);
+    await logIfTransaction({ type:kind, action:'waive', relatedId:id, fundId:rec.data.fundId, investorId:rec.data.investorId, amount:0 });
     render();
     return;
   }
@@ -4558,7 +4786,6 @@ async function exportOpportunityExcel(id){
   const rec = opportunities.find(o=>o.id===id);
   if(!rec) return;
   const d = withDefaults(rec.data), c = compute(d);
-  const reportDates = reportDateMeta(d);
   const yrs = c.projectCF.length;
   try{
     const wb = new ExcelJS.Workbook();
@@ -4573,6 +4800,7 @@ async function exportOpportunityExcel(id){
     B1.push(['اسم الفرصة', d.meta.name||'']);
     B1.push(['المدينة / الحي / الفئة', `${d.meta.city} · ${d.meta.neighborhood||'—'} · ${d.meta.tier}`]);
     B1.push(['نوع الفرصة', OPP_TYPE_INFO[d.meta.oppType].t]);
+    const reportDates = reportDateMeta(d);
     B1.push(['تاريخ سريان البيانات (As-of Date)', reportDates.asOfText]);
     B1.push(['تاريخ إنشاء الملف (Generated on)', reportDates.generatedText]);
     B1.push(['', '']);
@@ -4972,31 +5200,35 @@ async function exportInvestorLedgerExcel(){
     // أعمدة "نوع المساهمة"/"وصف المساهمة العينية" مُضافة في النهاية (وليس بينها وبين المبلغ)
     // عمداً — حتى تبقى معادلات SUMIFS في شيت "دفتر المستثمرين" أدناه المشيرة لعمودي C/D
     // (المستثمر/المبلغ) صحيحة بلا أي تغيير (المرحلة الثامنة — نوع مساهمة الالتزام).
+    // عمود "عكس لسجل" (المرحلة السادسة، دفتر مُرحَّل posted/locked/reversal) مُضاف في آخر كل شيت
+    // من الثلاثة أدناه — بعد كل الأعمدة القائمة، لا بينها — لنفس السبب المذكور أعلاه بالضبط: أي
+    // SUMIFS يشير لعمود بحرفه (D/C في الالتزامات، F/C/G في نداءات رأس المال، E/C/G في
+    // التوزيعات) يبقى صحيحاً بلا أي تغيير لأن الإضافة لا تُزحزح شيئاً قبلها.
     const BC = xlRowsBuilder();
-    BC.push(['الالتزامات الرأسمالية (Commitments)','','','','','',''],'title');
-    BC.push(['معرّف الالتزام','معرّف الصندوق','معرّف المستثمر','المبلغ','تاريخ الالتزام','نوع المساهمة (Cash/In-Kind)','وصف المساهمة العينية'],'header');
+    BC.push(['الالتزامات الرأسمالية (Commitments)','','','','','','',''],'title');
+    BC.push(['معرّف الالتزام','معرّف الصندوق','معرّف المستثمر','المبلغ','تاريخ الالتزام','نوع المساهمة (Cash/In-Kind)','وصف المساهمة العينية','عكس لسجل (Reversal Of)'],'header');
     STORE.commitments.forEach(c=>{
-      BC.push([c.id, c.data.fundId||'', c.data.investorId||'', n(c.data.commitmentAmount), c.data.dateCommitted||'', c.data.contributionType==='in_kind'?'In-Kind':'Cash', c.data.inKindDescription||'']);
+      BC.push([c.id, c.data.fundId||'', c.data.investorId||'', n(c.data.commitmentAmount), c.data.dateCommitted||'', c.data.contributionType==='in_kind'?'In-Kind':'Cash', c.data.inKindDescription||'', c.data.reversalOfId||'']);
     });
-    xlNewSheet(wb, 'الالتزامات', BC.rows, BC.kinds, { colWidths:[16,16,16,20,16,20,30] });
+    xlNewSheet(wb, 'الالتزامات', BC.rows, BC.kinds, { colWidths:[16,16,16,20,16,20,30,20] });
 
     // ---- شيت نداءات رأس المال (بتواريخ فعلية وحالة — status: pending|paid|waived) ----
     const BCC = xlRowsBuilder();
-    BCC.push(['نداءات رأس المال (Capital Calls)','','','','','','',''],'title');
-    BCC.push(['معرّف النداء','معرّف الصندوق','معرّف المستثمر','رقم النداء','تاريخ النداء','المبلغ','الحالة (pending/paid/waived)','مصدر النداء'],'header');
+    BCC.push(['نداءات رأس المال (Capital Calls)','','','','','','','',''],'title');
+    BCC.push(['معرّف النداء','معرّف الصندوق','معرّف المستثمر','رقم النداء','تاريخ النداء','المبلغ','الحالة (pending/approved/paid/waived)','مصدر النداء','عكس لسجل (Reversal Of)'],'header');
     STORE.capitalCalls.forEach(c=>{
-      BCC.push([c.id, c.data.fundId||'', c.data.investorId||'', c.data.callNumber||'', c.data.callDate||'', n(c.data.amount), c.data.status||'', c.data.linkedCommitmentId?'Auto (In-Kind Transfer)':'Manual']);
+      BCC.push([c.id, c.data.fundId||'', c.data.investorId||'', c.data.callNumber||'', c.data.callDate||'', n(c.data.amount), c.data.status||'', c.data.linkedCommitmentId?'Auto (In-Kind Transfer)':'Manual', c.data.reversalOfId||'']);
     });
-    xlNewSheet(wb, 'نداءات رأس المال', BCC.rows, BCC.kinds, { colWidths:[14,16,16,10,16,18,22,24] });
+    xlNewSheet(wb, 'نداءات رأس المال', BCC.rows, BCC.kinds, { colWidths:[14,16,16,10,16,18,22,24,20] });
 
     // ---- شيت التوزيعات (بتواريخ فعلية وحالة — status: declared|paid) ----
     const BD = xlRowsBuilder();
-    BD.push(['التوزيعات (Distributions)','','','','','',''],'title');
-    BD.push(['معرّف التوزيعة','معرّف الصندوق','معرّف المستثمر','تاريخ التوزيع','المبلغ','النوع','الحالة (declared/paid)'],'header');
+    BD.push(['التوزيعات (Distributions)','','','','','','',''],'title');
+    BD.push(['معرّف التوزيعة','معرّف الصندوق','معرّف المستثمر','تاريخ التوزيع','المبلغ','النوع','الحالة (declared/approved/paid)','عكس لسجل (Reversal Of)'],'header');
     STORE.distributions.forEach(d=>{
-      BD.push([d.id, d.data.fundId||'', d.data.investorId||'', d.data.distDate||'', n(d.data.amount), d.data.type||'', d.data.status||'']);
+      BD.push([d.id, d.data.fundId||'', d.data.investorId||'', d.data.distDate||'', n(d.data.amount), d.data.type||'', d.data.status||'', d.data.reversalOfId||'']);
     });
-    xlNewSheet(wb, 'التوزيعات', BD.rows, BD.kinds, { colWidths:[14,16,16,16,18,26,20] });
+    xlNewSheet(wb, 'التوزيعات', BD.rows, BD.kinds, { colWidths:[14,16,16,16,18,26,20,20] });
 
     // ---- سجل التدقيق (Audit Trail) — إنشاء/تعديل تلقائي فقط، لا تعديل يدوي ----
     const BT = xlRowsBuilder();
@@ -5045,7 +5277,6 @@ function exportOpportunityPptx(id){
   const rec = opportunities.find(o=>o.id===id);
   if(!rec) return;
   const d = withDefaults(rec.data), c = compute(d);
-  const reportDates = reportDateMeta(d);
   try{
     const Ctor = window.PptxGenJS || (window.pptxgenjs && window.pptxgenjs.default);
     const pres = new Ctor();
@@ -5055,10 +5286,8 @@ function exportOpportunityPptx(id){
     const s1 = pres.addSlide();
     s1.addText(d.meta.name||'فرصة استثمارية', { x:0.5,y:0.5,w:12.3,h:1, fontSize:28, bold:true, color:'0E6B4C', align:'right' });
     s1.addText(`${d.meta.city} · ${d.meta.neighborhood||'—'} · ${d.meta.tier}  |  ${rec.id}`, { x:0.5,y:1.4,w:12.3,h:0.5, fontSize:14, color:'4C5850', align:'right' });
-    s1.addText(`${T('تاريخ سريان البيانات','As-of Date')}: ${reportDates.asOfText}  |  ${T('تم إنشاؤه في','Generated on')}: ${reportDates.generatedText}`,
-      { x:0.5,y:1.85,w:12.3,h:0.4, fontSize:10.5, color:'4C5850', align:'right' });
     const vlbl = c.verdict==='good'?'التوصية: قابلة للعرض على لجنة الاستثمار':c.verdict==='warn'?'التوصية: تحت المراجعة':'التوصية: دون معايير القبول';
-    s1.addText(vlbl, { x:0.5,y:2.25,w:12.3,h:0.5, fontSize:16, bold:true, color: c.verdict==='good'?'1E8A56':c.verdict==='warn'?'9C6A0A':'AE2E22', align:'right' });
+    s1.addText(vlbl, { x:0.5,y:2.0,w:12.3,h:0.5, fontSize:16, bold:true, color: c.verdict==='good'?'1E8A56':c.verdict==='warn'?'9C6A0A':'AE2E22', align:'right' });
 
     const kpis = [
       ['Equity IRR', fmtPct(c.equityIRR,2)],
@@ -5071,7 +5300,7 @@ function exportOpportunityPptx(id){
     let kx = 0.5;
     kpis.forEach(([l,v])=>{
       s1.addText([{text:v+'\n',options:{fontSize:20,bold:true,color:'0E6B4C'}},{text:l,options:{fontSize:11,color:'4C5850'}}],
-        { x:kx,y:3.05,w:1.95,h:1.1, align:'center', valign:'middle', fill:{color:'F3F4F0'}, line:{color:'D6DACF',width:1} });
+        { x:kx,y:2.8,w:1.95,h:1.1, align:'center', valign:'middle', fill:{color:'F3F4F0'}, line:{color:'D6DACF',width:1} });
       kx += 2.0;
     });
 
@@ -5080,7 +5309,7 @@ function exportOpportunityPptx(id){
       {text:'التكلفة الإنشائية: ', options:{bold:true}}, {text:fmtSAR(c.hardCost)+'\n'},
       {text:'إجمالي تكلفة المشروع: ', options:{bold:true}}, {text:fmtSAR(c.TPC)+'\n'},
       {text:'صافي الدخل التشغيلي: ', options:{bold:true}}, {text:fmtSAR(c.stabilizedNOIyr1)},
-    ], { x:0.5,y:4.45,w:12.3,h:2, fontSize:14, align:'right', color:'152019' });
+    ], { x:0.5,y:4.2,w:12.3,h:2, fontSize:14, align:'right', color:'152019' });
 
     const s2 = pres.addSlide();
     s2.addText('التدفقات النقدية السنوية', { x:0.5,y:0.4,w:12.3,h:0.6, fontSize:22, bold:true, color:'0E6B4C', align:'right' });
@@ -5210,6 +5439,8 @@ export {
   registerBodyView,
   registerDetailSection,
   registerActionHandler,
+  registerAssetLinkGuard,
+  checkAssetLinkGuards,
   renderTopbarExtensions,
   renderBodyExtensions,
   renderDetailExtensions,
