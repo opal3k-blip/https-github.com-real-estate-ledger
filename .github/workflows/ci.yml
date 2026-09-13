@@ -25,6 +25,12 @@ jobs:
           cache-dependency-path: |
             tests/rules/package-lock.json
 
+      - name: Set up Java 21 for Firebase Emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
       - name: Install Firestore rules test dependencies
         run: npm ci --prefix tests/rules
 
