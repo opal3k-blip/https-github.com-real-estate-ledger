@@ -4153,7 +4153,10 @@ function renderInvestorFundsView(){
 
 /* دالة تنقّل صغيرة مُصدَّرة (Exported) لتفتح شاشة تفاصيل فرصة معيّنة من أي ملف خارجي — بدل الحاجة
    لمنح الملفات الخارجية صلاحية إعادة تعيين openDetailId مباشرة (غير ممكن عبر استيراد ES module). */
-function openOpportunityDetail(id){ openDetailId = id; fundsViewOpen = false; render(); }
+function openOpportunityDetail(id){
+  if(hasUnsavedEdits && openDetailId && openDetailId!==id && !confirmDiscardUnsavedEdits()) return;
+  openDetailId = id; fundsViewOpen = false; render();
+}
 
 /* مُسنِد حالة عام (Generic State Setter) — مُصدَّر لأجل الوحدات الخارجية وسكربتات الاختبار.
    ES modules لا تسمح بإعادة تعيين متغيّر مُصدَّر (let) مباشرة من ملف آخر (الاستيراد للقراءة فقط) —
@@ -4162,6 +4165,15 @@ function openOpportunityDetail(id){ openDetailId = id; fundsViewOpen = false; re
    core.js — window.wizard نسخة منفصلة وليست ربطاً حياً). لا تستدعي render() تلقائياً؛ الخيار caller
    يتحكم بذلك عبر { render:true } أو باستدعاء render() بنفسه بعدها. */
 function setCoreState(patch){
+  // نفس تحذير فقدان التعديلات غير المحفوظة أعلاه، لكن عام لكل الوحدات الخارجية
+  // (src/features/*.js) اللي تتنقّل بعيداً عن تفاصيل الفرصة المفتوحة عبر هذه
+  // الدالة (بتصفير أو تغيير openDetailId، أو بفتح عرض رئيسي mainView يُخفي قسم
+  // التفاصيل بالكامل) بدل النقر المباشر على 'open-detail'/'close-detail'.
+  const leavesUnsavedDetail = hasUnsavedEdits && openDetailId && (
+    ('openDetailId' in patch && patch.openDetailId!==openDetailId) ||
+    ('mainView' in patch && patch.mainView!=null && patch.mainView!==mainView)
+  );
+  if(leavesUnsavedDetail && !confirmDiscardUnsavedEdits()) return;
   if('wizard' in patch) wizard = patch.wizard;
   if('openDetailId' in patch) openDetailId = patch.openDetailId;
   if('confirmDeleteId' in patch) confirmDeleteId = patch.confirmDeleteId;
@@ -4180,11 +4192,87 @@ function setCoreState(patch){
 }
 
 /* ---------------- main render ---------------- */
+/* ---------------- حفظ قيم حقول النماذج غير المحفوظة عبر إعادة العرض ----------------
+   المشكلة: render() يستبدل innerHTML الخاص بـ#app بالكامل في كل مرة يُستدعى فيها —
+   بما في ذلك عند كل onSnapshot لحظي (تعديل حفظه زميل، نبضة حضور كل ٢٥ث، إلخ).
+   لو كان المستخدم قد بدأ تعبئة نموذج قابل للتحرير (العناية الواجبة/سجل المخاطر/
+   الأدلة/نقاط الاستثمار) ولم يضغط زر الحفظ بعد، فإعادة البناء الكاملة تفقد هذه
+   القيم فوراً لأنها موجودة فقط في الـDOM (inputs) وليست في أي كائن حالة JS.
+   الحل: نلتقط قيم كل الحقول ضمن صفوف تحمل data-*-item (مفتاح ثابت لكل بند — انظر
+   تعليق التصميم في due-diligence.js) قبل استبدال innerHTML، ثم نعيدها بعد إعادة
+   البناء إن وُجد نفس الصف/الحقل — بدل تعطيل المزامنة اللحظية بالكامل. */
+const UNSAVED_ROW_SELECTOR = 'tr[data-dd-item], tr[data-risk-item], tr[data-ev-item], tr[data-score-item]';
+function captureUnsavedFieldValues(){
+  const out = {};
+  document.querySelectorAll('#app '+UNSAVED_ROW_SELECTOR).forEach(row=>{
+    const rowKeyAttr = Object.keys(row.dataset).find(k=>k.endsWith('Item'));
+    if(!rowKeyAttr) return;
+    const rowKey = rowKeyAttr+':'+row.dataset[rowKeyAttr];
+    row.querySelectorAll('[name]').forEach(inp=>{ out[rowKey+'|'+inp.name] = inp.value; });
+  });
+  return out;
+}
+
+/* ---------------- شارة "تعديلات غير محفوظة" ----------------
+   طبقة حماية إضافية فوق الحفظ التلقائي للقيم أعلاه: نتتبّع أي تغيير داخل نفس
+   الصفوف القابلة للتحرير (عبر مستمعي input/change أسفل الملف) ونعرض شارة ثابتة
+   *خارج* #app (فلا تتأثر بإعادة بناء innerHTML) لتنبيه المستخدم أنه لازم يضغط
+   زر الحفظ في القسم المعني. كذلك نمنع (بتأكيد) إغلاق تفاصيل الفرصة أو التنقّل
+   عنها أو تسجيل الخروج طالما فيه تعديلات لسه ما اتحفظتش، ونحذّر عند إغلاق/تحديث
+   التبويب نفسه (beforeunload). تُصفَّر الشارة تلقائياً بعد أي حفظ ناجح عبر
+   core.clearUnsavedEdits() (تستدعيها معالجات dd-save/risk-save/ev-save/score-save). */
+let hasUnsavedEdits = false;
+let unsavedEditsBadgeEl = null;
+function ensureUnsavedEditsBadge(){
+  if(unsavedEditsBadgeEl) return unsavedEditsBadgeEl;
+  const el = document.createElement('div');
+  el.id = 'unsaved-edits-badge';
+  el.style.cssText = 'position:fixed; bottom:18px; inset-inline-end:18px; z-index:9999; display:none; align-items:center; gap:8px; background:#f87171; color:#fff; font-weight:700; font-size:12.5px; line-height:1.4; padding:10px 16px; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.28); font-family:inherit; max-width:min(90vw,360px);';
+  el.textContent = '⚠️ ' + T('لديك تعديلات غير محفوظة — اضغط زر "حفظ" في القسم المفتوح قبل المغادرة.','You have unsaved changes — click the "Save" button in the open section before leaving.');
+  document.body.appendChild(el);
+  unsavedEditsBadgeEl = el;
+  return el;
+}
+function markUnsavedEdits(){
+  if(hasUnsavedEdits) return;
+  hasUnsavedEdits = true;
+  ensureUnsavedEditsBadge().style.display = 'flex';
+}
+function clearUnsavedEdits(){
+  if(!hasUnsavedEdits) return;
+  hasUnsavedEdits = false;
+  if(unsavedEditsBadgeEl) unsavedEditsBadgeEl.style.display = 'none';
+}
+/* هل يُسمح بمغادرة/إغلاق تفاصيل الفرصة الحالية الآن؟ تسأل المستخدم تأكيداً لو
+   فيه تعديلات معلّقة، وتُصفِّر الشارة لو وافق على المتابعة وفقدانها. */
+function confirmDiscardUnsavedEdits(){
+  if(!hasUnsavedEdits) return true;
+  const ok = confirm(T(
+    'لديك تعديلات غير محفوظة في هذه الفرصة (لم تضغط زر الحفظ بعد). هل تريد المتابعة وفقدانها؟',
+    "You have unsaved edits on this opportunity (you haven't clicked Save yet). Continue and discard them?"
+  ));
+  if(ok) clearUnsavedEdits();
+  return ok;
+}
+function restoreUnsavedFieldValues(values){
+  if(!values) return;
+  document.querySelectorAll('#app '+UNSAVED_ROW_SELECTOR).forEach(row=>{
+    const rowKeyAttr = Object.keys(row.dataset).find(k=>k.endsWith('Item'));
+    if(!rowKeyAttr) return;
+    const rowKey = rowKeyAttr+':'+row.dataset[rowKeyAttr];
+    row.querySelectorAll('[name]').forEach(inp=>{
+      const v = values[rowKey+'|'+inp.name];
+      if(v!==undefined && v!==inp.value) inp.value = v;
+    });
+  });
+}
+
 function render(){
   const app = document.getElementById('app');
   if(DB && !authReady){ app.innerHTML = renderAuthLoading(); return; }
   if(DB && authReady && !currentUser){ app.innerHTML = renderLogin(); return; }
   if(DB && authReady && currentUser && accessDenied){ app.innerHTML = renderAccessDenied(); return; }
+  const preservedFieldValues = captureUnsavedFieldValues();
   const amAdmin = isAdmin(currentUser);
   let html = `
     <div class="topbar">
@@ -4222,6 +4310,7 @@ function render(){
   const overlay = document.createElement('div');
   overlay.innerHTML = renderWizardModal() + renderConfirmDelete() + (teamPanelOpen? renderTeamPanel(): '') + (brandingPanelOpen? renderBrandingPanel(): '');
   while(overlay.firstChild) app.appendChild(overlay.firstChild);
+  restoreUnsavedFieldValues(preservedFieldValues);
   initCharts();
 }
 
@@ -4233,6 +4322,18 @@ document.addEventListener('click', async (e)=>{
   if(recentActivityOpen && !e.target.closest('.activity-bell-wrap')){ recentActivityOpen = false; render(); }
   if(!el) return;
   const action = el.dataset.action;
+
+  // تحذير قبل إغلاق/مغادرة تفاصيل الفرصة (أو تسجيل الخروج) لو فيه تعديلات لسه
+  // ما اتحفظتش في قسم قابل للتحرير — بدل فقدانها بصمت عند إعادة الرسم التالية.
+  // ملاحظة: التنقّل عبر 'open-detail' (نفس الفرصة أو فرصة أخرى) وعبر setCoreState
+  // (مستخدَمة في أغلب ملفات src/features/*.js) محميان من داخل openOpportunityDetail()
+  // و setCoreState() نفسيهما أدناه — فلا داعي لتكرار التحقق هنا لهما.
+  if(hasUnsavedEdits && openDetailId){
+    const leavingDetailActions = ['close-detail','edit-opp','open-activity-item','confirm-delete','sign-out'];
+    if(leavingDetailActions.includes(action)){
+      if(!confirmDiscardUnsavedEdits()) return;
+    }
+  }
 
   if(action==='toggle-lang'){ toggleLang(); return; }
 
@@ -5446,6 +5547,7 @@ function exportOpportunityPptx(id){
 }
 
 document.addEventListener('input', (e)=>{
+  if(e.target.closest && e.target.closest('#app '+UNSAVED_ROW_SELECTOR)) markUnsavedEdits();
   if(!wizard) return;
   const t = e.target;
   if(!t.name) return;
@@ -5460,6 +5562,7 @@ document.addEventListener('input', (e)=>{
   updateLivePreview();
 });
 document.addEventListener('change', (e)=>{
+  if(e.target.closest && e.target.closest('#app '+UNSAVED_ROW_SELECTOR)) markUnsavedEdits();
   const t = e.target;
   if(t.dataset && t.dataset.action==='filter-city'){ dashFilterCity = t.value; render(); return; }
   if(t.dataset && t.dataset.action==='filter-type'){ dashFilterType = t.value; render(); return; }
@@ -5486,6 +5589,18 @@ document.addEventListener('change', (e)=>{
     if(t.dataset.rerender) render(); else updateLivePreview();
   }
 });
+
+// تحذير المتصفح الأصلي (Are you sure you want to leave?) عند إغلاق/تحديث التبويب
+// نفسه طالما فيه تعديلات لسه ما اتحفظتش في قسم قابل للتحرير داخل تفاصيل الفرصة.
+// (typeof window.addEventListener==='function' — بيئة اختبار Node/vm تُحاكي window
+// ككائن بسيط بلا هذه الدالة؛ core.js يجب أن يبقى قابلاً للتشغيل فيها بلا خطأ.)
+if(typeof window!=='undefined' && typeof window.addEventListener==='function'){
+  window.addEventListener('beforeunload', (e)=>{
+    if(!hasUnsavedEdits) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
+}
 
 // ملاحظة: استدعاء initDb() لم يعد هنا — انتقل إلى src/main.js ليُستدعى بعد تسجيل كل الوحدات
 // الإضافية (registerDataCollection/registerBeforeOpportunitySave/...)، حتى تلتقط التهيئة
@@ -5520,6 +5635,9 @@ export {
   brandingLogoDraft,
   brandingNameDraft,
   unsubscribeBranding,
+  hasUnsavedEdits,
+  markUnsavedEdits,
+  clearUnsavedEdits,
   _topbarButtonHooks,
   _bodyViewHooks,
   _detailSectionHooks,

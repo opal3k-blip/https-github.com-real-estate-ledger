@@ -127,7 +127,7 @@ export function registerICWorkflow(core){
         </div>` : ''}
         <form data-ic-form="${oppId}" style="display:flex; flex-direction:column; gap:8px;">
           <select name="decision" style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-family:inherit; font-size:12.5px;">
-            ${DECISIONS.map(dc=>`<option value="${dc.key}">${core.T(dc.ar,dc.en)}</option>`).join('')}
+            ${DECISIONS.map(dc=>`<option value="${dc.key}" style="background:var(--surface); color:var(--ink);">${core.T(dc.ar,dc.en)}</option>`).join('')}
           </select>
           <textarea name="reasons" rows="3" placeholder="${core.T('الأسباب — سطر لكل سبب','Reasons — one per line')}" style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-family:inherit; font-size:12.5px;"></textarea>
           <textarea name="conditions" rows="3" placeholder="${core.T('الشروط (اختياري) — سطر لكل شرط، مثال: تأكيد سعر الأرض ≤ ٢٠٠٠ ر.س/م²','Conditions (optional) — one per line')}" style="padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-family:inherit; font-size:12.5px;"></textarea>

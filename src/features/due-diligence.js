@@ -177,6 +177,7 @@ export function registerDueDiligence(core){
     draft.meta.updatedBy = core.currentUser ? core.currentUser.email : (draft.meta.updatedBy||null);
 
     await core.persistOpportunity({ id: oppId, data: draft });
+    core.clearUnsavedEdits();
     await core.loadAll();
     core.render();
     return true;

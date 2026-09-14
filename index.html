@@ -10,6 +10,9 @@
 
 :root{
   /* لوحة ألوان مُعاد تصميمها لتنسجم مع هوية أوبال البصرية (رمادي غرافيت + تركواز عميق راقٍ) بدل الأخضر الترابي السابق. */
+  color-scheme: light; /* بدون هذا، المتصفح يرسم أدوات التحكم الأصلية (قوائم select المنسدلة تحديداً) بلوحة
+    ألوان افتراضية مستقلة عن متغيرات CSS هنا فتتعارض أحياناً معها — النتيجة نص أبيض على خلفية بيضاء (أو العكس)
+    غير مرئي إطلاقاً داخل قائمة select مفتوحة (مثال: قائمة "القرار" في بوابة اعتماد لجنة الاستثمار). */
   --paper:#F5F5F3; --surface:#FFFFFF; --surface-2:#ECEBE7; --surface-3:#E1E0DA;
   --ink:#1B1D22; --ink-soft:#565A63; --ink-faint:#888C95; --border:#DCDAD3;
   --accent:#1F5F6B; --accent-ink:#FFFFFF; --accent-soft:#E3EEF0; --accent-soft-ink:#164A54;
@@ -22,6 +25,7 @@
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
+    color-scheme: dark;
     --paper:#14161B; --surface:#1B1E25; --surface-2:#21252D; --surface-3:#2A2F39;
     --ink:#ECEDEF; --ink-soft:#A8ACB5; --ink-faint:#767B85; --border:#2F3440;
     --accent:#54BFCB; --accent-ink:#06181B; --accent-soft:#1B2E32; --accent-soft-ink:#82D5DE;
@@ -33,6 +37,7 @@
   }
 }
 :root[data-theme="dark"]{
+  color-scheme: dark;
   --paper:#14161B; --surface:#1B1E25; --surface-2:#21252D; --surface-3:#2A2F39;
   --ink:#ECEDEF; --ink-soft:#A8ACB5; --ink-faint:#767B85; --border:#2F3440;
   --accent:#54BFCB; --accent-ink:#06181B; --accent-soft:#1B2E32; --accent-soft-ink:#82D5DE;
@@ -42,6 +47,7 @@
   --bad:#E38176; --bad-soft:#301917;
   --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 28px -14px rgba(0,0,0,.6);
 }
+:root[data-theme="light"]{ color-scheme: light; }
 
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;}
@@ -195,6 +201,13 @@ table.db tbody tr:last-child td{ border-bottom:none; }
   padding:9px 11px; font-size:13.5px; font-family:inherit; width:100%; direction:rtl; text-align:right;
 }
 .field input[type=number]{ direction:ltr; text-align:center; font-family:'Aptos','Segoe UI',Arial,sans-serif; }
+/* إصلاح عام (وليس فقط لحقول .field) لاختفاء نص القوائم المنسدلة: أي <select> في الأداة
+   منسَّق بمتغيرات CSS المخصصة (--surface/--ink) لكن عناصر <option> نفسها بلا تنسيق صريح
+   في أغلب القوائم عبر src/features/*.js — بعض المتصفحات ترسم قائمة الخيارات المفتوحة
+   بلوحة ألوان افتراضية مستقلة تماماً (خصوصاً لو color-scheme الصفحة يتعارض مع النظام)،
+   فيظهر نص أبيض على خلفية بيضاء أو العكس حتى تُختار قيمة. هذه القاعدة تغطي كل select
+   حالياً ومستقبلاً بدل تكرار style="background:...; color:...;" على كل <option> يدوياً. */
+select option{ background:var(--surface); color:var(--ink); }
 .field .hint{ font-size:11px; color:var(--ink-faint); }
 .field textarea{ resize:vertical; min-height:64px; font-family:inherit; }
 .suffix-wrap{ position:relative; }

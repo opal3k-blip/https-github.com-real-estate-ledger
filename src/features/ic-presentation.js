@@ -221,10 +221,24 @@ export async function exportICPresentation(core, id){
         {text:'تدفق المشروع', options:{bold:true, fill:{color:PAL.card}}},
         {text:'تدفق حقوق الملكية', options:{bold:true, fill:{color:PAL.card}}},
       ]];
-      for(let i=0;i<c.projectCF.length;i++){
+      // سقف صفوف ثابت بدل autoPage:true — ميزة الترقيم التلقائي عبر شرائح في PptxGenJS 3.12
+      // عندها عطل معروف يرمي بالضبط "addTable: Array expected!" أحياناً مع جداول كثيرة الصفوف
+      // داخل مساحة قصيرة (h:1.8 هنا) بسبب خلل في حساب تقسيم الصفوف بين الشرائح الداخلي بالمكتبة
+      // (تُرجع أحياناً صفحة صفوفها فارغة فتفشل عملية التصدير بالكامل). الرسم البياني أعلاه بالفعل
+      // يعرض التدفق النقدي لكل السنوات؛ الجدول هنا للتفاصيل الموجزة فقط في شريحة واحدة صغيرة —
+      // فلا خسارة معلومات فعلية، وسطر ملخّص يوضّح إن وُجدت سنوات إضافية غير معروضة بالجدول.
+      const CF_TABLE_MAX_ROWS = 10;
+      const cfYears = c.projectCF.length;
+      const shownYears = Math.min(cfYears, CF_TABLE_MAX_ROWS);
+      for(let i=0;i<shownYears;i++){
         rows.push([ String(i), fmtSAR(c.projectCF[i]), fmtSAR(c.equityCF[i]) ]);
       }
-      s.addTable(rows, { x:0.5,y:5.35,w:12.3,h:1.8, fontSize:10.5, autoPage:true, border:{type:'solid',color:PAL.border,pt:0.5}, align:'center' });
+      if(cfYears>shownYears){
+        rows.push([
+          {text:`+${cfYears-shownYears} سنة إضافية — التفاصيل الكاملة في الرسم البياني أعلاه ودفتر الاكتتاب`, options:{colspan:3, italic:true, color:PAL.text, fontSize:9}},
+        ]);
+      }
+      s.addTable(rows, { x:0.5,y:5.35,w:12.3,h:1.8, fontSize:10.5, border:{type:'solid',color:PAL.border,pt:0.5}, align:'center' });
     }
 
     /* ===================== 7) Sensitivity ===================== */
