@@ -3,3 +3,8 @@ Thumbs.db
 node_modules/
 .tmp-governance-inspect/
 .tools/
+
+# تقارير أعطال Node.js/npm التشخيصية (report.<timestamp>.<pid>.<seq>.json) — قد تحتوي متغيرات بيئة
+# حسّاسة (رموز API/أسرار) مأخوذة من العملية وقت تعطّلها؛ لا علاقة لها بمنطق المشروع ولا يجوز رفعها
+# أبداً. ظهرت مرة فعلياً وتسببت في حجب GitHub للرفع (GH013 push protection) بسبب رمز مكشوف بداخلها.
+report.*.json

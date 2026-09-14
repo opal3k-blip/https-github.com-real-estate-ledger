@@ -175,6 +175,48 @@ export function registerICWorkflow(core){
         }
       }
 
+      // إصلاح P0 (توصية ٥ في docs/SECURITY_RULES_REVIEW.md): دالة approveOpportunity الخلفية
+      // كانت مكتوبة ومُختبَرة (اختبار ٠٢٢) منذ المرحلة السابعة لكن غير مستخدَمة من أي واجهة —
+      // كل الحراسات أعلاه (canApproveIC/icReadiness) كانت من جانب العميل فقط، قابلة للتجاوز
+      // نظرياً من مستخدم يكتب على Firestore مباشرة. الآن، خارج وضع الديمو/التشغيل المحلي بلا
+      // Firebase حقيقي (حيث لا توجد دالة خلفية أصلاً لتستدعيها)، القرار يُرسَل أولاً لدالة
+      // approveOpportunity نفسها، التي تُعيد نفس فحص الجهوزية/الصلاحية داخل معاملة Firestore
+      // حقيقية بصلاحيات Admin SDK وتكتب هي نفسها opportunities.ic.decisions وicDecisions معاً
+      // بشكل ذرّي — فشل الخادم يمنع الحفظ كلياً بدل الاكتفاء بحظر واجهي قابل للتجاوز.
+      // لا لمس لمنطق core.js الداخلي هنا: الاستدعاء عبر firebase.functions() العامة (مُهيَّأة
+      // أصلاً من core.js نفسه عبر firebase.initializeApp) وليس عبر أي تعديل على core.js.
+      const useServerFunction = !core.DEMO_MODE && core.DB && typeof firebase!=='undefined' && firebase.functions;
+      let decisionId = null;
+
+      if(useServerFunction){
+        try{
+          const callable = firebase.functions().httpsCallable('approveOpportunity');
+          const resp = await callable({
+            oppId,
+            decision: { decision, overridden, gateReasonsAtDecision },
+            readiness: (typeof gate!=='undefined' && gate) ? gate : null,
+            reasons, conditions, override: overrideChecked,
+          });
+          decisionId = resp && resp.data ? resp.data.decisionId : null;
+        }catch(err){
+          alert(core.T('تعذّر اعتماد القرار عبر الخادم: ','Server could not record the decision: ') + (err && err.message ? err.message : String(err)));
+          return true;
+        }
+        await core.loadAll();
+        const freshRec = core.opportunities.find(o=>o.id===oppId);
+        if(freshRec && APPROVAL_DECISIONS.includes(decision) && decisionId && core.persistIfRecord){
+          await core.persistIfRecord(
+            'underwritingVersions',
+            buildUnderwritingVersionRecord(core, oppId, core.withDefaults(freshRec.data), 'v4_ic_approved', 'ic_decision', decisionId)
+          );
+          await core.loadAll();
+        }
+        core.render();
+        return true;
+      }
+
+      // مسار احتياطي (وضع الديمو، أو تشغيل محلي بلا Firebase حقيقي أصلاً): لا دالة خلفية
+      // لاستدعائها، فيبقى المسار القديم من جانب العميل فقط كما كان قبل هذا الإصلاح.
       draft.ic.decisions = (draft.ic.decisions||[]).concat([{
         decision, reasons, conditions, decidedBy, decidedAt: new Date().toISOString(),
         overridden, gateReasonsAtDecision,

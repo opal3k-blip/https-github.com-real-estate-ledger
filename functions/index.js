@@ -274,6 +274,11 @@ exports.postCapitalCall = onCall(async (request) => {
   const data = request.data || {};
   assertLedgerAmount(data, 'amount');
   if (!data.fundId || !data.investorId || !data.callDate) throw new HttpsError('invalid-argument', 'fundId, investorId and callDate are required.');
+  // معرّف الوثيقة يُولَّد هنا مسبقاً (خارج المعاملة — doc() لا يحتاج معاملة) ليُعاد للعميل، الذي
+  // يحتاجه لربط سجل التدقيق المحلي (transactions، منفصل تماماً عن oppAuditLog المُقفَل) بنفس معرّف
+  // نداء رأس المال الذي أنشأه الخادم فعلياً — دون هذا، يفقد العميل القدرة على تسجيل تلك الحركة
+  // بمعرّف صحيح في دفتر يومية المعاملات الخاص به.
+  const ref = db.collection('capitalCalls').doc();
   await db.runTransaction(async (tx) => {
     if (data.status === 'paid' && !data.reversalOfId) {
       const committed = await committedForInvestorTx(tx, data.fundId, data.investorId);
@@ -282,7 +287,7 @@ exports.postCapitalCall = onCall(async (request) => {
         throw new HttpsError('failed-precondition', 'Capital call exceeds investor commitment.');
       }
     }
-    tx.set(db.collection('capitalCalls').doc(), Object.assign({}, data, {
+    tx.set(ref, Object.assign({}, data, {
       status: data.status || 'pending',
       approvedBy: data.approvedBy || email,
       approvedAt: data.approvedAt || new Date().toISOString(),
@@ -290,7 +295,7 @@ exports.postCapitalCall = onCall(async (request) => {
       createdAt: FieldValue.serverTimestamp(),
     }));
   });
-  return { ok: true };
+  return { ok: true, id: ref.id };
 });
 
 exports.mirrorOpportunityAuditLog = onDocumentWritten('opportunities/{oppId}', async (event) => {

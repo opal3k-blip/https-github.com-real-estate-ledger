@@ -10,33 +10,58 @@
    negotiation.js لحساب Walk-away Price الافتراضي. لا تعديل على core.js.
    ========================================================================= */
 
-function irrAtPrice(core, d, price){
+function metricsAtPrice(core, d, price){
   const trial = JSON.parse(JSON.stringify(d));
   trial.land.price = price;
-  try{ return core.compute(trial).equityIRR; }catch(e){ return -1; }
+  try{ const c = core.compute(trial); return { irr: c.equityIRR, dscr: c.dscrMin }; }
+  catch(e){ return { irr: -1, dscr: null }; }
+}
+function irrAtPrice(core, d, price){ return metricsAtPrice(core, d, price).irr; }
+
+/* السعر "قابل للدفع" فقط لو حقق كلا القيدين معاً: Equity IRR ≥ الحد الأدنى، وDSCR الأدنى عبر
+   مدة التشغيل ≥ الحد الأدنى المعتمد (لو كان للصفقة تمويل بنكي أصلاً — dscr يكون null لصفقات
+   لا معنى لـDSCR فيها، كبيع كامل بلا تمويل، فلا يُفرَض القيد حينها). قبل هذا الإصلاح كان البحث
+   الثنائي يستهدف IRR فقط، فقد يُبلِّغ المستخدم بسعر "أقصى مسموح" يحقق العائد المستهدف لكنه فعلياً
+   يخالف حد تغطية خدمة الدين المعتمد لنفس الصفقة — وهو قيد تمويلي أساسي لا يقل أهمية عن العائد. */
+function feasibleAtPrice(core, d, price, targetIRR, targetDSCR){
+  const m = metricsAtPrice(core, d, price);
+  const irrOk = isFinite(m.irr) && m.irr >= targetIRR;
+  const dscrOk = targetDSCR==null || m.dscr==null || !isFinite(m.dscr) || m.dscr >= targetDSCR;
+  return irrOk && dscrOk;
 }
 
-/* يُعيد: maxPrice (الحد الأقصى)، targetIRR، currentPrice، currentIRR، infeasible (true لو حتى
-   أرض مجانية "٠" لا تحقق الهدف — عندها القرار المالي لا علاقة له بسعر الأرض إطلاقاً). */
-function maxAcquisitionPrice(core, d, targetIRR){
+/* يُعيد: maxPrice (الحد الأقصى الذي يحقق كلا القيدين معاً)، targetIRR، targetDSCR، currentPrice،
+   currentIRR، currentDSCR، infeasible (true لو حتى أرض مجانية "٠" لا تحقق أحد الهدفين)،
+   bindingConstraint ('irr' أو 'dscr' — أيهما فعلياً القيد الحاكم عند السعر الأقصى الناتج). */
+function maxAcquisitionPrice(core, d, targetIRR, targetDSCR){
   targetIRR = targetIRR!=null ? targetIRR : (d.criteria.irrMin || 0.15);
+  targetDSCR = targetDSCR!=null ? targetDSCR : (d.criteria.dscrMin!=null ? d.criteria.dscrMin : null);
   const currentPrice = d.land.price || 0;
-  const currentIRR = irrAtPrice(core, d, currentPrice);
+  const curM = metricsAtPrice(core, d, currentPrice);
+  const currentIRR = curM.irr, currentDSCR = curM.dscr;
 
-  const irrAtZero = irrAtPrice(core, d, 0);
-  if(irrAtZero < targetIRR){
-    return { maxPrice: 0, targetIRR, currentPrice, currentIRR, infeasible: true };
+  if(!feasibleAtPrice(core, d, 0, targetIRR, targetDSCR)){
+    const zero = metricsAtPrice(core, d, 0);
+    const irrBlocks = !(isFinite(zero.irr) && zero.irr>=targetIRR);
+    const dscrBlocks = targetDSCR!=null && zero.dscr!=null && isFinite(zero.dscr) && zero.dscr<targetDSCR;
+    return { maxPrice: 0, targetIRR, targetDSCR, currentPrice, currentIRR, currentDSCR, infeasible: true,
+      bindingConstraint: (irrBlocks && dscrBlocks) ? 'both' : (dscrBlocks ? 'dscr' : 'irr') };
   }
 
   let lo = 0, hi = Math.max(currentPrice, 100) * 3;
   let guard = 0;
-  while(irrAtPrice(core, d, hi) >= targetIRR && guard < 40){ hi *= 1.6; guard++; }
+  while(feasibleAtPrice(core, d, hi, targetIRR, targetDSCR) && guard < 40){ hi *= 1.6; guard++; }
 
   for(let i=0;i<50;i++){
     const mid = (lo+hi)/2;
-    if(irrAtPrice(core, d, mid) >= targetIRR) lo = mid; else hi = mid;
+    if(feasibleAtPrice(core, d, mid, targetIRR, targetDSCR)) lo = mid; else hi = mid;
   }
-  return { maxPrice: lo, targetIRR, currentPrice, currentIRR, infeasible: false };
+
+  const atMax = metricsAtPrice(core, d, lo);
+  const irrSlack = isFinite(atMax.irr) ? (atMax.irr - targetIRR) : Infinity;
+  const dscrSlack = (targetDSCR!=null && atMax.dscr!=null && isFinite(atMax.dscr)) ? (atMax.dscr - targetDSCR) : Infinity;
+  const bindingConstraint = dscrSlack < irrSlack ? 'dscr' : 'irr';
+  return { maxPrice: lo, targetIRR, targetDSCR, currentPrice, currentIRR, currentDSCR, infeasible: false, bindingConstraint };
 }
 
 export function registerMaxAcquisitionPrice(core){
@@ -60,7 +85,9 @@ export function registerMaxAcquisitionPrice(core){
       </div>
       <p class="note">${gap>=0
         ? core.T('السعر الحالي ضمن الحد المسموح — لا يزال هناك هامش تفاوضي متاح للبائع دون المساس بالعائد المستهدف.','Current price is within the payable limit — there is still negotiation headroom before hitting the target return.')
-        : core.T('السعر الحالي يتجاوز الحد الأقصى المسموح به — العائد المستهدف لن يتحقق بهذا السعر.','Current price exceeds the maximum payable — the target return will not be met at this price.')}</p>
+        : core.T('السعر الحالي يتجاوز الحد الأقصى المسموح به — العائد المستهدف لن يتحقق بهذا السعر.','Current price exceeds the maximum payable — the target return will not be met at this price.')}
+        ${res.targetDSCR!=null? ` ${core.T(`القيد الحاكم عند هذا السعر: ${res.bindingConstraint==='dscr'? `تغطية خدمة الدين (DSCR ≥ ${res.targetDSCR.toFixed(2)}×)` : `العائد المستهدف (Equity IRR ≥ ${core.fmtPct(targetIRR)})`}.`, `Binding constraint at this price: ${res.bindingConstraint==='dscr'? `debt service coverage (DSCR ≥ ${res.targetDSCR.toFixed(2)}×)` : `target return (Equity IRR ≥ ${core.fmtPct(targetIRR)})`}.`)}` : ''}
+      </p>
       `}
     </div>`;
   });

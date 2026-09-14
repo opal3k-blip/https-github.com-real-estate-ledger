@@ -4560,6 +4560,27 @@ document.addEventListener('click', async (e)=>{
     }
     const validationError = validateIfDraft(kind, ifForm.draft, ifForm.editId);
     if(validationError){ alert(validationError); return; }
+    // إنشاء نداء رأس مال جديد من النموذج (لا يشمل نداء النقل العيني التلقائي أدناه المرتبط
+    // بـcommitment — تدفق منفصل تماماً ويبقى محلياً بلا أي تغيير) فعلياً عبر الخادم (Cloud
+    // Function postCapitalCall، functions/index.js) عند توفر Firebase حقيقي: يعيد فرض سقف التزام
+    // المستثمر (المدفوع + هذا النداء ≤ الملتزَم به) بصلاحيات Admin SDK داخل معاملة ذرّية، بدل
+    // الاعتماد فقط على validateIfDraft في المتصفح.
+    const useServerFunctionForCall = isNew && kind==='capitalCall' && !DEMO_MODE && DB && typeof firebase!=='undefined' && firebase.functions;
+    if(useServerFunctionForCall){
+      let resp;
+      try{
+        resp = await firebase.functions().httpsCallable('postCapitalCall')(Object.assign({}, ifForm.draft));
+      }catch(e){
+        alert((e && e.message) || T('تعذّر إنشاء نداء رأس المال عبر الخادم.','The server could not create the capital call.'));
+        return;
+      }
+      const newId = resp && resp.data && resp.data.id;
+      await logIfTransaction({ type:kind, action:'create', relatedId:newId||null, fundId:ifForm.draft.fundId, investorId:ifForm.draft.investorId, amount:ifForm.draft.amount });
+      await loadAll();
+      ifForm = null;
+      render();
+      return;
+    }
     const id = ifForm.editId || uid(ifPrefixFor(kind));
     await persistIfRecord(coll, { id, data: ifForm.draft });
     if(isNew && (kind==='capitalCall' || kind==='distribution')){
@@ -4648,6 +4669,23 @@ document.addEventListener('click', async (e)=>{
     if(linking){
       const guard = await checkAssetLinkGuards(fund, oppId);
       if(guard.blocked){ alert(guard.reason || T('لا يمكن ربط هذه الفرصة بالصندوق حالياً.','This opportunity cannot be linked to the fund right now.')); return; }
+    }
+    // تنفيذ فعلي عبر الخادم (Cloud Function linkAssetToFund، functions/index.js) عند توفر Firebase
+    // حقيقي (غير وضع تجريبي/محلي): يعيد فرض كل قيود الربط (اعتماد IC نافذ، السقف المخصَّص للفرصة،
+    // السيولة القابلة للتوزيع الفعلية للصندوق) بصلاحيات Admin SDK داخل معاملة (transaction) ذرّية،
+    // بدل الاعتماد فقط على الحارس أعلاه في المتصفح (الذي يبقى كطبقة تجربة استخدام سريعة قبل أي
+    // رحلة فعلية للخادم — لا تغيير على فكّ الربط، يبقى غير مقيَّد أبداً كما كان دائماً).
+    const useServerFunction = !DEMO_MODE && DB && typeof firebase!=='undefined' && firebase.functions;
+    if(useServerFunction){
+      try{
+        await firebase.functions().httpsCallable('linkAssetToFund')({ fundId, oppId, unlink: !linking });
+      }catch(e){
+        alert((e && e.message) || T('تعذّر تنفيذ عملية الربط عبر الخادم.','The server could not complete the linking operation.'));
+        return;
+      }
+      await loadAll();
+      render();
+      return;
     }
     if(i>=0) ids.splice(i,1); else ids.push(oppId);
     fund.data.updatedAt = todayStr();

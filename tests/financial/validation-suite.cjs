@@ -3,6 +3,10 @@ let code=fs.readFileSync(path.join(__dirname,'../../src/core.js'),'utf8');
 code=code.replace(/export\s*\{/,'globalThis.__C = {');
 const ctx={console,setTimeout,clearTimeout,localStorage:{getItem(){return null},setItem(){}},document:{documentElement:{lang:'ar'},querySelector(){return null},addEventListener(){},getElementById(){return null},querySelectorAll(){return[]},body:{},createElement(){return {}}},window:{},Notification:undefined,navigator:{},URL,FileReader:function(){},Intl,Math,JSON,Date,parseFloat,parseInt,isFinite,Number,String,Array,Object};ctx.window=ctx;vm.createContext(ctx);vm.runInContext(code,ctx,{timeout:20000});
 const C=ctx.__C;
+let mapCode=fs.readFileSync(path.join(__dirname,'../../src/features/max-acquisition-price.js'),'utf8');
+mapCode=mapCode.replace(/export\s+function/g,'function').replace(/export\s*\{[^}]*\};?/, 'globalThis.__MAP = { maxAcquisitionPrice, irrAtPrice };');
+vm.runInContext(mapCode, ctx, {timeout:20000});
+const MAP=ctx.__MAP;
 function cp(){return JSON.parse(JSON.stringify(C.blankOpportunity()));}
 function set(o,p,v){const a=p.split('.');let x=o;for(let i=0;i<a.length-1;i++)x=x[a[i]];x[a.at(-1)]=v;}
 function clean(o){for(const k of ['mgmt','assetMgmt','regAuditCustodian','structuring','acquisition','arrangement','cmaSetup','dueDiligence','valuation'])set(o,'fees.'+k,0);set(o,'subscription.subscriptionFee',0);for(const k of ['broker','legal','rett','exitFee'])set(o,'exitCosts.'+k,0);set(o,'fees.disposition',0);}
@@ -31,4 +35,19 @@ t('020','Waived capital calls are excluded from active called capital',()=>{cons
 t('021','Portfolio NAV and Net IRR labels are explicitly indicative until independent valuations exist',()=>{const p=fs.readFileSync(path.join(__dirname,'../../src/features/portfolio.js'),'utf8');assert(p.includes('Estimated Underwriting NAV'));assert(p.includes('Indicative Net IRR'));});
 t('022','Cloud Functions expose server-side business invariant commands',()=>{const src=fs.readFileSync(path.join(__dirname,'../../functions/index.js'),'utf8');assert(src.includes('exports.approveOpportunity = onCall'));assert(src.includes('exports.linkAssetToFund = onCall'));assert(src.includes('exports.postCapitalCall = onCall'));assert(src.includes('Capital call exceeds investor commitment'));});
 t('023','English language mode switches the whole app to LTR',()=>{const core=fs.readFileSync(path.join(__dirname,'../../src/core.js'),'utf8');const html=fs.readFileSync(path.join(__dirname,'../../index.html'),'utf8');assert(core.includes("const dir = LANG==='en' ? 'ltr' : 'rtl'"));assert(core.includes('document.documentElement.dir = dir'));assert(html.includes('html[dir="ltr"] body'));assert(html.includes('html[dir="ltr"] .field input'));});
+t('024','Maximum acquisition price respects DSCR, not just IRR, as a binding constraint',()=>{
+  const o=base();o.strategy.salePct=0.2;o.development.operationYears=8;o.development.constructionYears=1;o.income.rent=800;o.criteria.irrMin=-1;o.criteria.dscrMin=1.30;
+  const coreShim={compute:(x)=>C.compute(x,'base')};
+  const withDSCR=MAP.maxAcquisitionPrice(coreShim,o,-1,1.30);
+  assert.equal(withDSCR.bindingConstraint,'dscr');
+  const atMax=coreShim.compute({...o,land:{...o.land,price:withDSCR.maxPrice}});
+  assert(atMax.dscrMin>=1.30-1e-6,'DSCR-aware max price must not breach the DSCR covenant');
+  // نفس السيناريو بلا وعي بـDSCR إطلاقاً (كما كان الكود قبل الإصلاح) يقترح سعراً أعلى بكثير ينتهك DSCR فعلياً —
+  // هذا يثبت أن قيد DSCR كان مفقوداً فعلاً وأن الإصلاح يمنع توصية سعر شراء يخالف تغطية خدمة الدين المعتمدة.
+  const oNoDscr={...o,criteria:{...o.criteria,dscrMin:null}};
+  const oldStyle=MAP.maxAcquisitionPrice(coreShim,oNoDscr,-1,null);
+  assert(oldStyle.maxPrice>withDSCR.maxPrice*1.5,'pre-fix IRR-only search must overshoot the DSCR-safe price substantially');
+  const atOldMax=coreShim.compute({...o,land:{...o.land,price:oldStyle.maxPrice}});
+  assert(atOldMax.dscrMin<1.30,'pre-fix IRR-only price must actually violate the DSCR covenant, proving the bug was real');
+});
 console.table(tests);if(tests.some(x=>x.status==='FAIL'))process.exit(1);

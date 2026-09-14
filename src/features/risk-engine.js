@@ -35,11 +35,28 @@ function bandOf(score){
   if(score>=7)  return { key:'medium', ar:'متوسطة', en:'Medium', color:'#fbbf24' };
   return { key:'low', ar:'منخفضة', en:'Low', color:'#34d399' };
 }
+const NOT_ASSESSED_BAND = { key:'not_assessed', ar:'لم تُقيَّم', en:'Not Assessed', color:'#9ca3af' };
+/* عنصر يُعتبَر "مُقيَّماً فعلاً" فقط لو خرج عن القيمة الافتراضية المصنعية (احتمالية=أثر=١ بلا أي
+   ملاحظة) — إما باحتمالية/أثر مختلفين، أو بوجود إجراء تخفيف/مسؤول/موعد نهائي مُدخَل. هذا يمنع
+   عرض فئة لم يفتحها أحد أصلاً على أنها "مخاطر منخفضة" (راحة زائفة أمام لجنة الاستثمار) دون أي
+   حاجة لتخزين حقل جديد أو ترحيل بيانات قديمة — القيمة مُشتقة من نفس الحقول الموجودة فعلاً. */
+function isAssessed(it){
+  if(!it) return false;
+  if(it.assessed===true) return true;
+  const p = it.probability||1, im = it.impact||1;
+  return p!==1 || im!==1 || !!(it.mitigation&&it.mitigation.trim()) || !!(it.owner&&it.owner.trim()) || !!it.dueDate;
+}
 function riskStats(items){
-  const scores = RISK_CATEGORIES.map(c=> scoreOf(items[c.key] || {probability:1,impact:1}));
-  const maxScore = Math.max(0, ...scores);
-  const highCount = scores.filter(s=>bandOf(s).key==='high').length;
-  return { maxScore, overall: bandOf(maxScore), highCount };
+  let unassessedCount = 0;
+  const assessedScores = [];
+  RISK_CATEGORIES.forEach(c=>{
+    const it = items[c.key] || {probability:1,impact:1};
+    if(isAssessed(it)) assessedScores.push(scoreOf(it)); else unassessedCount++;
+  });
+  const maxScore = assessedScores.length ? Math.max(...assessedScores) : 0;
+  const highCount = assessedScores.filter(s=>bandOf(s).key==='high').length;
+  const overall = assessedScores.length===0 ? NOT_ASSESSED_BAND : bandOf(maxScore);
+  return { maxScore, overall, highCount, unassessedCount, totalCount: RISK_CATEGORIES.length };
 }
 
 export function registerRiskEngine(core){
@@ -58,12 +75,13 @@ export function registerRiskEngine(core){
     const rows = RISK_CATEGORIES.map(cat=>{
       const it = items[cat.key] || {probability:1, impact:1, mitigation:'', owner:'', dueDate:''};
       const score = scoreOf(it);
-      const band = bandOf(score);
+      const assessed = isAssessed(it);
+      const band = assessed ? bandOf(score) : NOT_ASSESSED_BAND;
       if(!canEdit){
         return `<tr>
           <td style="font-size:12px;">${core.T(cat.ar,cat.en)}</td>
-          <td class="num">${it.probability}</td><td class="num">${it.impact}</td>
-          <td class="num"><b style="color:${band.color};">${score}</b></td>
+          <td class="num">${assessed? it.probability : '—'}</td><td class="num">${assessed? it.impact : '—'}</td>
+          <td class="num"><b style="color:${band.color};">${assessed? score : '—'}</b></td>
           <td><span class="tag" style="background:${band.color}22; color:${band.color}; font-size:10.5px;">${core.T(band.ar,band.en)}</span></td>
           <td style="font-size:11.5px;">${core.esc(it.mitigation||'—')}</td>
         </tr>`;
@@ -77,7 +95,7 @@ export function registerRiskEngine(core){
         <td><select name="impact" style="padding:5px 6px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--ink); font-size:11px; font-family:inherit;">
           ${opts.map(n=>`<option value="${n}" ${n===it.impact?'selected':''}>${n}</option>`).join('')}
         </select></td>
-        <td class="num" data-risk-score style="font-weight:700; color:${band.color};">${score}</td>
+        <td class="num" data-risk-score style="font-weight:700; color:${band.color};">${score}${!assessed? ` <span style="font-weight:500; font-size:9.5px; color:var(--ink-faint);">(${core.T('لم تُقيَّم بعد','not yet assessed')})</span>` : ''}</td>
         <td><input type="text" name="mitigation" value="${core.esc(it.mitigation||'')}" placeholder="${core.T('إجراء التخفيف','Mitigation')}" style="width:150px; padding:5px 7px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--ink); font-size:11px; font-family:inherit;"></td>
         <td><input type="text" name="owner" value="${core.esc(it.owner||'')}" placeholder="${core.T('المسؤول','Owner')}" style="width:90px; padding:5px 7px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--ink); font-size:11px; font-family:inherit;"></td>
         <td><input type="date" name="dueDate" value="${core.esc(it.dueDate||'')}" style="padding:5px 6px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--ink); font-size:11px; font-family:inherit;"></td>
@@ -88,8 +106,9 @@ export function registerRiskEngine(core){
     <div class="section">
       <h3>⚠️ ${core.T('محرك المخاطر','Risk Engine')} <span style="color:var(--ink-faint); font-weight:500; font-size:12px;">(Risk Register)</span></h3>
       <div class="kv" style="margin-bottom:12px;">
-        <div class="k">${core.T('المخاطر الإجمالية','Overall Risk')}</div><div class="v"><span class="tag" style="background:${stats.overall.color}22; color:${stats.overall.color}; font-weight:700;">${core.T(stats.overall.ar,stats.overall.en)} (${stats.maxScore}/25)</span></div>
+        <div class="k">${core.T('المخاطر الإجمالية','Overall Risk')}</div><div class="v"><span class="tag" style="background:${stats.overall.color}22; color:${stats.overall.color}; font-weight:700;">${core.T(stats.overall.ar,stats.overall.en)}${stats.overall.key!=='not_assessed'? ` (${stats.maxScore}/25)` : ''}</span></div>
         ${stats.highCount>0? `<div class="k">${core.T('عدد فئات المخاطر المرتفعة','High-Risk Categories')}</div><div class="v" style="color:var(--bad); font-weight:700;">${stats.highCount}</div>` : ''}
+        ${stats.unassessedCount>0? `<div class="k">${core.T('فئات لم تُقيَّم بعد','Categories Not Yet Assessed')}</div><div class="v" style="color:#f59e0b; font-weight:700;">⚠️ ${stats.unassessedCount} / ${stats.totalCount}</div>` : ''}
       </div>
       <div class="tablewrap"><table class="db" style="font-size:11px;">
         <thead><tr>

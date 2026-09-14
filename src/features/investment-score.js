@@ -45,14 +45,30 @@ function financialSubScore(d, c){
   const moicScore = isFinite(c.MOIC) ? clamp(70 + (c.MOIC - moicMin) * 50, 0, 100) : 0;
   return (irrScore + moicScore) / 2;
 }
+// فئة "لم تُقيَّم بعد" (لا تزال باحتمالية=أثر=١ الافتراضية بلا أي ملاحظة/مسؤول/موعد) يجب ألا
+// تُحتسَب كمخاطرة منخفضة فعلية — نفس منطق isAssessed في risk-engine.js، مُكرَّر هنا عمداً (لا
+// استيراد متبادل) حسب نفس تعليق الملف أعلاه عن استقلالية ترتيب تسجيل الوحدات.
+function isRiskItemAssessed(it){
+  if(!it) return false;
+  const p = it.probability||1, im = it.impact||1;
+  return p!==1 || im!==1 || !!(it.mitigation&&it.mitigation.trim()) || !!(it.owner&&it.owner.trim()) || !!it.dueDate;
+}
 function riskSubScore(d){
   // يعتمد على core.riskStats(d.risk.items) إن كان محرك المخاطر مُسجَّلاً — قد لا يكون
   // متاحاً لو أُعيد ترتيب تسجيل الوحدات مستقبلاً، لذا نحسبه محلياً هنا مباشرة كنسخة احتياطية
-  // مطابقة لنفس منطق risk-engine.js (Overall Risk = أعلى درجة فئة من ١١، ١-٢٥).
+  // مطابقة لنفس منطق risk-engine.js (Overall Risk = أعلى درجة فئة من ١١، ١-٢٥). فئات لم تُقيَّم
+  // بعد تُستبعَد من هذا الحساب (لا تُحتسَب كمخاطرة منخفضة وهمية) وتُخفِّض الدرجة بدل رفعها —
+  // سجل مخاطر فارغ بالكامل يجب ألا يمنح الفرصة أعلى درجة ممكنة في هذا المحور.
   const items = (d.risk && d.risk.items) || {};
-  const scores = Object.values(items).map(it=> (it.probability||1)*(it.impact||1));
-  const maxScore = scores.length? Math.max(...scores) : 1;
-  return clamp(100 - ((maxScore-1)/24)*100, 0, 100);
+  const values = Object.values(items);
+  const assessed = values.filter(isRiskItemAssessed);
+  if(values.length===0) return 0;
+  if(assessed.length===0) return 0; // سجل مخاطر لم يُفتَح إطلاقاً — لا مبرر لمنحه ١٠٠/١٠٠
+  const scores = assessed.map(it=> (it.probability||1)*(it.impact||1));
+  const maxScore = Math.max(...scores);
+  const coveragePenalty = (values.length - assessed.length) / values.length; // نسبة الفئات غير المُقيَّمة
+  const base = clamp(100 - ((maxScore-1)/24)*100, 0, 100);
+  return clamp(base * (1 - coveragePenalty), 0, 100);
 }
 function ddSubScore(d){
   const items = (d.dd && d.dd.items) || {};
